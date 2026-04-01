@@ -1,0 +1,95 @@
+# =========================
+# ROOT
+# =========================
+.env
+.env.*
+!.env.example
+
+node_modules/
+dist/
+build/
+coverage/
+
+*.log
+logs/
+
+.DS_Store
+Thumbs.db
+
+# =========================
+# DOCKER
+# =========================
+docker-data/
+*.pid
+
+# =========================
+# API / WORKER (Node/TS)
+# =========================
+api/node_modules/
+worker/node_modules/
+
+api/dist/
+worker/dist/
+
+api/coverage/
+worker/coverage/
+
+api/.env
+worker/.env
+
+# =========================
+# ANGULAR FRONTEND
+# =========================
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/.cache/
+frontend/coverage/
+
+frontend/.env
+
+# =========================
+# TYPESCRIPT
+# =========================
+*.tsbuildinfo
+
+# =========================
+# IDE / EDITOR
+# =========================
+.vscode/
+!.vscode/extensions.json
+
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# =========================
+# OS / TEMP
+# =========================
+*.swp
+*.tmp
+*.temp
+
+# =========================
+# TEST OUTPUT
+# =========================
+test-results/
+reports/
+
+# =========================
+# AUDIOBOOK STORAGE (HOST)
+# =========================
+/data/
+/data/audiobooks/
+
+# =========================
+# FFmpeg TEMP FILES
+# =========================
+*.tmp.m4b
+
+# =========================
+# MONGO DATA (if ever local)
+# =========================
+mongo-data/
