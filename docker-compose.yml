@@ -1,6 +1,6 @@
 services:
   db:
-    image: mongo:latest # 8.2 as of project start
+    image: mongo:latest
     container_name: audiobook-db
     restart: unless-stopped
     environment:
@@ -21,7 +21,9 @@ services:
     depends_on:
       - db
     volumes:
-      - /data/audiobooks:${AUDIOBOOKS_PATH} 
+      - /data/audiobooks:${AUDIOBOOKS_PATH}
+    ports:
+      - "127.0.0.1:3100:3000"
     networks:
       - app_net
 
@@ -44,6 +46,8 @@ services:
     restart: unless-stopped
     depends_on:
       - api
+    ports:
+      - "127.0.0.1:8100:80"
     networks:
       - app_net
 
