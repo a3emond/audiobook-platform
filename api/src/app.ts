@@ -1,4 +1,5 @@
 import express from "express";
+import { errorMiddleware } from "./middlewares/error.middleware.js";
 
 // future imports
 // import corsMiddleware from "./middlewares/cors.middleware";
@@ -12,6 +13,7 @@ export function createApp() {
 
   // middlewares (later)
   // app.use(corsMiddleware);
+  app.use(errorMiddleware);
 
   // health check
   app.get("/api/health", (_, res) => {

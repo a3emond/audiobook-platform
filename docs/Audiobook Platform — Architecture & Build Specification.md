@@ -12,13 +12,10 @@ audiobook-platform/
 ├── README.md
 │
 ├── infra/
-│   ├── nginx/
-│   │   ├── default.conf
-│   │   └── Dockerfile
-│   └── scripts/
-│       ├── wait-for-db.sh
-│       └── entrypoint.sh
-│
+│   └── nginx/
+│       ├── default.conf
+│       └── Dockerfile
+│   
 ├── api/
 │   ├── Dockerfile
 │   ├── package.json
@@ -106,7 +103,7 @@ audiobook-platform/
 │   │   └── middlewares/
 │   │       ├── error.middleware.ts
 │   │       ├── auth.middleware.ts
-│   │       └── cors.middleware.ts
+│   │       └── cors.middleware.ts #needed for mobile
 │   │
 │   └── tests/
 │       └── api.test.ts
@@ -150,80 +147,148 @@ audiobook-platform/
 │   └── templates/
 │       └── ffmetadata.template.txt
 │
-├── frontend/
-│   ├── Dockerfile
-│   ├── package.json
-│   ├── angular.json
-│   ├── tsconfig.json
-│   ├── src/
-│   │   ├── main.ts
-│   │   ├── index.html
-│   │   ├── styles.css
-│   │   │
-│   │   ├── app/
-│   │   │   ├── app.routes.ts
-│   │   │   ├── app.config.ts
-│   │   │   │
-│   │   │   ├── core/
-│   │   │   │   ├── services/
-│   │   │   │   │   ├── api.service.ts
-│   │   │   │   │   ├── auth.service.ts
-│   │   │   │   │   ├── player.service.ts
-│   │   │   │   │   ├── progress.service.ts
-│   │   │   │   │   ├── settings.service.ts
-│   │   │   │   │   ├── stats.service.ts
-│   │   │   │   │   └── i18n.service.ts
-│   │   │   │   │
-│   │   │   │   └── guards/
-│   │   │   │       └── auth.guard.ts
-│   │   │   │
-│   │   │   ├── features/
-│   │   │   │   ├── library/
-│   │   │   │   │   ├── library.page.ts
-│   │   │   │   │   ├── book-card.ts
-│   │   │   │   │   └── collection-card.ts
-│   │   │   │   │
-│   │   │   │   ├── player/
-│   │   │   │   │   ├── player.page.ts
-│   │   │   │   │   ├── controls.ts
-│   │   │   │   │   └── chapter-list.ts
-│   │   │   │   │
-│   │   │   │   ├── settings/
-│   │   │   │   │   └── settings.page.ts
-│   │   │   │   │
-│   │   │   │   ├── stats/
-│   │   │   │   │   └── stats.page.ts
-│   │   │   │   │
-│   │   │   │   ├── history/
-│   │   │   │   │   └── history.page.ts
-│   │   │   │   │
-│   │   │   │   └── admin/
-│   │   │   │       ├── admin-books.page.ts
-│   │   │   │       ├── admin-edit.page.ts
-│   │   │   │       ├── admin-upload.page.ts
-│   │   │   │       └── admin-jobs.page.ts
-│   │   │   │
-│   │   │   └── shared/
-│   │   │       ├── ui/
-│   │   │       │   ├── button.ts
-│   │   │       │   ├── modal.ts
-│   │   │       │   └── slider.ts
-│   │   │       │
-│   │   │       └── pipes/
-│   │   │           └── duration.pipe.ts
-│   │   │
-│   │   └── assets/
-│   │       └── i18n/
-│   │           ├── en.json
-│   │           └── fr.json
-│   │
-│   └── nginx.conf
-│
-└── scripts/
-    ├── dev.sh
-    ├── build.sh
-    └── clean.sh
+└── frontend/
+    ├── package.json
+    ├── angular.json
+    ├── tsconfig.json
+    └── src/
+        ├── main.ts
+        ├── index.html
+        ├── styles.css
+        │
+        ├── app/
+        │   ├── app.routes.ts
+        │   ├── app.config.ts
+        │   │
+        │   ├── core/
+        │   │   ├── services/
+        │   │   │   ├── api.service.ts
+        │   │   │   ├── auth.service.ts
+        │   │   │   ├── player.service.ts
+        │   │   │   ├── progress.service.ts
+        │   │   │   ├── settings.service.ts
+        │   │   │   ├── stats.service.ts
+        │   │   │   └── i18n.service.ts
+        │   │   │
+        │   │   └── guards/
+        │   │       └── auth.guard.ts
+        │   │
+        │   ├── features/
+        │   │   ├── library/
+        │   │   │   ├── library.page.ts
+        │   │   │   ├── book-card.ts
+        │   │   │   └── collection-card.ts
+        │   │   │
+        │   │   ├── player/
+        │   │   │   ├── player.page.ts
+        │   │   │   ├── controls.ts
+        │   │   │   └── chapter-list.ts
+        │   │   │
+        │   │   ├── settings/
+        │   │   │   └── settings.page.ts
+        │   │   │
+        │   │   ├── stats/
+        │   │   │   └── stats.page.ts
+        │   │   │
+        │   │   ├── history/
+        │   │   │   └── history.page.ts
+        │   │   │
+        │   │   └── admin/
+        │   │       ├── admin-books.page.ts
+        │   │       ├── admin-edit.page.ts
+        │   │       ├── admin-upload.page.ts
+        │   │       └── admin-jobs.page.ts
+        │   │
+        │   └── shared/
+        │       ├── ui/
+        │       │   ├── button.ts
+        │       │   ├── modal.ts
+        │       │   └── slider.ts
+        │       │
+        │       └── pipes/
+        │           └── duration.pipe.ts
+        │
+        └── assets/
+            └── i18n/
+                ├── en.json
+                └── fr.json
 ```
+
+```mermaid
+flowchart TB
+
+%% ===================== INTERNET =====================
+subgraph INTERNET["Internet"]
+    CLIENT["Client (Browser)"]
+end
+
+
+%% ===================== DNS =====================
+subgraph DNS["Public DNS"]
+    DOMAIN["audiobook.aedev.pro"]
+end
+
+
+%% ===================== HOME NETWORK =====================
+subgraph HOME["Home Network (LAN)"]
+
+    %% -------- ROUTER --------
+    subgraph ROUTER["Router / NAT"]
+        NAT["Port Forwarding 80/443 → Home Server"]
+    end
+
+
+    %% -------- PHYSICAL SERVER --------
+    subgraph SERVER["Home Server (Physical Machine)"]
+
+        %% ---- APACHE ----
+        subgraph APACHE["Apache2 (Reverse Proxy + TLS Termination)"]
+            APACHE_NODE["Apache :80 / :443"]
+        end
+
+
+        %% ---- DOCKER ----
+        subgraph DOCKER["Docker (Container Runtime)"]
+
+            %% ---- INTERNAL NETWORK ----
+            subgraph APP_NET["app_net (isolated internal network)"]
+
+                %% nginx
+                NGINX["nginx container :80 (exposed as 8100 on host) - serves Angular - routes /api & /stream"]
+
+                %% api
+                API["API container Node + Express :3000 (internal only)"]
+
+                %% db
+                DB["MongoDB :27017 (internal only)"]
+
+                %% worker
+                WORKER["Worker (background jobs)"]
+
+                %% internal flows
+                NGINX <--> |"/api/* and /stream/* → port 3000"| API
+                API <--> |"Mongo connection :27017"| DB
+                WORKER <--> |"Mongo access"| DB
+            end
+        end
+    end
+end
+
+
+%% ===================== EXTERNAL FLOW =====================
+
+CLIENT <--> |"HTTPS :443"| DOMAIN
+
+DOMAIN <--> |"Resolved IP"| NAT
+
+NAT <--> |"Forward 80/443 → server"| APACHE_NODE
+
+APACHE_NODE <--> |"Proxy → http://127.0.0.1:8100"| NGINX
+
+NGINX <--> |"/ (Angular static files)"| CLIENT
+```
+
+
 
 # 1. Objective
 
