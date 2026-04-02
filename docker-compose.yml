@@ -38,9 +38,11 @@ services:
     networks:
       - app_net
 
-  frontend:
-    build: ./frontend
-    container_name: audiobook-frontend
+  nginx:
+    build:
+      context: .
+      dockerfile: infra/nginx/Dockerfile
+    container_name: audiobook-nginx
     restart: unless-stopped
     depends_on:
       - api
