@@ -1,11 +1,21 @@
-import express from "express";
+import { createApp } from "./app.js";
+import { connectDB } from "./config/db.js";
+import { env } from "./config/env.js";
+import { logger } from "./config/logger.js";
 
-const app = express();
+async function start() {
+  try {
+    await connectDB();
 
-app.get("/health", (_, res) => {
-  res.send("OK");
-});
+    const app = createApp();
 
-app.listen(3000, () => {
-  console.log("API running on port 3000");
-});
+    app.listen(env.port, () => {
+      logger.info(`API running on port ${env.port}`);
+    });
+  } catch (error) {
+    logger.error("Server failed to start", error);
+    process.exit(1);
+  }
+}
+
+start();
