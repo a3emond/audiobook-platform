@@ -1,0 +1,54 @@
+services:
+  db:
+    image: mongo:latest # 8.2 as of project start
+    container_name: audiobook-db
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DB}
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - app_net
+
+  api:
+    build: ./api
+    container_name: audiobook-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - db
+    volumes:
+      - /data/audiobooks:${AUDIOBOOKS_PATH} 
+    networks:
+      - app_net
+
+  worker:
+    build: ./worker
+    container_name: audiobook-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - db
+    volumes:
+      - /data/audiobooks:${AUDIOBOOKS_PATH}
+    networks:
+      - app_net
+
+  frontend:
+    build: ./frontend
+    container_name: audiobook-frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - app_net
+
+networks:
+  app_net:
+
+volumes:
+  mongo_data:
