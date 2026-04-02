@@ -2,7 +2,7 @@ name: Deploy Audiobook Platform
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
 
 jobs:
   deploy:
