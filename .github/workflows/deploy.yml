@@ -1,0 +1,38 @@
+name: Deploy Audiobook Platform
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -e
+
+            APP_DIR=/opt/audiobook-platform
+
+            if [ ! -d "$APP_DIR/.git" ]; then
+              git clone https://github.com/${{ github.repository }} $APP_DIR
+            fi
+
+            cd $APP_DIR
+            git pull origin main
+
+            echo "${{ secrets.ENV_FILE }}" > .env
+
+            docker compose up -d --build --remove-orphans
+
+            docker image prune -f
