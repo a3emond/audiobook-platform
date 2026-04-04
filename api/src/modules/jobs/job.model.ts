@@ -1,0 +1,70 @@
+import mongoose, {
+  Schema,
+  type InferSchemaType,
+  type HydratedDocument,
+  type Model,
+} from "mongoose";
+
+export const JOB_TYPES = [
+  "INGEST",
+  "RESCAN",
+  "WRITE_METADATA",
+  "EXTRACT_COVER",
+  "DELETE_BOOK",
+  "REPLACE_FILE",
+] as const;
+
+export const JOB_STATUSES = ["queued", "running", "done", "failed"] as const;
+
+export type JobType = (typeof JOB_TYPES)[number];
+export type JobStatus = (typeof JOB_STATUSES)[number];
+
+const jobSchema = new Schema(
+  {
+    type: {
+      type: String,
+      enum: JOB_TYPES,
+      required: true,
+      index: true,
+    },
+    status: {
+      type: String,
+      enum: JOB_STATUSES,
+      default: "queued",
+      index: true,
+    },
+    payload: {
+      type: Schema.Types.Mixed,
+      default: {},
+    },
+    error: {
+      type: Schema.Types.Mixed,
+      default: null,
+    },
+    startedAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+    finishedAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+  },
+  {
+    timestamps: { createdAt: true, updatedAt: false },
+    versionKey: false,
+  },
+);
+
+jobSchema.index({ status: 1, createdAt: 1 });
+jobSchema.index({ type: 1, createdAt: -1 });
+
+export type Job = InferSchemaType<typeof jobSchema>;
+export type JobDocument = HydratedDocument<Job>;
+export type JobModelType = Model<Job>;
+
+export const JobModel =
+  (mongoose.models.Job as JobModelType | undefined) ||
+  mongoose.model<Job>("Job", jobSchema, "jobs");
