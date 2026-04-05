@@ -15,7 +15,7 @@ audiobook-platform/
 │   └── nginx/
 │       ├── default.conf
 │       └── Dockerfile
-│   
+│
 ├── api/
 │   ├── Dockerfile
 │   ├── package.json
@@ -30,6 +30,18 @@ audiobook-platform/
 │   │   │   ├── env.ts
 │   │   │   ├── db.ts
 │   │   │   └── logger.ts
+│   │   │
+│   │   ├── dto/                     # NEW (04-04-2026)
+│   │   │   ├── admin.dto.ts
+│   │   │   ├── auth.dto.ts
+│   │   │   ├── user.dto.ts
+│   │   │   ├── book.dto.ts
+│   │   │   ├── progress.dto.ts
+│   │   │   ├── settings.dto.ts
+│   │   │   ├── stats.dto.ts
+│   │   │   ├── collection.dto.ts
+│   │   │   ├── job.dto.ts
+│   │   │   └── session.dto.ts
 │   │   │
 │   │   ├── modules/
 │   │   │   ├── auth/
@@ -67,6 +79,7 @@ audiobook-platform/
 │   │   │   │
 │   │   │   ├── stats/
 │   │   │   │   ├── stats.model.ts
+│   │   │   │   ├── listening-session.model.ts
 │   │   │   │   ├── stats.controller.ts
 │   │   │   │   ├── stats.service.ts
 │   │   │   │   └── stats.routes.ts
@@ -103,7 +116,7 @@ audiobook-platform/
 │   │   └── middlewares/
 │   │       ├── error.middleware.ts
 │   │       ├── auth.middleware.ts
-│   │       └── cors.middleware.ts #needed for mobile
+│   │       └── cors.middleware.ts
 │   │
 │   └── tests/
 │       └── api.test.ts
@@ -480,7 +493,7 @@ Notes:
     "displayName": "Alex",
     "preferredLocale": "fr"
   },
-  "createdAt": "..."
+  "createdAt": "...",
 }
 ```
 
@@ -508,7 +521,7 @@ Roles:
   },
   "library": {
     "sortBy": "series",
-    "sortDirection": "asc",
+    "sortOrder": "asc",
     "showCompleted": true
   },
   "updatedAt": "..."
@@ -519,6 +532,7 @@ Notes:
 
 - forward/backward jumps are independent
 - allowed jump values: `5, 10, 15, 20, 25, 30`
+- sortBy: enum: ["title", "author", "lastPlayed", "series", "genre"]
 - `resumeRewind` supports the "go back 30 seconds if enough time passed since last session" behavior
 - settings are persisted server-side so they apply across devices
 
