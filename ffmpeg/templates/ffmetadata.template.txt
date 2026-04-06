@@ -1,0 +1,25 @@
+;FFMETADATA1
+title=Book Title
+artist=Author Name
+album=Series Name
+genre=Audiobook
+date=2024
+comment=Book description or notes
+
+[CHAPTER]
+TIMEBASE=1/1000
+START=0
+END=120000
+title=Chapter 1: Introduction
+
+[CHAPTER]
+TIMEBASE=1/1000
+START=120000
+END=300000
+title=Chapter 2: Setting the Scene
+
+[CHAPTER]
+TIMEBASE=1/1000
+START=300000
+END=540000
+title=Chapter 3: Character Introduction

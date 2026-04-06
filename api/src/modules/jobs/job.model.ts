@@ -14,7 +14,13 @@ export const JOB_TYPES = [
   "REPLACE_FILE",
 ] as const;
 
-export const JOB_STATUSES = ["queued", "running", "done", "failed"] as const;
+export const JOB_STATUSES = [
+  "queued",
+  "running",
+  "retrying",
+  "done",
+  "failed",
+] as const;
 
 export type JobType = (typeof JOB_TYPES)[number];
 export type JobStatus = (typeof JOB_STATUSES)[number];
@@ -41,6 +47,21 @@ const jobSchema = new Schema(
       type: Schema.Types.Mixed,
       default: null,
     },
+    attempt: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    maxAttempts: {
+      type: Number,
+      default: 3,
+      min: 1,
+    },
+    runAfter: {
+      type: Date,
+      default: Date.now,
+      index: true,
+    },
     startedAt: {
       type: Date,
       default: null,
@@ -51,14 +72,24 @@ const jobSchema = new Schema(
       default: null,
       index: true,
     },
+    lockedBy: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    lockedAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
   },
   {
-    timestamps: { createdAt: true, updatedAt: false },
+    timestamps: { createdAt: true, updatedAt: true },
     versionKey: false,
   },
 );
 
-jobSchema.index({ status: 1, createdAt: 1 });
+jobSchema.index({ status: 1, runAfter: 1, createdAt: 1 });
 jobSchema.index({ type: 1, createdAt: -1 });
 
 export type Job = InferSchemaType<typeof jobSchema>;

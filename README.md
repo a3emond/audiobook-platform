@@ -1,0 +1,66 @@
+# Audiobook Platform
+
+Backend and worker stack for audiobook ingestion, metadata processing, and asynchronous job execution.
+
+## Documentation Index
+
+Use this section as the single source of truth for project documentation. Any new document should be linked here.
+
+- [Documentation Guide](docs/documentation-guide.md)
+
+### Platform
+
+- [Architecture Build Specification](docs/platform/architecture-build-specification.md)
+- [API Worker Integration Guide](docs/platform/api-worker-integration.md)
+
+### API
+
+- [Auth API Endpoints (Client Guide)](docs/api/auth-endpoints.md)
+- [Auth Implementation Reference](docs/api/auth-implementation-reference.md)
+- [Jobs API Endpoints](docs/api/jobs-endpoints.md)
+
+### Worker
+
+- [Worker Technical Reference](docs/worker/technical-reference.md)
+
+### FFmpeg
+
+- [FFmpeg Integration Reference](docs/ffmpeg/integration-reference.md)
+- [FFmpeg Metadata and Chapters Guide](docs/ffmpeg/metadata-chapters-guide.md)
+
+### Diagrams
+
+- [Diagrams Folder Guide](docs/diagrams/README.md)
+
+## Repo Structure
+
+- api: Express and TypeScript API
+- worker: background jobs and processing pipeline
+- ffmpeg: shell helpers and FFmpeg container assets
+- frontend: Angular frontend
+- infra: nginx and infrastructure assets
+- docs: project documentation
+
+## Run Locally
+
+1. Create env values in [.env.example](.env.example).
+2. Start services with:
+
+```bash
+docker compose up --build
+```
+
+3. API health check:
+
+```bash
+curl http://localhost:8100/api/health
+```
+
+## Documentation Maintenance Policy
+
+- Keep all long-form technical docs under [docs](docs).
+- Use lowercase kebab-case filenames.
+- Keep feature-specific docs under grouped folders: [docs/platform](docs/platform), [docs/api](docs/api), [docs/worker](docs/worker), [docs/ffmpeg](docs/ffmpeg).
+- Keep diagrams under [docs/diagrams](docs/diagrams) with source files in [docs/diagrams/uml](docs/diagrams/uml) or [docs/diagrams/mermaid](docs/diagrams/mermaid).
+- If a document moves or is renamed, update links in this README in the same change.
+- For new endpoints or workflows, update the related detailed doc and add or adjust its entry in this index.

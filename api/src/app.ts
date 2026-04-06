@@ -5,6 +5,7 @@ import corsMiddleware from "./middlewares/cors.middleware.js";
 
 // routes
 import authRoutes from "./modules/auth/auth.routes.js";
+import jobRoutes from "./modules/jobs/job.routes.js";
 
 // future imports
 // import bookRoutes from "./modules/books/book.routes.js";
@@ -33,6 +34,7 @@ export function createApp() {
   // Routes
   // -------------------------
   app.use("/api/auth", authRoutes);
+  app.use("/api/jobs", jobRoutes);
 
   // future protected routes example
   // app.use("/api/books", authMiddleware, bookRoutes);
