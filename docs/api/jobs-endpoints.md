@@ -53,6 +53,7 @@ Create and queue a new background job.
   "payload": {
     "sourcePath": "/uploads/audiobook.m4b"
   },
+  "output": null,
   "error": null,
   "attempt": 0,
   "maxAttempts": 3,
@@ -109,6 +110,14 @@ GET /api/jobs/507f1f77bcf86cd799439011
   "payload": {
     "sourcePath": "/uploads/audiobook.m4b"
   },
+  "output": {
+    "bookId": "507f1f77bcf86cd799439099",
+    "filePath": "/data/audiobooks/507f1f77bcf86cd799439099/audio.m4b",
+    "coverPath": "/data/audiobooks/507f1f77bcf86cd799439099/cover.jpg",
+    "checksum": "sha256:a1b2c3d4e5f6...",
+    "duration": 86400,
+    "chapters": 42
+  },
   "error": null,
   "attempt": 1,
   "maxAttempts": 3,
@@ -127,6 +136,186 @@ GET /api/jobs/507f1f77bcf86cd799439011
 - `retrying`: Job failed and scheduled for retry
 - `done`: Job completed successfully
 - `failed`: Job failed permanently (max retries exceeded)
+
+### Output Field
+
+- `output` is `null` while queued/running/retrying or when a job failed.
+- `output` is populated when `status = done`.
+- The payload structure depends on job type.
+
+### Output Schemas By Job Type
+
+#### INGEST output
+
+```json
+{
+  "bookId": "507f1f77bcf86cd799439099",
+  "filePath": "/data/audiobooks/507f1f77bcf86cd799439099/audio.m4b",
+  "coverPath": "/data/audiobooks/507f1f77bcf86cd799439099/cover.jpg",
+  "checksum": "sha256:a1b2c3d4e5f6...",
+  "duration": 86400,
+  "title": "The Great Gatsby",
+  "author": "F. Scott Fitzgerald",
+  "chapters": 42
+}
+```
+
+#### RESCAN output
+
+```json
+{
+  "force": false,
+  "targetCount": 27,
+  "scanned": 27,
+  "updated": 25,
+  "missing": 1,
+  "errors": 1
+}
+```
+
+#### WRITE_METADATA output
+
+```json
+{
+  "bookId": "507f1f77bcf86cd799439011",
+  "filePath": "/data/audiobooks/507f1f77bcf86cd799439011/audio.m4b",
+  "title": "The Great Gatsby",
+  "author": "F. Scott Fitzgerald",
+  "series": "Classic Literature",
+  "genre": "Audiobook",
+  "chapters": 42
+}
+```
+
+#### EXTRACT_COVER output
+
+```json
+{
+  "bookId": "507f1f77bcf86cd799439011",
+  "coverPath": "/data/audiobooks/507f1f77bcf86cd799439011/cover.jpg",
+  "skipped": false
+}
+```
+
+Skipped case:
+
+```json
+{
+  "bookId": "507f1f77bcf86cd799439011",
+  "coverPath": "/data/audiobooks/507f1f77bcf86cd799439011/cover.jpg",
+  "skipped": true,
+  "reason": "cover_already_exists"
+}
+```
+
+#### DELETE_BOOK output
+
+```json
+{
+  "bookId": "507f1f77bcf86cd799439011",
+  "deleted": true,
+  "filesDeleted": true
+}
+```
+
+#### REPLACE_FILE output
+
+```json
+{
+  "bookId": "507f1f77bcf86cd799439011",
+  "filePath": "/data/audiobooks/507f1f77bcf86cd799439011/audio.m4b",
+  "sourcePath": "/uploads/new-file.m4b",
+  "checksum": "sha256:4f4ddf9c...",
+  "duration": 87211,
+  "chapters": 44,
+  "coverPath": "/data/audiobooks/507f1f77bcf86cd799439011/cover.jpg"
+}
+```
+
+### TypeScript Client Narrowing
+
+When using TypeScript on the client, treat `type` as the discriminator key for `output`.
+
+```ts
+type JobType =
+  | "INGEST"
+  | "RESCAN"
+  | "WRITE_METADATA"
+  | "EXTRACT_COVER"
+  | "DELETE_BOOK"
+  | "REPLACE_FILE";
+
+type JobOutputByType = {
+  INGEST: {
+    bookId: string;
+    filePath: string;
+    coverPath: string | null;
+    checksum: string;
+    duration: number;
+    title: string;
+    author: string;
+    chapters: number;
+  };
+  RESCAN: {
+    force: boolean;
+    targetCount: number;
+    scanned: number;
+    updated: number;
+    missing: number;
+    errors: number;
+  };
+  WRITE_METADATA: {
+    bookId: string;
+    filePath: string;
+    title: string;
+    author: string;
+    series: string | null;
+    genre: string | null;
+    chapters: number;
+  };
+  EXTRACT_COVER: {
+    bookId: string;
+    coverPath: string | null;
+    skipped: boolean;
+    reason?: string;
+  };
+  DELETE_BOOK: {
+    bookId: string;
+    deleted: boolean;
+    filesDeleted: boolean;
+  };
+  REPLACE_FILE: {
+    bookId: string;
+    filePath: string;
+    sourcePath: string;
+    checksum: string;
+    duration: number;
+    chapters: number;
+    coverPath: string | null;
+  };
+};
+
+type JobDTO<T extends JobType = JobType> = {
+  id: string;
+  type: T;
+  status: "queued" | "running" | "retrying" | "done" | "failed";
+  payload: unknown;
+  output: JobOutputByType[T] | null;
+};
+
+function isDone<T extends JobType>(job: JobDTO<T>): job is JobDTO<T> & { output: JobOutputByType[T] } {
+  return job.status === "done" && job.output !== null;
+}
+
+async function handleJob(jobId: string) {
+  const job = (await fetch(`/api/jobs/${jobId}`).then(r => r.json())) as JobDTO;
+
+  if (job.type === "INGEST" && isDone(job)) {
+    // output is strongly typed as JobOutputByType["INGEST"]
+    console.log(job.output.bookId, job.output.duration, job.output.chapters);
+  }
+}
+```
 
 #### Error Responses
 
@@ -174,6 +363,12 @@ GET /api/jobs?status=running&type=INGEST&limit=20&offset=0
       "type": "INGEST",
       "status": "done",
       "payload": { "sourcePath": "/uploads/book1.m4b" },
+      "output": {
+        "bookId": "507f1f77bcf86cd799439099",
+        "filePath": "/data/audiobooks/507f1f77bcf86cd799439099/audio.m4b",
+        "duration": 86400,
+        "chapters": 42
+      },
       "error": null,
       "attempt": 1,
       "maxAttempts": 3,
@@ -188,6 +383,7 @@ GET /api/jobs?status=running&type=INGEST&limit=20&offset=0
       "type": "INGEST",
       "status": "running",
       "payload": { "sourcePath": "/uploads/book2.m4b" },
+      "output": null,
       "error": null,
       "attempt": 1,
       "maxAttempts": 3,
@@ -279,6 +475,7 @@ DELETE /api/jobs/507f1f77bcf86cd799439011
   "type": "INGEST",
   "status": "failed",
   "payload": { "sourcePath": "/uploads/audiobook.m4b" },
+  "output": null,
   "error": {
     "code": "job_cancelled_by_user",
     "timestamp": "2026-04-06T10:32:00Z"

@@ -12,7 +12,8 @@ import {
 	type SerializedJobError,
 } from "./job.types.js";
 
-type JobHandler = (job: JobDocument) => Promise<void>;
+type JobHandlerOutput = Record<string, unknown> | null | void;
+type JobHandler = (job: JobDocument) => Promise<JobHandlerOutput>;
 
 const handlers: Record<JobType, JobHandler> = {
 	INGEST: handleIngestJob,
@@ -77,13 +78,14 @@ export class JobProcessor {
 				throw new Error(`unknown_job_type:${job.type}`);
 			}
 
-			await handler(job);
+			const output = await handler(job);
 
 			await JobModel.updateOne(
 				{ _id: job._id, lockedBy: this.workerId },
 				{
 					$set: {
 						status: "done",
+						output: output ?? null,
 						error: null,
 						finishedAt: new Date(),
 						lockedBy: null,
@@ -107,6 +109,7 @@ export class JobProcessor {
 						$set: {
 							status: "retrying",
 							attempt,
+							output: null,
 							error: serialized,
 							runAfter: new Date(Date.now() + delayMs),
 							lockedBy: null,
@@ -131,6 +134,7 @@ export class JobProcessor {
 						$set: {
 							status: "failed",
 							attempt,
+							output: null,
 							error: serialized,
 							finishedAt: new Date(),
 							lockedBy: null,

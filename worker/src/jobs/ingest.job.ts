@@ -35,7 +35,9 @@ export interface IngestJobPayload {
   sourcePath: string;
 }
 
-export async function handleIngestJob(job: JobDocument): Promise<void> {
+export async function handleIngestJob(
+  job: JobDocument,
+): Promise<Record<string, unknown>> {
   const payload = job.payload as IngestJobPayload;
 
   if (!payload.sourcePath) {
@@ -122,7 +124,7 @@ export async function handleIngestJob(job: JobDocument): Promise<void> {
         description: false,
       },
       fileSync: {
-        status: "in_progress",
+        status: "writing",
         lastReadAt: new Date(),
         lastWriteAt: new Date(),
       },
@@ -209,6 +211,17 @@ export async function handleIngestJob(job: JobDocument): Promise<void> {
       duration: Math.round(probeInfo.duration),
       checksum,
     });
+
+    return {
+      bookId: String(bookId),
+      filePath: audioPath,
+      coverPath,
+      checksum,
+      duration: Math.round(probeInfo.duration),
+      title: extractedMetadata.title || "Unknown Title",
+      author: extractedMetadata.artist || "Unknown Author",
+      chapters: extractedMetadata.chapters.length,
+    };
   } finally {
     // Clean up temporary metadata file
     try {

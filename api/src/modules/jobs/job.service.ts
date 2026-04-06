@@ -18,6 +18,7 @@ export class JobService {
     const job = await JobModel.create({
       type,
       payload,
+      output: null,
       maxAttempts,
       status: "queued",
       attempt: 0,
@@ -118,6 +119,7 @@ export class JobService {
     }
 
     job.status = "failed";
+    job.output = null;
     job.error = { code: "job_cancelled_by_user", timestamp: new Date() };
     job.finishedAt = new Date();
 
@@ -135,6 +137,7 @@ export class JobService {
       type: job.type,
       status: job.status,
       payload: job.payload,
+      output: job.output,
       error: job.error,
       attempt: job.attempt,
       maxAttempts: job.maxAttempts,

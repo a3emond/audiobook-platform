@@ -43,6 +43,10 @@ const jobSchema = new Schema(
       type: Schema.Types.Mixed,
       default: {},
     },
+    output: {
+      type: Schema.Types.Mixed,
+      default: null,
+    },
     error: {
       type: Schema.Types.Mixed,
       default: null,
