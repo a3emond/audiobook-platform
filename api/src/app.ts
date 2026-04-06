@@ -1,12 +1,12 @@
 import express from "express";
 
 import { errorMiddleware } from "./middlewares/error.middleware.js";
+import corsMiddleware from "./middlewares/cors.middleware.js";
 
 // routes
 import authRoutes from "./modules/auth/auth.routes.js";
 
 // future imports
-// import corsMiddleware from "./middlewares/cors.middleware.js";
 // import bookRoutes from "./modules/books/book.routes.js";
 
 export function createApp() {
@@ -20,7 +20,7 @@ export function createApp() {
   // -------------------------
   // Global middlewares
   // -------------------------
-  // app.use(corsMiddleware);
+  app.use(corsMiddleware);
 
   // -------------------------
   // Health check

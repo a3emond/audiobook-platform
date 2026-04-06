@@ -12,18 +12,54 @@ export interface OAuthProfile {
   name?: string;
 }
 
-const googleClientId = process.env.GOOGLE_CLIENT_ID;
-const appleClientId = process.env.APPLE_CLIENT_ID;
+function parseAudienceList(value?: string): string[] {
+  if (!value) {
+    return [];
+  }
 
-if (!googleClientId) {
-  throw new Error("Missing GOOGLE_CLIENT_ID environment variable");
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
-if (!appleClientId) {
-  throw new Error("Missing APPLE_CLIENT_ID environment variable");
+function resolveOAuthAudiences(multiKey: string, singleKey: string): string[] {
+  const multiValue = process.env[multiKey];
+  if (multiValue) {
+    const parsed = parseAudienceList(multiValue);
+    if (parsed.length > 0) {
+      return parsed;
+    }
+  }
+
+  const singleValue = process.env[singleKey];
+  if (singleValue && singleValue.trim()) {
+    return [singleValue.trim()];
+  }
+
+  throw new Error(`Missing ${multiKey} or ${singleKey} environment variable`);
 }
 
-const googleClient = new OAuth2Client(googleClientId);
+function toAudienceOption(
+  audiences: string[],
+): string | [string, ...string[]] {
+  if (audiences.length === 1) {
+    return audiences[0];
+  }
+
+  return [audiences[0], ...audiences.slice(1)];
+}
+
+const googleClientIds = resolveOAuthAudiences(
+  "GOOGLE_CLIENT_IDS",
+  "GOOGLE_CLIENT_ID",
+);
+const appleClientIds = resolveOAuthAudiences(
+  "APPLE_CLIENT_IDS",
+  "APPLE_CLIENT_ID",
+);
+
+const googleClient = new OAuth2Client();
 
 const appleJwksClient = jwksClient({
   jwksUri: "https://appleid.apple.com/auth/keys",
@@ -56,7 +92,7 @@ export class OAuthService {
     try {
       const ticket = await googleClient.verifyIdToken({
         idToken,
-        audience: googleClientId,
+        audience: toAudienceOption(googleClientIds),
       });
 
       const payload = ticket.getPayload();
@@ -95,7 +131,7 @@ export class OAuthService {
 
       const payload = jwt.verify(idToken, publicKey, {
         algorithms: ["RS256"],
-        audience: appleClientId,
+        audience: toAudienceOption(appleClientIds),
         issuer: "https://appleid.apple.com",
       }) as jwt.JwtPayload;
 

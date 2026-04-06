@@ -22,8 +22,8 @@ Required server environment variables:
 
 - `JWT_SECRET`
 - `MONGO_URI`
-- `GOOGLE_CLIENT_ID`
-- `APPLE_CLIENT_ID`
+- `GOOGLE_CLIENT_IDS` or `GOOGLE_CLIENT_ID`
+- `APPLE_CLIENT_IDS` or `APPLE_CLIENT_ID`
 
 Optional auth-related variables:
 
@@ -34,6 +34,8 @@ Optional auth-related variables:
 Notes:
 
 - OAuth env vars are required at module load time.
+- Multi-client mode supports comma-separated audiences using `GOOGLE_CLIENT_IDS` and `APPLE_CLIENT_IDS`.
+- If both single and multi env vars are provided, `*_CLIENT_IDS` takes precedence.
 - If OAuth env vars are missing, API startup fails.
 
 ## 3. Authentication Model
