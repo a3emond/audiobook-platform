@@ -19,7 +19,7 @@ const profileSchema = new Schema(
     preferredLocale: {
       type: String,
       enum: ["fr", "en"],
-      default: "fr",
+      default: "en",
     },
   },
   {
@@ -39,11 +39,6 @@ const userSchema = new Schema(
       maxlength: 320,
       index: true,
     },
-    passwordHash: {
-      type: String,
-      required: true,
-      select: false,
-    },
     role: {
       type: String,
       enum: USER_ROLES,
@@ -52,7 +47,7 @@ const userSchema = new Schema(
     },
     profile: {
       type: profileSchema,
-      default: () => ({ preferredLocale: "fr" }),
+      default: () => ({ preferredLocale: "en" }),
     },
   },
   {

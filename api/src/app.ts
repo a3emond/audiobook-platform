@@ -1,31 +1,46 @@
 import express from "express";
+
 import { errorMiddleware } from "./middlewares/error.middleware.js";
 
+// routes
+import authRoutes from "./modules/auth/auth.routes.js";
+
 // future imports
-// import corsMiddleware from "./middlewares/cors.middleware";
-// import { errorMiddleware } from "./middlewares/error.middleware";
+// import corsMiddleware from "./middlewares/cors.middleware.js";
+// import bookRoutes from "./modules/books/book.routes.js";
 
 export function createApp() {
   const app = express();
 
-  // core middleware
+  // -------------------------
+  // Core middleware
+  // -------------------------
   app.use(express.json());
 
-  // middlewares (later)
+  // -------------------------
+  // Global middlewares
+  // -------------------------
   // app.use(corsMiddleware);
-  app.use(errorMiddleware);
 
-  // health check
-  app.get("/api/health", (_, res) => {
+  // -------------------------
+  // Health check
+  // -------------------------
+  app.get("/api/health", (_req, res) => {
     res.status(200).json({ status: "ok" });
   });
 
-  // routes (mount later)
-  // app.use("/api/auth", authRoutes);
-  // app.use("/api/books", bookRoutes);
+  // -------------------------
+  // Routes
+  // -------------------------
+  app.use("/api/auth", authRoutes);
 
-  // error middleware (last)
-  // app.use(errorMiddleware);
+  // future protected routes example
+  // app.use("/api/books", authMiddleware, bookRoutes);
+
+  // -------------------------
+  // Error middleware (LAST)
+  // -------------------------
+  app.use(errorMiddleware);
 
   return app;
 }
