@@ -7,12 +7,20 @@ The Job Queue API allows clients to enqueue long-running background tasks and mo
 ## Base URL
 
 ```
-/api/jobs
+/api/v1/admin/jobs
 ```
+
+Backward-compatible alias: `/api/admin/jobs`
 
 ## Authentication
 
-All job queue endpoints are **public** (no authentication required). In a production environment, consider adding authentication middleware to restrict job creation.
+All job queue endpoints require:
+- valid bearer access token
+- `admin` role
+
+Non-admin users receive `403 forbidden`.
+
+For a complete admin route inventory, see [Admin API Endpoints](./admin-endpoints.md).
 
 ---
 
@@ -20,9 +28,13 @@ All job queue endpoints are **public** (no authentication required). In a produc
 
 ### Enqueue Job
 
-**POST** `/api/jobs/enqueue`
+**POST** `/api/admin/jobs/enqueue`
 
 Create and queue a new background job.
+
+Idempotency:
+- Supported via `Idempotency-Key` request header.
+- Replays the prior successful response for retries with the same key and identical payload.
 
 #### Request
 
@@ -88,14 +100,14 @@ Create and queue a new background job.
 
 ### Get Job Status
 
-**GET** `/api/jobs/:jobId`
+**GET** `/api/admin/jobs/:jobId`
 
 Retrieve the current status and details of a specific job.
 
 #### Request
 
 ```
-GET /api/jobs/507f1f77bcf86cd799439011
+GET /api/admin/jobs/507f1f77bcf86cd799439011
 ```
 
 #### Response
@@ -308,7 +320,7 @@ function isDone<T extends JobType>(job: JobDTO<T>): job is JobDTO<T> & { output:
 }
 
 async function handleJob(jobId: string) {
-  const job = (await fetch(`/api/jobs/${jobId}`).then(r => r.json())) as JobDTO;
+  const job = (await fetch(`/api/admin/jobs/${jobId}`).then(r => r.json())) as JobDTO;
 
   if (job.type === "INGEST" && isDone(job)) {
     // output is strongly typed as JobOutputByType["INGEST"]
@@ -335,14 +347,14 @@ async function handleJob(jobId: string) {
 
 ### List Jobs
 
-**GET** `/api/jobs`
+**GET** `/api/admin/jobs`
 
 List jobs with optional filtering and pagination.
 
 #### Request
 
 ```
-GET /api/jobs?status=running&type=INGEST&limit=20&offset=0
+GET /api/admin/jobs?status=running&type=INGEST&limit=20&offset=0
 ```
 
 **Query Parameters**:
@@ -394,7 +406,10 @@ GET /api/jobs?status=running&type=INGEST&limit=20&offset=0
       "finishedAt": null
     }
   ],
-  "total": 2
+  "total": 2,
+  "limit": 20,
+  "offset": 0,
+  "hasMore": false
 }
 ```
 
@@ -424,16 +439,46 @@ GET /api/jobs?status=running&type=INGEST&limit=20&offset=0
 
 ---
 
+### Stream Job Events (SSE)
+
+**GET** `/api/admin/jobs/events`
+
+Stream job updates using Server-Sent Events to reduce dashboard polling load.
+
+Optional query parameters:
+- `since` (ISO date-time, optional): only stream jobs updated after this timestamp.
+
+#### Request
+
+```http
+GET /api/admin/jobs/events?since=2026-04-07T10:00:00.000Z
+Accept: text/event-stream
+```
+
+#### Event Types
+
+- `jobs`: batch of updated jobs
+- `heartbeat`: keep-alive event when no updates are available
+
+#### Example Event Payload
+
+```text
+event: jobs
+data: {"jobs":[{"id":"507f1f77bcf86cd799439011","status":"running"}]}
+```
+
+---
+
 ### Get Job Queue Statistics
 
-**GET** `/api/jobs/stats`
+**GET** `/api/admin/jobs/stats`
 
 Get aggregated statistics about the job queue.
 
 #### Request
 
 ```
-GET /api/jobs/stats
+GET /api/admin/jobs/stats
 ```
 
 #### Response
@@ -455,14 +500,14 @@ GET /api/jobs/stats
 
 ### Cancel Job
 
-**DELETE** `/api/jobs/:jobId`
+**DELETE** `/api/admin/jobs/:jobId`
 
 Cancel a queued job (only works if job hasn't started yet).
 
 #### Request
 
 ```
-DELETE /api/jobs/507f1f77bcf86cd799439011
+DELETE /api/admin/jobs/507f1f77bcf86cd799439011
 ```
 
 #### Response
@@ -611,7 +656,7 @@ Scan the audiobooks directory for new files and ingest them.
 ### Example 1: Enqueue an audiobook ingest job
 
 ```bash
-curl -X POST http://localhost:3000/api/jobs/enqueue \
+curl -X POST http://localhost:3000/api/admin/jobs/enqueue \
   -H "Content-Type: application/json" \
   -d '{
     "type": "INGEST",
@@ -642,7 +687,7 @@ Response:
 JOB_ID="507f1f77bcf86cd799439011"
 
 while true; do
-  curl -s http://localhost:3000/api/jobs/$JOB_ID | jq '.status'
+  curl -s http://localhost:3000/api/admin/jobs/$JOB_ID | jq '.status'
   sleep 2
 done
 ```
@@ -650,13 +695,13 @@ done
 ### Example 3: List all failed jobs
 
 ```bash
-curl "http://localhost:3000/api/jobs?status=failed&limit=50" | jq '.jobs'
+curl "http://localhost:3000/api/admin/jobs?status=failed&limit=50" | jq '.jobs'
 ```
 
 ### Example 4: Get queue statistics
 
 ```bash
-curl http://localhost:3000/api/jobs/stats | jq '.'
+curl http://localhost:3000/api/admin/jobs/stats | jq '.'
 ```
 
 Output:
@@ -674,7 +719,7 @@ Output:
 ### Example 5: Cancel a queued job
 
 ```bash
-curl -X DELETE http://localhost:3000/api/jobs/507f1f77bcf86cd799439011
+curl -X DELETE http://localhost:3000/api/admin/jobs/507f1f77bcf86cd799439011
 ```
 
 ---
@@ -689,7 +734,7 @@ async function waitForJobCompletion(jobId, maxWaitMs = 600000) {
   const pollIntervalMs = 1000; // Poll every 1 second
 
   while (Date.now() - startTime < maxWaitMs) {
-    const response = await fetch(`/api/jobs/${jobId}`);
+    const response = await fetch(`/api/admin/jobs/${jobId}`);
     const job = await response.json();
 
     if (job.status === "done") {
@@ -729,10 +774,9 @@ async function waitForJobCompletion(jobId, maxWaitMs = 600000) {
 
 ## Rate Limiting
 
-Currently, there are no rate limits on the job queue API. In production, consider implementing:
-- Per-IP rate limiting (e.g., 100 requests/minute)
-- Per-user rate limiting (if authenticated)
-- Job type-specific limits (e.g., max 5 concurrent INGESTs)
+Rate limiting is enabled for admin APIs and auth-abuse-sensitive routes.
+
+For enqueue retries, use `Idempotency-Key` to guarantee safe client retries without duplicating side effects.
 
 ---
 
@@ -801,7 +845,7 @@ function useBackgroundJob() {
 
   const enqueue = async (type, payload) => {
     setLoading(true);
-    const res = await fetch("/api/jobs/enqueue", {
+    const res = await fetch("/api/admin/jobs/enqueue", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type, payload, maxAttempts: 3 }),
@@ -811,7 +855,7 @@ function useBackgroundJob() {
 
     // Poll for completion
     const statusIntervalId = setInterval(async () => {
-      const statusRes = await fetch(`/api/jobs/${jobData.id}`);
+      const statusRes = await fetch(`/api/admin/jobs/${jobData.id}`);
       const updatedJob = await statusRes.json();
       setJob(updatedJob);
 
@@ -834,10 +878,10 @@ function useBackgroundJob() {
 
 ```bash
 # Get stats
-curl http://localhost:3000/api/jobs/stats
+curl http://localhost:3000/api/admin/jobs/stats
 
 # If many failed jobs, investigate:
-curl "http://localhost:3000/api/jobs?status=failed&limit=10"
+curl "http://localhost:3000/api/admin/jobs?status=failed&limit=10"
 
 # Check logs in worker service for error details
 docker logs audiobook-worker
@@ -847,7 +891,7 @@ docker logs audiobook-worker
 
 ```bash
 # Check running jobs
-curl "http://localhost:3000/api/jobs?status=running"
+curl "http://localhost:3000/api/admin/jobs?status=running"
 
 # Look at startedAt vs now to see elapsed time
 ```

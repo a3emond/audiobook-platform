@@ -52,7 +52,7 @@ export class JobService {
       limit?: number;
       offset?: number;
     } = {},
-  ): Promise<{ jobs: JobDTO[]; total: number }> {
+  ): Promise<{ jobs: JobDTO[]; total: number; limit: number; offset: number; hasMore: boolean }> {
     const { status, type, limit = 20, offset = 0 } = filters;
 
     // Build query
@@ -71,7 +71,18 @@ export class JobService {
     return {
       jobs: jobs.map((job) => this.formatJobDTO(job)),
       total,
+      limit,
+      offset,
+      hasMore: offset + jobs.length < total,
     };
+  }
+
+  static async listJobsUpdatedSince(since: Date, limit = 100): Promise<JobDTO[]> {
+    const jobs = await JobModel.find({ updatedAt: { $gt: since } })
+      .sort({ updatedAt: 1 })
+      .limit(limit);
+
+    return jobs.map((job) => this.formatJobDTO(job));
   }
 
   /**

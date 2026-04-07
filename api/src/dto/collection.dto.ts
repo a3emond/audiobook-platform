@@ -1,4 +1,4 @@
-import { IdDTO, TimestampDTO } from './common.dto.js';
+import { IdDTO, PaginationMetaDTO, TimestampDTO } from './common.dto.js';
 
 export interface CollectionDTO extends IdDTO, TimestampDTO {
   name: string;
@@ -13,4 +13,14 @@ export interface CreateCollectionDTO {
 export interface UpdateCollectionDTO {
   name?: string;
   bookIds?: string[];
+}
+
+export interface ListCollectionsQueryDTO {
+  limit?: number;
+  offset?: number;
+}
+
+export interface ListCollectionsResponseDTO extends PaginationMetaDTO {
+  collections: CollectionDTO[];
+  total: number;
 }

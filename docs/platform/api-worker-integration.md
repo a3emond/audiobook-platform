@@ -18,11 +18,11 @@ This document describes the complete integration between the API server and the 
 ┌────────────────▼────────────────────────────────────────────────────┐
 │ API Server (api/)                                                   │
 ├─────────────────────────────────────────────────────────────────────┤
-│ POST   /api/jobs/enqueue          ─→ Validates payload              │
-│ GET    /api/jobs                  ─→ List/filter jobs               │
-│ GET    /api/jobs/:jobId           ─→ Get job status                 │
-│ GET    /api/jobs/stats            ─→ Queue statistics               │
-│ DELETE /api/jobs/:jobId           ─→ Cancel job                     │
+│ POST   /api/admin/jobs/enqueue          ─→ Validates payload              │
+│ GET    /api/admin/jobs                  ─→ List/filter jobs               │
+│ GET    /api/admin/jobs/:jobId           ─→ Get job status                 │
+│ GET    /api/admin/jobs/stats            ─→ Queue statistics               │
+│ DELETE /api/admin/jobs/:jobId           ─→ Cancel job                     │
 │                                                                      │
 │ JobService ──────────┐                                              │
 │                      │                                              │
@@ -85,7 +85,7 @@ This document describes the complete integration between the API server and the 
 ```
 Client
   │
-  └─→ POST /api/jobs/enqueue { type: "INGEST", payload: {...} }
+  └─→ POST /api/admin/jobs/enqueue { type: "INGEST", payload: {...} }
        │
        └─→ JobController.enqueueJob()
             │
@@ -101,7 +101,7 @@ Client
 
 **Example Request:**
 ```bash
-curl -X POST http://localhost:3000/api/jobs/enqueue \
+curl -X POST http://localhost:3000/api/admin/jobs/enqueue \
   -H "Content-Type: application/json" \
   -d '{
     "type": "INGEST",
@@ -165,7 +165,7 @@ Worker Service (every WORKER_POLL_MS)
 ```
 Client (polls every N seconds)
   │
-  └─→ GET /api/jobs/{jobId}
+  └─→ GET /api/admin/jobs/{jobId}
        │
        └─→ JobController.getJob()
             │
@@ -310,14 +310,14 @@ volumes:
 ### Quick Reference
 
 ```
-POST   /api/jobs/enqueue              Create and queue a job
-GET    /api/jobs                      List jobs (filterable)
-GET    /api/jobs/stats                Get queue statistics
-GET    /api/jobs/:jobId               Get job status
-DELETE /api/jobs/:jobId               Cancel a queued job
+POST   /api/admin/jobs/enqueue              Create and queue a job
+GET    /api/admin/jobs                      List jobs (filterable)
+GET    /api/admin/jobs/stats                Get queue statistics
+GET    /api/admin/jobs/:jobId               Get job status
+DELETE /api/admin/jobs/:jobId               Cancel a queued job
 ```
 
-See [Job API Endpoints](./api/jobs-endpoints.md) for complete endpoint documentation.
+See [Job API Endpoints](../api/jobs-endpoints.md) for complete endpoint documentation.
 
 ## Job Types
 
@@ -374,7 +374,7 @@ The API validates:
 }
 ```
 
-See [Job API Endpoints](./api/jobs-endpoints.md) for complete error codes.
+See [Job API Endpoints](../api/jobs-endpoints.md) for complete error codes.
 
 ### Worker Level
 
@@ -399,20 +399,20 @@ The Worker handles:
 
 ```bash
 # Check statistics
-curl http://localhost:3000/api/jobs/stats
+curl http://localhost:3000/api/admin/jobs/stats
 
 # List failed jobs
-curl "http://localhost:3000/api/jobs?status=failed&limit=20"
+curl "http://localhost:3000/api/admin/jobs?status=failed&limit=20"
 
 # Check running jobs
-curl "http://localhost:3000/api/jobs?status=running"
+curl "http://localhost:3000/api/admin/jobs?status=running"
 ```
 
 ### Diagnose Stuck Jobs
 
 ```bash
 # A job in "running" status for > 10 minutes is stuck
-curl "http://localhost:3000/api/jobs?status=running" | jq '
+curl "http://localhost:3000/api/admin/jobs?status=running" | jq '
   .jobs[] | 
   select(now - (.startedAt | fromdateiso8601) > 600)
 '
@@ -488,7 +488,7 @@ npm run dev    # From worker/ - watches for changes
 docker-compose up
 
 # 2. Create ingest job
-curl -X POST http://localhost:3000/api/jobs/enqueue \
+curl -X POST http://localhost:3000/api/admin/jobs/enqueue \
   -H "Content-Type: application/json" \
   -d '{
     "type": "INGEST",
@@ -499,11 +499,11 @@ curl -X POST http://localhost:3000/api/jobs/enqueue \
 # 3. Monitor progress
 JOB_ID="507f..."
 while true; do
-  curl http://localhost:3000/api/jobs/$JOB_ID | jq '.status' && sleep 2
+  curl http://localhost:3000/api/admin/jobs/$JOB_ID | jq '.status' && sleep 2
 done
 
 # 4. Check results
-curl http://localhost:3000/api/jobs/$JOB_ID | jq '.'
+curl http://localhost:3000/api/admin/jobs/$JOB_ID | jq '.'
 docker logs audiobook-worker
 ```
 
@@ -559,6 +559,6 @@ worker/     ✅ npm run build - SUCCESS
 ## References
 
 - [Worker Service Technical Documentation](./worker/technical-reference.md)
-- [API Jobs Endpoint Reference](./api/jobs-endpoints.md)
+- [API Jobs Endpoint Reference](../api/jobs-endpoints.md)
 - [Architecture & Build Specification](./architecture-build-specification.md)
 - [FFmpeg Metadata and Chapters Guide](./ffmpeg/metadata-chapters-guide.md)

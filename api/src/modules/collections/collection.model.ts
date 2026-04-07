@@ -8,6 +8,12 @@ import mongoose, {
 
 const collectionSchema = new Schema(
   {
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
     name: {
       type: String,
       required: true,
@@ -39,6 +45,8 @@ collectionSchema.path("bookIds").set((values: Types.ObjectId[]) => {
   );
 });
 
+collectionSchema.index({ userId: 1, updatedAt: -1 });
+collectionSchema.index({ userId: 1, name: 1 });
 collectionSchema.index({ createdAt: -1 });
 
 export type Collection = InferSchemaType<typeof collectionSchema>;

@@ -1,4 +1,4 @@
-import { TimestampDTO } from "./common.dto.js";
+import { PaginationMetaDTO, TimestampDTO } from "./common.dto.js";
 
 export interface ProgressDTO extends TimestampDTO {
   bookId: string;
@@ -25,4 +25,14 @@ export interface SaveProgressDTO {
 
 export interface CompleteDTO {
   manual?: boolean;
+}
+
+export interface ListProgressQueryDTO {
+  limit?: number;
+  offset?: number;
+}
+
+export interface ListProgressResponseDTO extends PaginationMetaDTO {
+  progress: ProgressDTO[];
+  total: number;
 }

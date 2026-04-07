@@ -5,7 +5,7 @@ import { ApiError } from "../../utils/api-error.js";
 
 export class JobController {
   /**
-   * POST /api/jobs/enqueue
+    * POST /api/admin/jobs/enqueue
    * Enqueue a new job
    */
   static async enqueueJob(
@@ -50,7 +50,7 @@ export class JobController {
   }
 
   /**
-   * GET /api/jobs/:jobId
+    * GET /api/admin/jobs/:jobId
    * Get job status and details
    */
   static async getJob(
@@ -69,7 +69,7 @@ export class JobController {
   }
 
   /**
-   * GET /api/jobs
+    * GET /api/admin/jobs
    * List jobs with filtering
    */
   static async listJobs(
@@ -140,7 +140,7 @@ export class JobController {
   }
 
   /**
-   * GET /api/jobs/stats
+    * GET /api/admin/jobs/stats
    * Get job queue statistics
    */
   static async getStats(
@@ -153,7 +153,49 @@ export class JobController {
   }
 
   /**
-   * DELETE /api/jobs/:jobId
+    * GET /api/admin/jobs/events
+   * Stream job updates via SSE
+   */
+  static async streamJobEvents(
+    req: Request<unknown, unknown, unknown, { since?: string }>,
+    res: Response,
+  ) {
+    res.status(200);
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    let cursor = req.query.since ? new Date(req.query.since) : new Date(Date.now() - 30_000);
+    if (Number.isNaN(cursor.getTime())) {
+      cursor = new Date(Date.now() - 30_000);
+    }
+
+    const flushUpdates = async () => {
+      const jobs = await JobService.listJobsUpdatedSince(cursor, 100);
+      if (jobs.length === 0) {
+        res.write("event: heartbeat\\n");
+        res.write(`data: ${JSON.stringify({ ts: new Date().toISOString() })}\\n\\n`);
+        return;
+      }
+
+      cursor = new Date(jobs[jobs.length - 1].updatedAt || new Date().toISOString());
+      res.write("event: jobs\\n");
+      res.write(`data: ${JSON.stringify({ jobs })}\\n\\n`);
+    };
+
+    await flushUpdates();
+    const interval = setInterval(() => {
+      void flushUpdates();
+    }, 2500);
+
+    req.on("close", () => {
+      clearInterval(interval);
+      res.end();
+    });
+  }
+
+  /**
+    * DELETE /api/admin/jobs/:jobId
    * Cancel a queued job
    */
   static async cancelJob(

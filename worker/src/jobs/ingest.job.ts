@@ -33,6 +33,7 @@ async function createBookDocument(bookData: Record<string, unknown>) {
 
 export interface IngestJobPayload {
   sourcePath: string;
+  cleanupSource?: boolean;
 }
 
 export async function handleIngestJob(
@@ -45,6 +46,7 @@ export async function handleIngestJob(
   }
 
   const sourcePath = payload.sourcePath;
+  const cleanupSource = payload.cleanupSource === true;
   const sourceExists = await fileService.exists(sourcePath);
 
   if (!sourceExists) {
@@ -211,6 +213,14 @@ export async function handleIngestJob(
       duration: Math.round(probeInfo.duration),
       checksum,
     });
+
+    if (cleanupSource) {
+      try {
+        await fileService.deleteFile(sourcePath);
+      } catch {
+        /* ignore cleanup errors */
+      }
+    }
 
     return {
       bookId: String(bookId),

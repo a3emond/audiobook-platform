@@ -12,11 +12,21 @@ Use this section as the single source of truth for project documentation. Any ne
 
 - [Architecture Build Specification](docs/platform/architecture-build-specification.md)
 - [API Worker Integration Guide](docs/platform/api-worker-integration.md)
+- [API Functionality Coverage Audit](docs/platform/api-functionality-coverage.md)
 
 ### API
 
 - [Auth API Endpoints (Client Guide)](docs/api/auth-endpoints.md)
 - [Auth Implementation Reference](docs/api/auth-implementation-reference.md)
+- [Admin API Endpoints](docs/api/admin-endpoints.md)
+- [Books API Endpoints](docs/api/books-endpoints.md)
+- [Collections API Endpoints](docs/api/collections-endpoints.md)
+- [Progress API Endpoints](docs/api/progress-endpoints.md)
+- [Series API Endpoints](docs/api/series-endpoints.md)
+- [Settings API Endpoints](docs/api/settings-endpoints.md)
+- [Stats API Endpoints](docs/api/stats-endpoints.md)
+- [Users API Endpoints](docs/api/users-endpoints.md)
+- [Streaming API Endpoints](docs/api/streaming-endpoints.md)
 - [Jobs API Endpoints](docs/api/jobs-endpoints.md)
 
 ### Worker

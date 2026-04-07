@@ -65,3 +65,14 @@ export interface UpdateBookMetadataDTO {
 export interface UpdateChaptersDTO {
   chapters: ChapterDTO[];
 }
+
+export interface ListBooksQueryDTO {
+  q?: string;
+  title?: string;
+  author?: string;
+  series?: string;
+  genre?: string;
+  language?: string;
+  limit?: number;
+  offset?: number;
+}
