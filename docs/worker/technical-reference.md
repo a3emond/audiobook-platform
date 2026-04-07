@@ -353,36 +353,150 @@ interface JobDocument {
 - `ingest_metadata_parse_failed`: Can't read FFMetadata
 - FFmpeg timeout: File too large or corrupted
 
-### Extract Cover Job (Placeholder)
+### Extract Cover Job
 
 **Payload**:
 ```typescript
 {
   bookId: string;
+  force?: boolean;
 }
 ```
 
-Status: Not yet implemented. Currently returns "not implemented" error.
+**Behavior**:
+- Loads the book record and validates `filePath`
+- Skips if a cover already exists unless `force=true`
+- Extracts cover with FFmpeg and writes `cover.jpg`
+- Updates `coverPath` and file sync status
 
-### Write Metadata Job (Placeholder)
+**Output**:
+```typescript
+{
+  bookId: string;
+  coverPath: string | null;
+  skipped: boolean;
+  reason?: "cover_already_exists";
+}
+```
+
+### Write Metadata Job
 
 **Payload**:
 ```typescript
 {
   bookId: string;
-  chapters?: ChapterInfo[];
+  title?: string;
+  author?: string;
+  series?: string | null;
+  genre?: string | null;
+  chapters?: Array<{
+    title: string;
+    startMs: number;
+    endMs: number;
+  }>;
 }
 ```
 
-Status: Not yet implemented. Currently returns "not implemented" error.
+**Behavior**:
+- Extracts existing ffmetadata from audio
+- Merges incoming metadata fields
+- Remuxes audio with updated metadata/chapters
+- Atomically replaces the original file
+- Updates book metadata, chapter list, version, and sync timestamps
 
-### Other Jobs (Placeholders)
+**Output**:
+```typescript
+{
+  bookId: string;
+  filePath: string;
+  title: string;
+  author: string;
+  series: string | null;
+  genre: string | null;
+  chapters: number;
+}
+```
 
-- **rescan**: Rescan audiobooks directory for new files
-- **replace-file**: Replace audio file for existing book
-- **delete-book**: Delete book and associated files
+### Replace File Job
 
-All return "not implemented" error messages.
+**Payload**:
+```typescript
+{
+  bookId: string;
+  sourcePath: string;
+}
+```
+
+**Behavior**:
+- Validates replacement source file
+- Re-probes duration, checksum, and metadata
+- Atomically replaces canonical `audio.m4b`
+- Attempts cover extraction and updates book fields
+
+**Output**:
+```typescript
+{
+  bookId: string;
+  filePath: string;
+  sourcePath: string;
+  checksum: string;
+  duration: number;
+  chapters: number;
+  coverPath: string | null;
+}
+```
+
+### Rescan Job
+
+**Payload**:
+```typescript
+{
+  force?: boolean;
+}
+```
+
+**Behavior**:
+- Scans books from MongoDB (all when `force=true`, otherwise non-in-sync records)
+- Verifies file existence
+- Recomputes duration/checksum
+- Updates sync status and scan timestamps
+
+**Output**:
+```typescript
+{
+  force: boolean;
+  targetCount: number;
+  scanned: number;
+  updated: number;
+  missing: number;
+  errors: number;
+}
+```
+
+### Delete Book Job
+
+**Payload**:
+```typescript
+{
+  bookId: string;
+  deleteFiles?: boolean;
+}
+```
+
+**Behavior**:
+- Deletes book document from MongoDB
+- Optionally deletes on-disk audiobook folder
+
+**Output**:
+```typescript
+{
+  bookId: string;
+  deleted: boolean;
+  filesDeleted: boolean;
+}
+```
+
+All job handlers are implemented and return structured `output` payloads persisted on the job document when status is `done`.
 
 ---
 
