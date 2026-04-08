@@ -35,6 +35,6 @@ describe('App', () => {
     await fixture.whenStable();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.brand')?.textContent).toContain('Audiobook Platform');
+    expect(compiled.querySelector('.brand')?.textContent).toContain('StoryWave');
   });
 });

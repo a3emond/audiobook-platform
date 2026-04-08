@@ -10,12 +10,12 @@ import { AdminService } from '../../core/services/admin.service';
 	standalone: true,
 	imports: [CommonModule, RouterLink],
 	template: `
-		<section>
+		<section class="admin-page page-shell">
 			<h1>Admin Books</h1>
 			<p *ngIf="loading()">Loading books...</p>
 			<p *ngIf="error()" class="error">{{ error() }}</p>
 
-			<table *ngIf="books().length > 0">
+			<table *ngIf="books().length > 0" class="admin-table">
 				<thead>
 					<tr><th>Title</th><th>Author</th><th>Series</th><th>Duration (s)</th><th>Actions</th></tr>
 				</thead>
@@ -33,9 +33,11 @@ import { AdminService } from '../../core/services/admin.service';
 	`,
 	styles: [
 		`
-			.error { color: #b81f24; }
-			table { width: 100%; border-collapse: collapse; background: #fff; }
-			th, td { border: 1px solid #e4e4e7; padding: 0.45rem; text-align: left; }
+			.admin-page { display: grid; gap: 0.9rem; }
+			.error { color: var(--color-danger); }
+			.admin-table { width: 100%; border-collapse: collapse; background: var(--color-surface); }
+			.admin-table th, .admin-table td { border: 1px solid var(--color-border); padding: 0.45rem; text-align: left; }
+			.admin-table th { background: #1a1a1a; color: var(--color-text-muted); }
 		`,
 	],
 })

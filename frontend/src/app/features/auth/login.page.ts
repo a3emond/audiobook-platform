@@ -14,7 +14,10 @@ import { OAuthButtonsComponent } from './oauth-buttons';
   template: `
     <div class="auth-shell">
       <div class="auth-card">
-        <div class="auth-brand">Audiobook Platform</div>
+        <div class="auth-brand">
+          <img src="/logo_small.png" alt="StoryWave logo" class="auth-logo" />
+          <span>StoryWave</span>
+        </div>
         <h1 class="auth-title">Sign in</h1>
 
         <app-oauth-buttons
@@ -64,6 +67,13 @@ import { OAuthButtonsComponent } from './oauth-buttons';
         <p class="footer-link">
           Don't have an account? <a routerLink="/register">Create one</a>
         </p>
+
+        <p class="legal-link">
+          By continuing, you agree to our
+          <a routerLink="/terms">Terms</a>
+          and
+          <a routerLink="/privacy">Privacy Policy</a>.
+        </p>
       </div>
     </div>
   `,
@@ -78,7 +88,7 @@ import { OAuthButtonsComponent } from './oauth-buttons';
     }
 
     .auth-card {
-      background: #fff;
+      background: var(--color-surface);
       border: 1px solid var(--color-border, #e4e4e7);
       border-radius: var(--radius-lg, 0.75rem);
       padding: 2rem 2.25rem;
@@ -88,12 +98,23 @@ import { OAuthButtonsComponent } from './oauth-buttons';
     }
 
     .auth-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
       font-size: 0.8rem;
       font-weight: 600;
-      color: var(--color-text-muted, #6b7280);
+      color: var(--color-text-muted, #b8ae97);
       letter-spacing: 0.05em;
       text-transform: uppercase;
       margin-bottom: 1rem;
+    }
+
+    .auth-logo {
+      width: 1.28rem;
+      height: 1.28rem;
+      object-fit: cover;
+      border-radius: 0.3rem;
+      box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
     }
 
     .auth-title {
@@ -135,6 +156,24 @@ import { OAuthButtonsComponent } from './oauth-buttons';
       text-align: center;
       font-size: 0.85rem;
       color: var(--color-text-muted, #6b7280);
+    }
+
+    .legal-link {
+      margin-top: 0.65rem;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--color-text-muted, #6b7280);
+      line-height: 1.45;
+    }
+
+    .legal-link a {
+      color: var(--color-accent, #2563eb);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .legal-link a:hover {
+      text-decoration: underline;
     }
   `],
 })

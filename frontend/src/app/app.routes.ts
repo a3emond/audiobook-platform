@@ -16,6 +16,14 @@ export const routes: Routes = [
 		loadComponent: () => import('./features/auth/register.page').then((m) => m.RegisterPage),
 	},
 	{
+		path: 'privacy',
+		loadComponent: () => import('./features/legal/privacy.page').then((m) => m.PrivacyPage),
+	},
+	{
+		path: 'terms',
+		loadComponent: () => import('./features/legal/terms.page').then((m) => m.TermsPage),
+	},
+	{
 		path: 'library',
 		canActivate: [authGuard],
 		loadComponent: () => import('./features/library/library-page/library-page.component').then((m) => m.LibraryPageComponent),

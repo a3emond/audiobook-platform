@@ -33,8 +33,9 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 				width: 2.5rem;
 				height: 2.5rem;
 				border-radius: 999px;
-				border: 1px solid #cfd8e5;
-				background: #fff;
+				border: 1px solid #3a3a3a;
+				background: #171717;
+				color: var(--color-text);
 				display: inline-grid;
 				place-items: center;
 				position: relative;
@@ -60,13 +61,13 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 			.play {
 				width: 2.85rem;
 				height: 2.85rem;
-				background: linear-gradient(135deg, #0f766e, #155e75);
+				background: linear-gradient(135deg, #ff9f2f, #ff8500);
 				border-color: transparent;
-				color: #fff;
+				color: #191919;
 			}
 
 			.seek {
-				color: #0f172a;
+				color: var(--color-text);
 			}
 
 			.delta {
@@ -76,9 +77,9 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 				border-radius: 0.35rem;
 				font-size: 0.55rem;
 				font-weight: 700;
-				background: #fff;
-				color: #475569;
-				border: 1px solid #d6deeb;
+				background: #111111;
+				color: var(--color-text-muted);
+				border: 1px solid #3a3a3a;
 			}
 
 			@media (max-width: 560px) {

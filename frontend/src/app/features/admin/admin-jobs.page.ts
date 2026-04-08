@@ -8,13 +8,13 @@ import { AdminJob, AdminService, JobEventStreamHandle } from '../../core/service
 	standalone: true,
 	imports: [CommonModule],
 	template: `
-		<section>
+		<section class="admin-page page-shell">
 			<h1>Admin Jobs</h1>
 			<p *ngIf="!connected()">Connecting...</p>
 			<p *ngIf="connected()">Mode: {{ mode() === 'stream' ? 'Authenticated SSE stream' : 'Polling fallback' }}</p>
 			<p *ngIf="error()" class="error">{{ error() }}</p>
 
-			<table *ngIf="jobs().length > 0">
+			<table *ngIf="jobs().length > 0" class="admin-table">
 				<thead>
 					<tr><th>Type</th><th>Status</th><th>Updated</th></tr>
 				</thead>
@@ -30,7 +30,11 @@ import { AdminJob, AdminService, JobEventStreamHandle } from '../../core/service
 	`,
 	styles: [
 		`
-			.error { color: #b81f24; }
+			.admin-page { display: grid; gap: 0.9rem; }
+			.admin-table { width: 100%; border-collapse: collapse; background: var(--color-surface); }
+			.admin-table th, .admin-table td { border: 1px solid var(--color-border); padding: 0.45rem; text-align: left; }
+			.admin-table th { background: #1a1a1a; color: var(--color-text-muted); }
+			.error { color: var(--color-danger); }
 		`,
 	],
 })

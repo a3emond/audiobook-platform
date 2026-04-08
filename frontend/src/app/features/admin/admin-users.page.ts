@@ -13,7 +13,7 @@ import {
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <section>
+    <section class="admin-page page-shell">
       <h1>Admin Users</h1>
 
       <form class="filters" (ngSubmit)="reload()">
@@ -23,14 +23,14 @@ import {
           <option value="admin">Admin</option>
           <option value="user">User</option>
         </select>
-        <button type="submit">Search</button>
+        <button type="submit" class="btn-action">Search</button>
       </form>
 
       <p *ngIf="loading()">Loading users...</p>
       <p *ngIf="error()" class="error">{{ error() }}</p>
       <p *ngIf="success()" class="success">{{ success() }}</p>
 
-      <table *ngIf="users().length > 0">
+      <table *ngIf="users().length > 0" class="admin-table">
         <thead>
           <tr><th>Email</th><th>Display Name</th><th>Role</th><th>Actions</th></tr>
         </thead>
@@ -40,11 +40,11 @@ import {
             <td>{{ user.profile.displayName || '-' }}</td>
             <td>{{ user.role }}</td>
             <td>
-              <button type="button" (click)="toggleRole(user)">
+              <button type="button" class="btn-action" (click)="toggleRole(user)">
                 Make {{ user.role === 'admin' ? 'User' : 'Admin' }}
               </button>
-              <button type="button" (click)="loadSessions(user)">Sessions</button>
-              <button type="button" (click)="revokeSessions(user)">Revoke Sessions</button>
+              <button type="button" class="btn-action" (click)="loadSessions(user)">Sessions</button>
+              <button type="button" class="btn-action" (click)="revokeSessions(user)">Revoke Sessions</button>
             </td>
           </tr>
         </tbody>
@@ -53,7 +53,7 @@ import {
       <section *ngIf="selectedUser()" class="sessions">
         <h2>Sessions for {{ selectedUser()?.email }}</h2>
         <p *ngIf="sessionsLoading()">Loading sessions...</p>
-        <table *ngIf="sessions().length > 0">
+        <table *ngIf="sessions().length > 0" class="admin-table">
           <thead>
             <tr><th>Device</th><th>IP</th><th>Last Used</th><th>Expires</th></tr>
           </thead>
@@ -71,13 +71,23 @@ import {
   `,
   styles: [
     `
-      .filters { display: flex; gap: 0.5rem; margin-bottom: 0.8rem; }
-      table { width: 100%; border-collapse: collapse; background: #fff; }
-      th, td { border: 1px solid #e4e4e7; padding: 0.45rem; text-align: left; }
+      .admin-page { display: grid; gap: 0.9rem; }
+      .filters { display: flex; gap: 0.5rem; margin-bottom: 0.2rem; }
+      .btn-action {
+        border: 1px solid #3a3a3a;
+        background: #1a1a1a;
+        color: var(--color-text);
+        border-radius: 0.45rem;
+        padding: 0.4rem 0.65rem;
+      }
+      .btn-action:hover { background: #252525; }
+      .admin-table { width: 100%; border-collapse: collapse; background: var(--color-surface); }
+      .admin-table th, .admin-table td { border: 1px solid var(--color-border); padding: 0.45rem; text-align: left; }
+      .admin-table th { background: #1a1a1a; color: var(--color-text-muted); }
       td button { margin-right: 0.4rem; }
       .sessions { margin-top: 1rem; }
-      .error { color: #b81f24; }
-      .success { color: #166534; }
+      .error { color: var(--color-danger); }
+      .success { color: var(--color-success); }
     `,
   ],
 })

@@ -111,10 +111,10 @@ interface HistoryBookRow {
 			}
 
 			.clear-filter {
-				border: 1px solid #d8e2ee;
+				border: 1px solid var(--color-border);
 				border-radius: 0.55rem;
-				background: #fff;
-				color: #0f2942;
+				background: var(--color-surface-soft);
+				color: var(--color-text);
 				font-size: 0.82rem;
 				font-weight: 700;
 				padding: 0.5rem 0.72rem;
@@ -143,11 +143,11 @@ interface HistoryBookRow {
 			.history-table thead th {
 				text-align: left;
 				font-size: 0.78rem;
-				color: #5b6b81;
+				color: var(--color-text-muted);
 				font-weight: 700;
 				padding: 0.6rem 0.75rem;
-				border-bottom: 1px solid #dde5ef;
-				background: #f8fbff;
+				border-bottom: 1px solid var(--color-border);
+				background: #1a1a1a;
 				position: sticky;
 				top: 0;
 				z-index: 1;
@@ -155,14 +155,14 @@ interface HistoryBookRow {
 
 			.history-table tbody td {
 				padding: 0.7rem 0.75rem;
-				border-bottom: 1px solid #edf2f7;
+				border-bottom: 1px solid var(--color-border);
 				font-size: 0.86rem;
-				color: #1f2937;
+				color: var(--color-text);
 				vertical-align: middle;
 			}
 
 			.history-table tbody tr:hover {
-				background: #fafcff;
+				background: #1c1c1c;
 			}
 
 			.session {
@@ -190,7 +190,7 @@ interface HistoryBookRow {
 			.cover.fallback {
 				display: grid;
 				place-items: center;
-				background: linear-gradient(135deg, #1d4ed8, #0f172a 78%);
+				background: linear-gradient(135deg, #ff8a00, #402000 78%);
 				color: #fff;
 				font-weight: 700;
 				border-radius: 0.55rem;
@@ -231,15 +231,15 @@ interface HistoryBookRow {
 				gap: 0.9rem;
 				flex-wrap: wrap;
 				font-size: 0.84rem;
-				color: #334155;
+				color: var(--color-text-muted);
 			}
 
 			.resume {
 				padding: 0.36rem 0.62rem;
 				border-radius: 999px;
-				background: #eef6ff;
-				color: #0b3a66;
-				border: 1px solid #b8d2ef;
+				background: #1a1a1a;
+				color: #ffe6be;
+				border: 1px solid #3a3a3a;
 				text-decoration: none;
 				font-size: 0.78rem;
 				font-weight: 700;
@@ -250,7 +250,7 @@ interface HistoryBookRow {
 				gap: 1rem;
 				flex-wrap: wrap;
 				margin-top: 0.2rem;
-				color: #475569;
+				color: var(--color-text-muted);
 				font-size: 0.86rem;
 			}
 
@@ -258,8 +258,8 @@ interface HistoryBookRow {
 				display: grid;
 				gap: 0.45rem;
 				padding: 1rem;
-				border: 1px dashed #d5deeb;
-				background: linear-gradient(165deg, #fff, #f8fbff);
+				border: 1px dashed #3b3b3b;
+				background: linear-gradient(165deg, #151515, #111111);
 			}
 
 			.empty h3 {

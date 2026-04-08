@@ -28,15 +28,15 @@ interface UploadQueueItem {
 	standalone: true,
 	imports: [CommonModule],
 	template: `
-		<section>
+		<section class="admin-page page-shell">
 			<h1>Admin Upload</h1>
 			<input type="file" multiple accept=".m4b,.m4a,.mp3,.ogg,.wav" (change)="onFilesPicked($event)" />
 
 			<div class="actions">
-				<button type="button" [disabled]="queue().length === 0 || loading()" (click)="startQueue()">
+				<button type="button" class="btn-action" [disabled]="queue().length === 0 || loading()" (click)="startQueue()">
 					{{ loading() ? 'Uploading Queue...' : 'Start Batch Upload' }}
 				</button>
-				<button type="button" [disabled]="loading() || queue().length === 0" (click)="clearQueue()">
+				<button type="button" class="btn-action" [disabled]="loading() || queue().length === 0" (click)="clearQueue()">
 					Clear Queue
 				</button>
 			</div>
@@ -133,15 +133,24 @@ interface UploadQueueItem {
 	`,
 	styles: [
 		`
-			section { display: grid; gap: 0.8rem; max-width: 56rem; }
+			.admin-page { display: grid; gap: 0.8rem; max-width: 56rem; }
 			.actions { display: flex; gap: 0.6rem; }
-			.queue-table { width: 100%; border-collapse: collapse; background: #fff; }
-			.queue-table th, .queue-table td { border: 1px solid #e4e4e7; padding: 0.4rem; text-align: left; }
+			.btn-action {
+				border: 1px solid #3a3a3a;
+				background: #1a1a1a;
+				color: var(--color-text);
+				border-radius: 0.45rem;
+				padding: 0.4rem 0.65rem;
+			}
+			.btn-action:hover { background: #252525; }
+			.queue-table { width: 100%; border-collapse: collapse; background: var(--color-surface); }
+			.queue-table th, .queue-table td { border: 1px solid var(--color-border); padding: 0.4rem; text-align: left; }
+			.queue-table th { background: #1a1a1a; color: var(--color-text-muted); }
 			.mp3-inline-grid { display: grid; gap: 0.35rem; min-width: 16rem; }
 			.cover-cell { display: grid; gap: 0.35rem; }
 			.jobs-panel { display: grid; gap: 0.5rem; }
 			.jobs-panel h2 { margin: 0; font-size: 1rem; }
-			.error { color: #b81f24; }
+			.error { color: var(--color-danger); }
 		`,
 	],
 })

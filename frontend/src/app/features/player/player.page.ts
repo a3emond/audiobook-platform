@@ -118,8 +118,20 @@ import { PlayerControlsComponent } from './controls';
 	styles: [
 		`
 			.page {
+				position: relative;
 				display: grid;
 				gap: 1rem;
+				isolation: isolate;
+			}
+			.page::before {
+				content: '';
+				position: absolute;
+				inset: -2.5rem 0 auto;
+				height: min(54vw, 24rem);
+				background: url('/logo.png') center top / min(72vw, 36rem) no-repeat;
+				opacity: 0.05;
+				pointer-events: none;
+				z-index: -1;
 			}
 			.player-page {
 				max-width: 960px;
@@ -133,9 +145,10 @@ import { PlayerControlsComponent } from './controls';
 				align-items: start;
 				width: 100%;
 				padding: 1rem;
-				background: linear-gradient(140deg, #ffffff, #f8fafc);
+				background: linear-gradient(145deg, #151515, #101010 72%);
 				border: 1px solid var(--color-border);
 				border-radius: 1rem;
+				box-shadow: var(--shadow);
 			}
 			.cover-wrap {
 				position: relative;
@@ -162,7 +175,7 @@ import { PlayerControlsComponent } from './controls';
 			.cover.fallback {
 				display: grid;
 				place-items: center;
-				background: linear-gradient(135deg, #1d4ed8, #0f172a 78%);
+				background: linear-gradient(135deg, #ff8a00, #402000 78%);
 				color: #fff;
 				font-size: 1.8rem;
 				font-weight: 700;
@@ -213,8 +226,9 @@ import { PlayerControlsComponent } from './controls';
 				position: relative;
 			}
 			.btn-menu {
-				border: 1px solid #d6deeb;
-				background: #fff;
+				border: 1px solid #3a3a3a;
+				background: #1a1a1a;
+				color: var(--color-text);
 				border-radius: 999px;
 				padding: 0.45rem 0.95rem;
 				font-weight: 700;
@@ -237,7 +251,7 @@ import { PlayerControlsComponent } from './controls';
 				position: absolute;
 				right: 0;
 				top: calc(100% + 0.3rem);
-				background: #fff;
+				background: #181818;
 				border: 1px solid var(--color-border);
 				border-radius: 0.5rem;
 				box-shadow: var(--shadow-sm);
@@ -249,20 +263,21 @@ import { PlayerControlsComponent } from './controls';
 				border: none;
 				text-align: left;
 				padding: 0.55rem 0.7rem;
-				background: #fff;
+				background: #181818;
+				color: var(--color-text);
 			}
 			.menu button:hover {
-				background: #f8fafc;
+				background: #252525;
 			}
 			.btn-complete {
-				border: 1px solid rgb(15 118 110 / 0.2);
+				border: 1px solid rgb(255 138 0 / 0.3);
 				border-radius: 999px;
 				padding: 0.14rem 0.48rem;
 				font-size: 0.64rem;
 				font-weight: 700;
 				cursor: pointer;
-				background: rgb(255 255 255 / 0.84);
-				color: #0f766e;
+				background: rgb(10 10 10 / 0.72);
+				color: #ffd08a;
 				backdrop-filter: blur(2px);
 			}
 			.btn-complete.secondary {
@@ -272,9 +287,9 @@ import { PlayerControlsComponent } from './controls';
 			}
 			.completed-state {
 				margin-top: 0.95rem;
-				border: 1px solid #d8e2ee;
+				border: 1px solid #383838;
 				border-radius: 0.85rem;
-				background: linear-gradient(180deg, #fff, #f8fbff);
+				background: linear-gradient(180deg, #161616, #111111);
 				padding: 0.9rem;
 				display: grid;
 				gap: 0.45rem;
@@ -286,13 +301,13 @@ import { PlayerControlsComponent } from './controls';
 			.completed-state p {
 				margin: 0;
 				font-size: 0.88rem;
-				color: #52637a;
+				color: var(--color-text-muted);
 			}
 			.btn-restart {
 				justify-self: start;
-				border: 1px solid #a5b4fc;
-				background: #eef2ff;
-				color: #1e3a8a;
+				border: 1px solid rgb(255 138 0 / 0.45);
+				background: rgb(255 138 0 / 0.14);
+				color: #ffd08a;
 				border-radius: 999px;
 				padding: 0.38rem 0.8rem;
 				font-size: 0.82rem;
@@ -329,7 +344,7 @@ import { PlayerControlsComponent } from './controls';
 				width: auto;
 				max-width: none;
 			}
-			.error { color: #b81f24; }
+			.error { color: var(--color-danger); }
 
 			@media (max-width: 820px) {
 				.hero {

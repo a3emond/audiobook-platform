@@ -19,7 +19,7 @@ interface EditableChapter {
 	standalone: true,
 	imports: [CommonModule, FormsModule],
 	template: `
-		<section>
+		<section class="admin-page page-shell">
 			<h1>Admin Book Edit</h1>
 
 			<p *ngIf="loading()">Loading book...</p>
@@ -63,7 +63,7 @@ interface EditableChapter {
 					<textarea name="description" [(ngModel)]="descriptionDefault"></textarea>
 				</label>
 
-				<button type="submit" [disabled]="savingMetadata()">
+				<button type="submit" class="btn-action" [disabled]="savingMetadata()">
 					{{ savingMetadata() ? 'Saving...' : 'Save Metadata' }}
 				</button>
 			</form>
@@ -96,10 +96,10 @@ interface EditableChapter {
 					</tbody>
 				</table>
 
-				<button type="button" (click)="addChapterRow()">Add Chapter</button>
+				<button type="button" class="btn-action" (click)="addChapterRow()">Add Chapter</button>
 				<p *ngIf="chapterValidationError()" class="error">{{ chapterValidationError() }}</p>
 
-				<button type="submit" [disabled]="savingChapters()">
+				<button type="submit" class="btn-action" [disabled]="savingChapters()">
 					{{ savingChapters() ? 'Saving...' : 'Save Chapters' }}
 				</button>
 			</form>
@@ -109,26 +109,36 @@ interface EditableChapter {
 					<span>Replace Embedded Cover</span>
 					<input type="file" accept=".jpg,.jpeg,.png,.webp" (change)="onCoverPicked($event)" />
 				</label>
-				<button type="button" [disabled]="!selectedCoverFile()" (click)="replaceCover()">
+				<button type="button" class="btn-action" [disabled]="!selectedCoverFile()" (click)="replaceCover()">
 					Upload Cover & Repack
 				</button>
-				<button type="button" (click)="extractCover()">Extract Cover</button>
+				<button type="button" class="btn-action" (click)="extractCover()">Extract Cover</button>
 				<button type="button" class="danger" (click)="deleteBook()">Delete Book</button>
 			</div>
 		</section>
 	`,
 	styles: [
 		`
+			.admin-page { display: grid; gap: 0.9rem; }
 			.grid { display: grid; gap: 0.6rem; max-width: 42rem; margin-bottom: 1.2rem; }
 			label { display: grid; gap: 0.3rem; }
 			textarea, input { padding: 0.5rem; }
-			.chapters-table { width: 100%; border-collapse: collapse; background: #fff; }
-			.chapters-table th, .chapters-table td { border: 1px solid #e4e4e7; padding: 0.4rem; text-align: left; }
+			.btn-action {
+				border: 1px solid #3a3a3a;
+				background: #1a1a1a;
+				color: var(--color-text);
+				border-radius: 0.45rem;
+				padding: 0.4rem 0.65rem;
+			}
+			.btn-action:hover { background: #252525; }
+			.chapters-table { width: 100%; border-collapse: collapse; background: var(--color-surface); }
+			.chapters-table th, .chapters-table td { border: 1px solid var(--color-border); padding: 0.4rem; text-align: left; }
+			.chapters-table th { background: #1a1a1a; color: var(--color-text-muted); }
 			.actions { display: flex; gap: 0.6rem; }
 			.cover-upload { display: grid; gap: 0.25rem; }
 			.danger { background: #b81f24; color: #fff; border: 1px solid #b81f24; }
-			.error { color: #b81f24; }
-			.success { color: #166534; }
+			.error { color: var(--color-danger); }
+			.success { color: var(--color-success); }
 		`,
 	],
 })

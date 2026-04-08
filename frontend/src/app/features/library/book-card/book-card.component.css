@@ -1,6 +1,7 @@
 .book-card {
   padding: 0.5rem;
-  background: linear-gradient(180deg, #fff, #fbfdff);
+  background: linear-gradient(180deg, #151515, #111111);
+  border: 1px solid #2c2c2c;
 }
 
 .cover-trigger {
@@ -45,8 +46,9 @@
   width: 2rem;
   height: 2rem;
   border-radius: 999px;
-  border: 1px solid #d5deea;
-  background: #fff;
+  border: 1px solid #3b3b3b;
+  background: #151515;
+  color: var(--color-text);
   font-size: 1.15rem;
   cursor: pointer;
 }
@@ -69,7 +71,7 @@
 
 .author {
   margin: 0.35rem 0 0.7rem;
-  color: #334155;
+  color: var(--color-text-muted);
 }
 
 .meta-grid {
@@ -80,12 +82,12 @@
 .meta-grid p {
   margin: 0;
   font-size: 0.88rem;
-  color: #3b4f67;
+  color: var(--color-text-muted);
 }
 
 .description {
   margin: 0.85rem 0;
-  color: #334155;
+  color: var(--color-text);
   line-height: 1.45;
 }
 
@@ -110,9 +112,9 @@
 }
 
 .open-series {
-  background: #eef6ff;
-  color: #0b3a66;
-  border: 1px solid #b8d2ef;
+  background: #1a1a1a;
+  color: #ffe6be;
+  border: 1px solid #3a3a3a;
 }
 
 @media (max-width: 780px) {
