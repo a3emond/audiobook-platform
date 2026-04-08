@@ -13,6 +13,8 @@ Use this section as the single source of truth for project documentation. Any ne
 - [Architecture Build Specification](docs/platform/architecture-build-specification.md)
 - [API Worker Integration Guide](docs/platform/api-worker-integration.md)
 - [API Functionality Coverage Audit](docs/platform/api-functionality-coverage.md)
+- [Frontend Client Integration Guideline](docs/platform/frontend-client-integration-guideline.md)
+- [Frontend Client Certification Checklist](docs/platform/frontend-client-certification-checklist.md)
 
 ### API
 
