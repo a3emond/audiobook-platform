@@ -222,6 +222,10 @@ export class AuthService {
     auth = await AuthModel.findOne({ email });
 
     if (auth) {
+      if (!Array.isArray(auth.providers)) {
+        auth.set("providers", []);
+      }
+
       const alreadyLinked = auth.providers.some(
         (provider) =>
           provider.type === profile.provider &&
@@ -290,6 +294,10 @@ export class AuthService {
       const linkedAuth = await AuthModel.findOne({ userId: existingUser._id });
       if (!linkedAuth) {
         throw new ApiError(500, "oauth_linking_failed");
+      }
+
+      if (!Array.isArray(linkedAuth.providers)) {
+        linkedAuth.set("providers", []);
       }
 
       const alreadyLinked = linkedAuth.providers.some(
