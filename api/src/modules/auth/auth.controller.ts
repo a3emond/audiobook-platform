@@ -40,7 +40,7 @@ export class AuthController {
       email,
       password,
       displayName,
-      this.resolvePreferredLocale(preferredLocale, req.headers["accept-language"]),
+      AuthController.resolvePreferredLocale(preferredLocale, req.headers["accept-language"]),
     );
 
     res.status(201).json(result);
@@ -85,7 +85,7 @@ export class AuthController {
     const profile = await OAuthService.verifyGoogle(idToken);
     const result = await AuthService.loginWithOAuth(
       profile,
-      this.resolvePreferredLocale(undefined, req.headers["accept-language"]),
+      AuthController.resolvePreferredLocale(undefined, req.headers["accept-language"]),
     );
 
     res.status(200).json(result);
@@ -100,7 +100,7 @@ export class AuthController {
     const profile = await OAuthService.verifyApple(idToken);
     const result = await AuthService.loginWithOAuth(
       profile,
-      this.resolvePreferredLocale(undefined, req.headers["accept-language"]),
+      AuthController.resolvePreferredLocale(undefined, req.headers["accept-language"]),
     );
 
     res.status(200).json(result);
