@@ -1,5 +1,5 @@
 <article class="book-card card">
-  <button type="button" class="cover-trigger" (click)="openDetails()" [attr.aria-label]="i18n.t('book.openDetails', 'Open details for {title}', { title: book.title })">
+  <button type="button" class="cover-trigger" (click)="openDetails()" [attr.aria-label]="i18n.t('book.openDetails', { title: book.title })">
     <app-cover-tile [imageUrl]="coverUrl()" [fallback]="coverInitials()" [alt]="book.title + ' cover'" [completed]="isCompleted()" />
   </button>
 </article>
@@ -7,7 +7,7 @@
 @if (detailOpen()) {
   <div class="book-modal-backdrop" (click)="closeDetails()">
     <section class="book-modal card" (click)="$event.stopPropagation()">
-      <button type="button" class="close-btn" (click)="closeDetails()" [attr.aria-label]="i18n.t('common.closeDetails', 'Close details')">×</button>
+      <button type="button" class="close-btn" (click)="closeDetails()" [attr.aria-label]="i18n.t('common.closeDetails')">×</button>
 
       <div class="modal-hero">
         <div class="modal-cover">
@@ -19,10 +19,10 @@
           <p class="author">{{ book.author }}</p>
 
           <div class="meta-grid">
-            <p><strong>{{ i18n.t('book.duration', 'Duration:') }}</strong> {{ formatDuration(book.duration) }}</p>
+            <p><strong>{{ i18n.t('book.duration') }}</strong> {{ formatDuration(book.duration) }}</p>
             @if (book.series) {
               <p>
-                <strong>{{ i18n.t('book.series', 'Series:') }}</strong>
+                <strong>{{ i18n.t('book.series') }}</strong>
                 {{ book.series }}
                 @if (book.seriesIndex) {
                   <span>#{{ book.seriesIndex }}</span>
@@ -30,19 +30,19 @@
               </p>
             }
             @if (book.genre) {
-              <p><strong>{{ i18n.t('book.genre', 'Genre:') }}</strong> {{ book.genre }}</p>
+              <p><strong>{{ i18n.t('book.genre') }}</strong> {{ book.genre }}</p>
             }
             @if (book.tags && book.tags.length > 0) {
-              <p><strong>{{ i18n.t('book.tags', 'Tags:') }}</strong> {{ book.tags.join(', ') }}</p>
+              <p><strong>{{ i18n.t('book.tags') }}</strong> {{ book.tags.join(', ') }}</p>
             }
           </div>
 
           <p class="description">{{ descriptionText() }}</p>
 
           <div class="actions">
-            <a class="play" [routerLink]="['/player', book.id]" (click)="closeDetails()">{{ i18n.t('common.play', 'Play') }}</a>
+            <a class="play" [routerLink]="['/player', book.id]" (click)="closeDetails()">{{ i18n.t('common.play') }}</a>
             @if (book.series) {
-              <a class="open-series" [routerLink]="['/series', book.series]" (click)="closeDetails()">{{ i18n.t('series.open', 'Open series') }}</a>
+              <a class="open-series" [routerLink]="['/series', book.series]" (click)="closeDetails()">{{ i18n.t('series.open') }}</a>
             }
           </div>
         </div>

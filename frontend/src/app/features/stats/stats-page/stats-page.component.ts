@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 
+import { I18nService } from '../../../core/services/i18n.service';
 import { StatsService, UserStatsResponse } from '../../../core/services/stats.service';
 
 @Component({
@@ -13,6 +14,7 @@ import { StatsService, UserStatsResponse } from '../../../core/services/stats.se
 export class StatsPageComponent implements OnInit {
   readonly stats = signal<UserStatsResponse | null>(null);
   private readonly statsService = inject(StatsService);
+  protected readonly i18n = inject(I18nService);
 
   ngOnInit(): void {
     this.statsService.getMine().subscribe({

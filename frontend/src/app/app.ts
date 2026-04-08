@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, HostListener, OnDestroy, effect, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { Subscription } from 'rxjs';
 
 import type { Book, Progress } from './core/models/api.models';
@@ -8,6 +9,7 @@ import { AuthService } from './core/services/auth.service';
 import { CompletedBooksService } from './core/services/completed-books.service';
 import { LibraryService } from './core/services/library.service';
 import { ProgressService } from './core/services/progress.service';
+import { SettingsService } from './core/services/settings.service';
 import { I18nService } from './core/services/i18n.service';
 import { RealtimeService } from './core/services/realtime.service';
 
@@ -41,6 +43,7 @@ export class App implements OnDestroy {
     private readonly progressService: ProgressService,
     private readonly libraryService: LibraryService,
     private readonly completedBooks: CompletedBooksService,
+    private readonly settingsService: SettingsService,
     protected readonly i18n: I18nService,
     private readonly realtime: RealtimeService,
   ) {
@@ -70,8 +73,8 @@ export class App implements OnDestroy {
     this.realtimeSub = this.realtime
       .on<{ book?: { title?: string } }>('catalog.book.added')
       .subscribe((payload) => {
-        const title = payload.book?.title || this.i18n.t('common.unknownTitle', 'Unknown title');
-        this.pushNotification(`${this.i18n.t('toast.newBook', 'New book added')}: ${title}`);
+        const title = payload.book?.title || this.i18n.t('common.unknownTitle');
+        this.pushNotification(`${this.i18n.t('toast.newBook')}: ${title}`);
       });
   }
 
@@ -113,8 +116,8 @@ export class App implements OnDestroy {
     await this.router.navigateByUrl('/login');
   }
 
-  t(key: string, fallback: string): string {
-    return this.i18n.t(key, fallback);
+  t(key: string): string {
+    return this.i18n.t(key);
   }
 
   discussionsLink(): string[] {
@@ -127,6 +130,26 @@ export class App implements OnDestroy {
     }
 
     await this.i18n.setLocale(locale);
+
+    if (!this.auth.isAuthenticated()) {
+      return;
+    }
+
+    try {
+      await Promise.all([
+        firstValueFrom(this.settingsService.updateMyProfile({
+          profile: {
+            preferredLocale: locale,
+          },
+        })),
+        firstValueFrom(this.settingsService.updateMine({ locale })),
+      ]);
+
+      await this.auth.reloadCurrentUser();
+      this.loadInProgressBooks();
+    } catch {
+      // Keep the local choice even if persistence fails.
+    }
   }
 
   coverUrl(book: Book): string {

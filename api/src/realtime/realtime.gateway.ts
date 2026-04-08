@@ -22,7 +22,43 @@ export class RealtimeGateway {
       path: "/ws",
     });
 
-    this.wss.on("connection", (socket) => {
+    this.wss.on("error", (error) => {
+      logger.error("Realtime websocket server error", {
+        name: error.name,
+        message: error.message,
+      });
+    });
+
+    this.wss.on("close", () => {
+      logger.warn("Realtime websocket server closed");
+    });
+
+    this.wss.on("connection", (socket, request) => {
+      const clientInfo = {
+        ip: request.socket.remoteAddress,
+        path: request.url,
+        userAgent: request.headers["user-agent"] ?? null,
+      };
+
+      logger.info("Realtime websocket client connected", clientInfo);
+
+      socket.on("close", (code, reasonBuffer) => {
+        const reason = reasonBuffer.toString("utf8").trim();
+        logger.info("Realtime websocket client disconnected", {
+          ...clientInfo,
+          code,
+          reason: reason || null,
+        });
+      });
+
+      socket.on("error", (error) => {
+        logger.warn("Realtime websocket client error", {
+          ...clientInfo,
+          name: error.name,
+          message: error.message,
+        });
+      });
+
       this.send(socket, {
         type: "system.connected",
         ts: new Date().toISOString(),
@@ -124,18 +160,32 @@ export class RealtimeGateway {
       return;
     }
 
-    const raw = JSON.stringify(event);
-    for (const client of this.wss.clients) {
-      this.send(client, raw);
+    if (this.wss.clients.size === 0) {
+      return;
     }
+
+    const raw = JSON.stringify(event);
+    let delivered = 0;
+    for (const client of this.wss.clients) {
+      if (this.send(client, raw)) {
+        delivered += 1;
+      }
+    }
+
+    logger.debug("Realtime event broadcast", {
+      type: event.type,
+      delivered,
+      connectedClients: this.wss.clients.size,
+    });
   }
 
-  private send(socket: WebSocket, payload: RealtimeEventEnvelope | string): void {
+  private send(socket: WebSocket, payload: RealtimeEventEnvelope | string): boolean {
     if (socket.readyState !== socket.OPEN) {
-      return;
+      return false;
     }
 
     const raw = typeof payload === "string" ? payload : JSON.stringify(payload);
     socket.send(raw);
+    return true;
   }
 }

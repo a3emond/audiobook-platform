@@ -48,7 +48,7 @@ export class BookCardComponent {
 
   formatDuration(seconds: number): string {
     if (!Number.isFinite(seconds) || seconds <= 0) {
-      return this.i18n.t('book.duration.unknown', 'Unknown duration');
+      return this.i18n.t('book.duration.unknown');
     }
 
     const hours = Math.floor(seconds / 3600);
@@ -79,6 +79,6 @@ export class BookCardComponent {
       ? this.book.description?.fr ?? this.book.description?.default ?? this.book.description?.en
       : this.book.description?.en ?? this.book.description?.default ?? this.book.description?.fr;
 
-    return localized ?? this.i18n.t('book.description.empty', 'No description available.');
+    return localized ?? this.i18n.t('book.description.empty');
   }
 }

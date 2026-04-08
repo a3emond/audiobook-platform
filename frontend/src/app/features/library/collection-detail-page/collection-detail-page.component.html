@@ -1,22 +1,22 @@
 <section class="detail-page page-shell">
-  <a routerLink="/library" class="back">← {{ 'library.back' | t:'Back to library' }}</a>
+  <a routerLink="/library" class="back">← {{ 'library.back' | t }}</a>
 
   @if (collection(); as c) {
     <header class="hero">
       <h1>{{ c.name }}</h1>
-      <p>{{ 'collections.count' | t:'{count} books': { count: books().length } }}</p>
+      <p>{{ 'collections.count' | t:{ count: books().length } }}</p>
       @if (!isAutoCollection()) {
         <div class="actions">
-          <button type="button" class="btn btn-secondary" (click)="openBooksEditor()">{{ 'collections.editBooks' | t:'Edit books' }}</button>
-          <button type="button" class="btn btn-secondary" (click)="renameCollection()">{{ 'common.rename' | t:'Rename' }}</button>
-          <button type="button" class="btn btn-danger" (click)="deleteCollection()">{{ 'common.delete' | t:'Delete' }}</button>
+          <button type="button" class="btn btn-secondary" (click)="openBooksEditor()">{{ 'collections.editBooks' | t }}</button>
+          <button type="button" class="btn btn-secondary" (click)="renameCollection()">{{ 'common.rename' | t }}</button>
+          <button type="button" class="btn btn-danger" (click)="deleteCollection()">{{ 'common.delete' | t }}</button>
         </div>
       }
     </header>
   }
 
   @if (loading()) {
-    <p class="text-muted">{{ 'collections.loading' | t:'Loading collection…' }}</p>
+    <p class="text-muted">{{ 'collections.loading' | t }}</p>
   }
 
   @if (error()) {
@@ -32,20 +32,20 @@
   }
 
   @if (!loading() && !error() && books().length === 0) {
-    <p class="text-muted">{{ 'collections.empty' | t:'This collection is empty.' }}</p>
+    <p class="text-muted">{{ 'collections.empty' | t }}</p>
   }
 
   @if (editingBooks() && !isAutoCollection()) {
     <section class="editor card">
-      <h3>{{ 'collections.manageBooks' | t:'Manage collection books' }}</h3>
+      <h3>{{ 'collections.manageBooks' | t }}</h3>
 
       <label>
-        <span>{{ 'collections.filterBooks' | t:'Filter books' }}</span>
+        <span>{{ 'collections.filterBooks' | t }}</span>
         <input
           name="collectionBookSearch"
           [(ngModel)]="editorFilter"
           (ngModelChange)="onEditorFilterChange()"
-          [placeholder]="'collections.filterPlaceholder' | t:'Type title or author'"
+          [placeholder]="'collections.filterPlaceholder' | t"
         />
       </label>
 
@@ -63,8 +63,8 @@
       </div>
 
       <div class="editor-actions">
-        <button type="button" class="btn" (click)="saveBooksEditor()">{{ 'common.save' | t:'Save' }}</button>
-        <button type="button" class="btn btn-secondary" (click)="closeBooksEditor()">{{ 'common.cancel' | t:'Cancel' }}</button>
+        <button type="button" class="btn" (click)="saveBooksEditor()">{{ 'common.save' | t }}</button>
+        <button type="button" class="btn btn-secondary" (click)="closeBooksEditor()">{{ 'common.cancel' | t }}</button>
       </div>
     </section>
   }

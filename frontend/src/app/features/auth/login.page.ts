@@ -19,7 +19,7 @@ import { OAuthButtonsComponent } from './oauth-buttons';
           <img src="/logo_small.png" alt="StoryWave logo" class="auth-logo" />
           <span>StoryWave</span>
         </div>
-        <h1 class="auth-title">{{ 'auth.login.title' | t:'Sign in' }}</h1>
+        <h1 class="auth-title">{{ 'auth.login.title' | t }}</h1>
 
         <app-oauth-buttons
           [googleEnabled]="config.googleEnabled"
@@ -30,50 +30,50 @@ import { OAuthButtonsComponent } from './oauth-buttons';
         />
 
         <div class="divider" *ngIf="config.googleEnabled || config.appleEnabled">
-          <span>{{ 'auth.divider.email' | t:'or continue with email' }}</span>
+          <span>{{ 'auth.divider.email' | t }}</span>
         </div>
 
         <form (ngSubmit)="submit()" class="form" novalidate>
           <label>
-            {{ 'auth.email.label' | t:'Email' }}
+            {{ 'auth.email.label' | t }}
             <input
               name="email"
               [(ngModel)]="email"
               type="email"
               required
               autocomplete="email"
-              [placeholder]="'auth.email.placeholder' | t:'you@example.com'"
+              [placeholder]="'auth.email.placeholder' | t"
             />
           </label>
 
           <label>
-            {{ 'auth.password.label' | t:'Password' }}
+            {{ 'auth.password.label' | t }}
             <input
               name="password"
               [(ngModel)]="password"
               type="password"
               required
               autocomplete="current-password"
-              [placeholder]="'auth.password.currentPlaceholder' | t:'Your password'"
+              [placeholder]="'auth.password.currentPlaceholder' | t"
             />
           </label>
 
           <p *ngIf="error()" class="text-error">{{ error() }}</p>
 
           <button class="btn submit-btn" type="submit" [disabled]="loading()">
-            {{ loading() ? ('auth.login.loading' | t:'Signing in…') : ('auth.login.title' | t:'Sign in') }}
+            {{ loading() ? ('auth.login.loading' | t) : ('auth.login.title' | t) }}
           </button>
         </form>
 
         <p class="footer-link">
-          {{ 'auth.login.noAccount' | t:'Don\'t have an account?' }} <a routerLink="/register">{{ 'auth.login.createOne' | t:'Create one' }}</a>
+          {{ 'auth.login.noAccount' | t }} <a routerLink="/register">{{ 'auth.login.createOne' | t }}</a>
         </p>
 
         <p class="legal-link">
-          {{ 'auth.legal.prefix' | t:'By continuing, you agree to our' }}
-          <a routerLink="/terms">{{ 'legal.terms.title' | t:'Terms' }}</a>
-          {{ 'auth.legal.and' | t:'and' }}
-          <a routerLink="/privacy">{{ 'legal.privacy.title' | t:'Privacy Policy' }}</a>.
+          {{ 'auth.legal.prefix' | t }}
+          <a routerLink="/terms">{{ 'legal.terms.title' | t }}</a>
+          {{ 'auth.legal.and' | t }}
+          <a routerLink="/privacy">{{ 'legal.privacy.title' | t }}</a>.
         </p>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, QueryList, ViewChildren, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, QueryList, ViewChildren, effect, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
@@ -66,7 +66,18 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
     private readonly auth: AuthService,
     private readonly settingsService: SettingsService,
     private readonly progressService: ProgressService,
-  ) {}
+  ) {
+    let initialized = false;
+    effect(() => {
+      this.i18n.locale();
+      if (!initialized) {
+        initialized = true;
+        return;
+      }
+
+      this.reload();
+    });
+  }
 
   ngOnInit(): void {
     this.reload();
@@ -147,19 +158,19 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
                 this.loadCollections();
               },
               error: (error: unknown) => {
-                this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.seriesRows', 'Unable to load series rows'));
+                this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.seriesRows'));
                 this.loading.set(false);
               },
             });
           },
           error: (error: unknown) => {
-            this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.series', 'Unable to load series'));
+            this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.series'));
             this.loading.set(false);
           },
         });
       },
       error: (error: unknown) => {
-        this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.load', 'Unable to load library'));
+        this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.load'));
         this.loading.set(false);
       },
     });
@@ -170,7 +181,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
       next: (response) => {
         const autoCollection: Collection = {
           id: AUTO_ACTIVITY_COLLECTION_ID,
-          name: this.i18n.t('library.activityCollection', 'Listening Activity'),
+          name: this.i18n.t('library.activityCollection'),
           bookIds: this.listenedBookIds(),
           updatedAt: new Date().toISOString(),
         };
@@ -189,7 +200,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.scheduleRailSync();
       },
       error: (error: unknown) => {
-        this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.collections', 'Unable to load collections'));
+        this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.collections'));
         this.loading.set(false);
       },
     });
@@ -209,7 +220,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   createCollection(): void {
     const name = this.collectionName.trim();
     if (!name) {
-      this.collectionModalError.set(this.i18n.t('collections.nameRequired', 'Collection name is required.'));
+      this.collectionModalError.set(this.i18n.t('collections.nameRequired'));
       return;
     }
 
@@ -219,7 +230,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.reload();
       },
       error: (error: unknown) => {
-        this.collectionModalError.set(error instanceof Error ? error.message : this.i18n.t('collections.createError', 'Unable to create collection'));
+        this.collectionModalError.set(error instanceof Error ? error.message : this.i18n.t('collections.createError'));
       },
     });
   }

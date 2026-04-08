@@ -5,7 +5,7 @@
       <button
         class="hamburger"
         type="button"
-        [attr.aria-label]="t('app.nav.toggle', 'Toggle navigation')"
+        [attr.aria-label]="t('app.nav.toggle')"
         [attr.aria-expanded]="mobileNavOpen()"
         (click)="toggleMobileNav()"
       >
@@ -14,40 +14,40 @@
         <span [class.open]="mobileNavOpen()"></span>
       </button>
       <a routerLink="/library" class="brand" (click)="closeMobileNav()">
-        <img src="/logo_small.png" [alt]="t('app.brand.logoAlt', 'StoryWave logo')" class="brand-logo" />
+        <img src="/logo_small.png" [alt]="t('app.brand.logoAlt')" class="brand-logo" />
         <span>StoryWave</span>
       </a>
     </div>
 
     <nav class="nav" [class.open]="mobileNavOpen()" *ngIf="auth.isAuthenticated()">
-      <a routerLink="/library"  routerLinkActive="active" (click)="closeMobileNav()">{{ t('nav.library', 'Library') }}</a>
-      <a [routerLink]="['/collections', 'auto:listened']" routerLinkActive="active" (click)="closeMobileNav()">{{ t('nav.activity', 'Activity') }}</a>
-      <a [routerLink]="discussionsLink()" routerLinkActive="active" (click)="closeMobileNav()">{{ t('nav.discussions', 'Discussions') }}</a>
-      <a routerLink="/profile"  routerLinkActive="active" (click)="closeMobileNav()">{{ t('nav.profile', 'Profile') }}</a>
+      <a routerLink="/library"  routerLinkActive="active" (click)="closeMobileNav()">{{ t('nav.library') }}</a>
+      <a [routerLink]="['/collections', 'auto:listened']" routerLinkActive="active" (click)="closeMobileNav()">{{ t('nav.activity') }}</a>
+      <a [routerLink]="discussionsLink()" routerLinkActive="active" (click)="closeMobileNav()">{{ t('nav.discussions') }}</a>
+      <a routerLink="/profile"  routerLinkActive="active" (click)="closeMobileNav()">{{ t('nav.profile') }}</a>
 
       <div class="dropdown" *ngIf="auth.isAdmin()">
         <button type="button" class="dropdown-trigger" [class.has-active]="isAdminRouteActive()" (click)="toggleAdminMenu($event)">
-          {{ t('nav.admin', 'Admin') }} <span class="caret" [class.open]="adminMenuOpen()">▾</span>
+          {{ t('nav.admin') }} <span class="caret" [class.open]="adminMenuOpen()">▾</span>
         </button>
         <div class="dropdown-panel" [class.open]="adminMenuOpen()">
-          <a routerLink="/admin/overview" routerLinkActive="active" (click)="closeAdminMenu(); closeMobileNav()">{{ t('admin.overview.title', 'Overview') }}</a>
-          <a routerLink="/admin/books"    routerLinkActive="active" (click)="closeAdminMenu(); closeMobileNav()">{{ t('admin.books.title', 'Books') }}</a>
-          <a routerLink="/admin/users"    routerLinkActive="active" (click)="closeAdminMenu(); closeMobileNav()">{{ t('admin.users.title', 'Users') }}</a>
-          <a routerLink="/admin/upload"   routerLinkActive="active" (click)="closeAdminMenu(); closeMobileNav()">{{ t('admin.upload.title', 'Upload') }}</a>
-          <a routerLink="/admin/jobs"     routerLinkActive="active" (click)="closeAdminMenu(); closeMobileNav()">{{ t('admin.jobs.title', 'Jobs') }}</a>
+          <a routerLink="/admin/overview" routerLinkActive="active" (click)="closeAdminMenu(); closeMobileNav()">{{ t('admin.overview.title') }}</a>
+          <a routerLink="/admin/books"    routerLinkActive="active" (click)="closeAdminMenu(); closeMobileNav()">{{ t('admin.books.title') }}</a>
+          <a routerLink="/admin/users"    routerLinkActive="active" (click)="closeAdminMenu(); closeMobileNav()">{{ t('admin.users.title') }}</a>
+          <a routerLink="/admin/upload"   routerLinkActive="active" (click)="closeAdminMenu(); closeMobileNav()">{{ t('admin.upload.title') }}</a>
+          <a routerLink="/admin/jobs"     routerLinkActive="active" (click)="closeAdminMenu(); closeMobileNav()">{{ t('admin.jobs.title') }}</a>
         </div>
       </div>
     </nav>
 
     <div class="topbar-end">
-      <div class="locale-toggle" role="group" [attr.aria-label]="t('nav.language', 'Language')">
+      <div class="locale-toggle" role="group" [attr.aria-label]="t('nav.language')">
         <button
           type="button"
           [class.active]="i18n.locale() === 'en'"
           [attr.aria-pressed]="i18n.locale() === 'en'"
           (click)="switchLocale('en')"
         >
-          {{ t('nav.lang.en', 'EN') }}
+          {{ t('nav.lang.en') }}
         </button>
         <button
           type="button"
@@ -55,34 +55,34 @@
           [attr.aria-pressed]="i18n.locale() === 'fr'"
           (click)="switchLocale('fr')"
         >
-          {{ t('nav.lang.fr', 'FR') }}
+          {{ t('nav.lang.fr') }}
         </button>
       </div>
       <span class="username" *ngIf="auth.user() as u">{{ u.profile.displayName || u.email }}</span>
-      <button *ngIf="auth.isAuthenticated()" (click)="logout()" class="btn-signout">{{ t('auth.logout', 'Sign out') }}</button>
+      <button *ngIf="auth.isAuthenticated()" (click)="logout()" class="btn-signout">{{ t('auth.logout') }}</button>
       <ng-container *ngIf="!auth.isAuthenticated()">
-        <a routerLink="/login"    class="btn-signout">{{ t('auth.login.title', 'Sign in') }}</a>
-        <a routerLink="/register" class="btn-signin">{{ t('auth.register.title', 'Register') }}</a>
+        <a routerLink="/login"    class="btn-signout">{{ t('auth.login.title') }}</a>
+        <a routerLink="/register" class="btn-signin">{{ t('auth.register.title') }}</a>
       </ng-container>
     </div>
   </header>
 
   @if (auth.isAuthenticated() && inProgressBooks().length > 0) {
-    <section class="progress-strip" [attr.aria-label]="t('app.continueListening', 'Continue listening')">
+    <section class="progress-strip" [attr.aria-label]="t('app.continueListening')">
       <div class="progress-strip-inner">
-        <div class="strip-title">{{ t('app.continueListening', 'Continue listening') }}</div>
+        <div class="strip-title">{{ t('app.continueListening') }}</div>
         <div class="progress-rail" role="list">
           @for (item of inProgressBooks(); track item.book.id) {
             <a class="progress-item" [routerLink]="['/player', item.book.id]" [attr.aria-label]="item.book.title" role="listitem">
               @if (coverUrl(item.book)) {
-                <img [src]="coverUrl(item.book)" [alt]="item.book.title + ' ' + t('common.cover', 'cover')" />
+                <img [src]="coverUrl(item.book)" [alt]="item.book.title + ' ' + t('common.cover')" />
               } @else {
                 <div class="progress-fallback">{{ coverInitials(item.book) }}</div>
               }
               @if (isBookCompleted(item.book.id)) {
                 <div class="progress-completed-overlay">
                   <span class="check">✓</span>
-                  <span>{{ t('common.completed', 'Completed') }}</span>
+                  <span>{{ t('common.completed') }}</span>
                 </div>
               }
               <div class="progress-title">{{ item.book.title }}</div>

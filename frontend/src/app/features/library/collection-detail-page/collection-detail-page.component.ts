@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
@@ -42,10 +42,26 @@ export class CollectionDetailPageComponent implements OnInit {
   private collectionId = '';
   private editorFilterTimeout?: ReturnType<typeof setTimeout>;
 
+  constructor() {
+    effect(() => {
+      this.i18n.locale();
+      if (!this.collectionId) {
+        return;
+      }
+
+      if (this.isAutoCollection()) {
+        this.refreshAutoCollection();
+        return;
+      }
+
+      this.refreshCollectionAndBooks(true);
+    });
+  }
+
   ngOnInit(): void {
     const collectionId = this.route.snapshot.paramMap.get('collectionId');
     if (!collectionId) {
-      this.error.set(this.i18n.t('collections.error.missingId', 'Missing collection id'));
+      this.error.set(this.i18n.t('collections.error.missingId'));
       return;
     }
 
@@ -67,7 +83,7 @@ export class CollectionDetailPageComponent implements OnInit {
       return;
     }
 
-    const nextName = prompt(this.i18n.t('collections.renamePrompt', 'Rename collection'), collection.name)?.trim();
+    const nextName = prompt(this.i18n.t('collections.renamePrompt'), collection.name)?.trim();
     if (!nextName || nextName === collection.name) {
       return;
     }
@@ -77,7 +93,7 @@ export class CollectionDetailPageComponent implements OnInit {
         this.collection.set(updated);
       },
       error: (error: unknown) => {
-        this.error.set(error instanceof Error ? error.message : this.i18n.t('collections.renameError', 'Unable to rename collection'));
+        this.error.set(error instanceof Error ? error.message : this.i18n.t('collections.renameError'));
       },
     });
   }
@@ -88,7 +104,7 @@ export class CollectionDetailPageComponent implements OnInit {
       return;
     }
 
-    const confirmed = confirm(this.i18n.t('collections.deleteConfirm', 'Delete collection "{name}"?', { name: collection.name }));
+    const confirmed = confirm(this.i18n.t('collections.deleteConfirm', { name: collection.name }));
     if (!confirmed) {
       return;
     }
@@ -98,7 +114,7 @@ export class CollectionDetailPageComponent implements OnInit {
         void this.router.navigateByUrl('/library');
       },
       error: (error: unknown) => {
-        this.error.set(error instanceof Error ? error.message : this.i18n.t('collections.deleteError', 'Unable to delete collection'));
+        this.error.set(error instanceof Error ? error.message : this.i18n.t('collections.deleteError'));
       },
     });
   }
@@ -167,7 +183,7 @@ export class CollectionDetailPageComponent implements OnInit {
         this.closeBooksEditor();
       },
       error: (error: unknown) => {
-        this.error.set(error instanceof Error ? error.message : this.i18n.t('collections.updateBooksError', 'Unable to update collection books'));
+        this.error.set(error instanceof Error ? error.message : this.i18n.t('collections.updateBooksError'));
       },
     });
   }
@@ -198,7 +214,7 @@ export class CollectionDetailPageComponent implements OnInit {
 
         this.collection.set({
           id: AUTO_ACTIVITY_COLLECTION_ID,
-          name: this.i18n.t('library.activityCollection', 'Listening Activity'),
+          name: this.i18n.t('library.activityCollection'),
           bookIds: orderedBooks.map((book) => book.id),
           updatedAt: new Date().toISOString(),
         });
@@ -207,7 +223,7 @@ export class CollectionDetailPageComponent implements OnInit {
         this.loading.set(false);
       },
       error: (error: unknown) => {
-        this.error.set(error instanceof Error ? error.message : this.i18n.t('collections.error.activity', 'Unable to load listening activity'));
+        this.error.set(error instanceof Error ? error.message : this.i18n.t('collections.error.activity'));
         this.loading.set(false);
       },
     });
@@ -230,7 +246,7 @@ export class CollectionDetailPageComponent implements OnInit {
               this.loading.set(false);
             },
             error: (error: unknown) => {
-                this.error.set(error instanceof Error ? error.message : this.i18n.t('collections.error.books', 'Unable to load collection books'));
+                this.error.set(error instanceof Error ? error.message : this.i18n.t('collections.error.books'));
               this.loading.set(false);
             },
           });
@@ -241,7 +257,7 @@ export class CollectionDetailPageComponent implements OnInit {
         this.loading.set(false);
       },
       error: (error: unknown) => {
-        this.error.set(error instanceof Error ? error.message : this.i18n.t('collections.error.load', 'Unable to load collection'));
+        this.error.set(error instanceof Error ? error.message : this.i18n.t('collections.error.load'));
         this.loading.set(false);
       },
     });

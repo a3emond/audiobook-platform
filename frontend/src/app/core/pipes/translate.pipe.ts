@@ -12,9 +12,9 @@ export class TranslatePipe implements PipeTransform {
 
   transform(
     key: string,
-    fallback: string,
-    params?: Record<string, string | number | boolean | null | undefined>,
+    fallbackOrParams?: string | Record<string, string | number | boolean | null | undefined>,
+    paramsMaybe?: Record<string, string | number | boolean | null | undefined>,
   ): string {
-    return this.i18n.t(key, fallback, params);
+    return this.i18n.t(key, fallbackOrParams, paramsMaybe);
   }
 }

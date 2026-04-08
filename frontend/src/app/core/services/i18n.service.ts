@@ -25,9 +25,13 @@ export class I18nService {
 
 	t(
 		key: string,
-		fallback: string,
-		params?: Record<string, string | number | boolean | null | undefined>,
+		fallbackOrParams?: string | Record<string, string | number | boolean | null | undefined>,
+		paramsMaybe?: Record<string, string | number | boolean | null | undefined>,
 	): string {
+		const fallback = typeof fallbackOrParams === 'string' ? fallbackOrParams : key;
+		const params =
+			typeof fallbackOrParams === 'string' ? paramsMaybe : fallbackOrParams;
+
 		const template = this.messagesState()[key] || fallback;
 		return this.interpolate(template, params);
 	}

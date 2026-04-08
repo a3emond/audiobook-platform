@@ -20,13 +20,13 @@ import { RealtimeService } from '../../core/services/realtime.service';
   template: `
     <section class="page-shell discussions-page">
       <header class="head">
-        <h1>{{ i18n.t('discussions.title', 'Discussions') }}</h1>
+        <h1>{{ i18n.t('discussions.title') }}</h1>
         <div class="lang-toggle">
           <button type="button" [class.active]="lang() === 'en'" (click)="switchLang('en')">
-            {{ i18n.t('discussions.lang.en', 'English') }}
+            {{ i18n.t('discussions.lang.en') }}
           </button>
           <button type="button" [class.active]="lang() === 'fr'" (click)="switchLang('fr')">
-            {{ i18n.t('discussions.lang.fr', 'French') }}
+            {{ i18n.t('discussions.lang.fr') }}
           </button>
         </div>
       </header>
@@ -55,7 +55,7 @@ import { RealtimeService } from '../../core/services/realtime.service';
             </article>
 
             <p class="empty" *ngIf="messages().length === 0">
-              {{ i18n.t('discussions.noMessages', 'No messages yet. Start the conversation.') }}
+              {{ i18n.t('discussions.noMessages') }}
             </p>
           </div>
 
@@ -64,11 +64,11 @@ import { RealtimeService } from '../../core/services/realtime.service';
               type="text"
               name="message"
               [(ngModel)]="draft"
-              [placeholder]="i18n.t('discussions.placeholder', 'Write a message')"
+              [placeholder]="i18n.t('discussions.placeholder')"
               autocomplete="off"
             />
             <button type="submit" [disabled]="loading() || !draft.trim()">
-              {{ i18n.t('discussions.send', 'Send') }}
+              {{ i18n.t('discussions.send') }}
             </button>
           </form>
         </section>
