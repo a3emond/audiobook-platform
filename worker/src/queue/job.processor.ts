@@ -161,6 +161,35 @@ export class JobProcessor {
 		return true;
 	}
 
+	async reclaimStaleLocks(): Promise<number> {
+		const lockTimeoutMs = parseNumberEnv("WORKER_JOB_LOCK_TIMEOUT_MS", 10 * 60 * 1000);
+		const staleThreshold = new Date(Date.now() - lockTimeoutMs);
+
+		const result = await JobModel.updateMany(
+			{
+				status: "running",
+				lockedAt: { $lt: staleThreshold },
+			},
+			{
+				$set: {
+					status: "queued",
+					lockedBy: null,
+					lockedAt: null,
+					startedAt: null,
+				},
+			},
+		);
+
+		if (result.modifiedCount > 0) {
+			console.warn("reclaimed stale job locks", {
+				workerId: this.workerId,
+				count: result.modifiedCount,
+			});
+		}
+
+		return result.modifiedCount;
+	}
+
 	private async claimNextJob(): Promise<JobDocument | null> {
 		const now = new Date();
 

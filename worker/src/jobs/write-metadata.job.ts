@@ -40,6 +40,31 @@ interface BookRecord {
 	version?: number;
 }
 
+function hasOwn(obj: object, key: string): boolean {
+	return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+function pickBookValue<T>(
+	book: BookRecord,
+	key: "title" | "author" | "series" | "genre",
+	fallback: T,
+): T | string | null | undefined {
+	if (hasOwn(book, key)) {
+		return book[key];
+	}
+
+	return fallback;
+}
+
+function optionalText(value: unknown): string | undefined {
+	if (typeof value !== "string") {
+		return undefined;
+	}
+
+	const trimmed = value.trim();
+	return trimmed ? trimmed : undefined;
+}
+
 function normalizeChapters(chapters: ChapterPatch[]): Chapter[] {
 	return chapters.map((chapter, index) => {
 		if (!chapter.title || chapter.startMs < 0 || chapter.endMs < chapter.startMs) {
@@ -120,10 +145,20 @@ export async function handleWriteMetadataJob(
 		const existing = await metadataService.parseFFmetadata(metadataPath);
 
 		const merged: Metadata = {
-			title: payload.title ?? existing.title ?? book.title ?? undefined,
-			artist: payload.author ?? existing.artist ?? book.author ?? undefined,
-			album: payload.series ?? existing.album ?? book.series ?? undefined,
-			genre: payload.genre ?? existing.genre ?? book.genre ?? undefined,
+			title:
+				payload.title ??
+				optionalText(pickBookValue(book, "title", existing.title)),
+			artist:
+				payload.author ??
+				optionalText(pickBookValue(book, "author", existing.artist)),
+			album:
+				payload.series !== undefined
+					? payload.series ?? undefined
+					: pickBookValue(book, "series", existing.album) ?? undefined,
+			genre:
+				payload.genre !== undefined
+					? payload.genre ?? undefined
+					: pickBookValue(book, "genre", existing.genre) ?? undefined,
 			chapters:
 				payload.chapters && payload.chapters.length > 0
 					? normalizeChapters(payload.chapters)

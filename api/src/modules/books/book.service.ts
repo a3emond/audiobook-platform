@@ -174,6 +174,49 @@ export class BookService {
 			throw new ApiError(404, "book_not_found");
 		}
 
+		const writeMetadataPayload: {
+			bookId: string;
+			title?: string;
+			author?: string;
+			series?: string | null;
+			genre?: string | null;
+		} = { bookId };
+
+		let shouldEnqueueWriteMetadata = false;
+
+		if (data.title !== undefined) {
+			writeMetadataPayload.title = data.title;
+			shouldEnqueueWriteMetadata = true;
+		}
+
+		if (data.author !== undefined) {
+			writeMetadataPayload.author = data.author;
+			shouldEnqueueWriteMetadata = true;
+		}
+
+		if (data.series !== undefined) {
+			writeMetadataPayload.series = data.series;
+			shouldEnqueueWriteMetadata = true;
+		}
+
+		if (data.genre !== undefined) {
+			writeMetadataPayload.genre = data.genre;
+			shouldEnqueueWriteMetadata = true;
+		}
+
+		if (shouldEnqueueWriteMetadata) {
+			await JobModel.create({
+				type: "WRITE_METADATA",
+				status: "queued",
+				payload: writeMetadataPayload,
+				output: null,
+				error: null,
+				attempt: 0,
+				maxAttempts: 3,
+				runAfter: new Date(),
+			});
+		}
+
 		return toBookDTO(book);
 	}
 

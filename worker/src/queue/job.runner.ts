@@ -53,9 +53,20 @@ export class JobRunner {
 
 	private async runLoop(slot: number): Promise<void> {
 		const processor = new JobProcessor(`${this.workerId}/slot-${slot + 1}`);
+		const reclaimIntervalMs = Math.max(
+			60_000,
+			parseNumberEnv("WORKER_LOCK_RECLAIM_INTERVAL_MS", 5 * 60 * 1000),
+		);
+		let lastReclaimAt = 0;
 
 		while (!this.stopping) {
 			try {
+				// Only slot 0 handles stale lock reclaim to avoid concurrent updates
+				if (slot === 0 && Date.now() - lastReclaimAt >= reclaimIntervalMs) {
+					await processor.reclaimStaleLocks();
+					lastReclaimAt = Date.now();
+				}
+
 				const processed = await processor.processNext();
 				if (!processed) {
 					await sleep(this.pollMs);

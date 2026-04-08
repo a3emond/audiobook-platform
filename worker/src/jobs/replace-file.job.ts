@@ -22,6 +22,16 @@ interface BookRecord {
 	filePath: string;
 	coverPath?: string | null;
 	version?: number;
+	title?: string;
+	author?: string;
+	series?: string | null;
+	chapters?: unknown[];
+	overrides?: {
+		title?: boolean;
+		author?: boolean;
+		series?: boolean;
+		chapters?: boolean;
+	};
 }
 
 export async function handleReplaceFileJob(
@@ -105,25 +115,36 @@ export async function handleReplaceFileJob(
 			});
 		}
 
+		const overrides = book.overrides ?? {};
+		const metadataUpdate: Record<string, unknown> = {
+			checksum,
+			duration: Math.round(probeInfo.duration),
+			coverPath,
+			"fileSync.status": "in_sync",
+			"fileSync.lastReadAt": new Date(),
+			"fileSync.lastWriteAt": new Date(),
+			version: Math.max(1, (book.version ?? 1) + 1),
+			lastScannedAt: new Date(),
+			updatedAt: new Date(),
+		};
+
+		// Only overwrite fields that have not been manually overridden by an admin
+		if (!overrides.title) {
+			metadataUpdate.title = extractedMetadata.title || "Unknown Title";
+		}
+		if (!overrides.author) {
+			metadataUpdate.author = extractedMetadata.artist || "Unknown Author";
+		}
+		if (!overrides.series) {
+			metadataUpdate.series = extractedMetadata.album || null;
+		}
+		if (!overrides.chapters) {
+			metadataUpdate.chapters = extractedMetadata.chapters;
+		}
+
 		await booksCollection.updateOne(
 			{ _id: bookId },
-			{
-				$set: {
-					checksum,
-					title: extractedMetadata.title || "Unknown Title",
-					author: extractedMetadata.artist || "Unknown Author",
-					series: extractedMetadata.album || null,
-					duration: Math.round(probeInfo.duration),
-					chapters: extractedMetadata.chapters,
-					coverPath,
-					"fileSync.status": "in_sync",
-					"fileSync.lastReadAt": new Date(),
-					"fileSync.lastWriteAt": new Date(),
-					version: Math.max(1, (book.version ?? 1) + 1),
-					lastScannedAt: new Date(),
-					updatedAt: new Date(),
-				},
-			},
+			{ $set: metadataUpdate },
 		);
 
 		console.info("replace-file job completed", {
