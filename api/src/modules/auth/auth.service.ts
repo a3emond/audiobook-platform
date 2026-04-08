@@ -259,6 +259,70 @@ export class AuthService {
       };
     }
 
+    // Recovery path: user exists without an auth document (legacy/inconsistent data).
+    const existingUser = await UserModel.findOne({ email });
+    if (existingUser) {
+      try {
+        await AuthModel.create({
+          userId: existingUser._id,
+          email,
+          passwordHash: undefined,
+          providers: [
+            {
+              type: profile.provider,
+              providerId: profile.providerId,
+              linkedAt: new Date(),
+            },
+          ],
+        });
+      } catch (error: unknown) {
+        const isDuplicateKey =
+          typeof error === "object" &&
+          error !== null &&
+          "code" in error &&
+          (error as { code?: number }).code === 11000;
+
+        if (!isDuplicateKey) {
+          throw error;
+        }
+      }
+
+      const linkedAuth = await AuthModel.findOne({ userId: existingUser._id });
+      if (!linkedAuth) {
+        throw new ApiError(500, "oauth_linking_failed");
+      }
+
+      const alreadyLinked = linkedAuth.providers.some(
+        (provider) =>
+          provider.type === profile.provider &&
+          provider.providerId === profile.providerId,
+      );
+
+      if (!alreadyLinked) {
+        linkedAuth.providers.push({
+          type: profile.provider,
+          providerId: profile.providerId,
+          linkedAt: new Date(),
+        });
+        await linkedAuth.save();
+      }
+
+      const tokens = await this.createAuthSession(
+        existingUser._id.toString(),
+        existingUser.role,
+      );
+
+      logger.debug("oauth linked to existing user", {
+        userId: existingUser._id,
+        provider: profile.provider,
+      });
+
+      return {
+        tokens,
+        user: toUserDTO(existingUser),
+      };
+    }
+
     const user = await UserModel.create({
       email,
       profile: {

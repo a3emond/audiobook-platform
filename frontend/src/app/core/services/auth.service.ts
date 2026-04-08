@@ -46,7 +46,10 @@ export class AuthService {
 		try {
 			await this.fetchCurrentUser();
 		} catch (error) {
-			if (error instanceof HttpErrorResponse && (error.status === 401 || error.status === 403)) {
+			if (
+				error instanceof HttpErrorResponse &&
+				(error.status === 401 || error.status === 403 || error.status === 404)
+			) {
 				this.clearSession();
 			}
 		} finally {
