@@ -33,6 +33,16 @@ export interface RegisterPayload {
   displayName?: string;
 }
 
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface ChangeEmailPayload {
+  currentPassword: string;
+  newEmail: string;
+}
+
 export type OAuthProvider = 'google' | 'apple';
 
 export interface Chapter {

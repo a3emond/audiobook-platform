@@ -56,10 +56,8 @@ export function createApp() {
     app.use(`${prefix}/stats`, authMiddleware, statsRoutes);
   }
 
-  // Canonical versioned API
+  // Canonical API
   mountApiRoutes("/api/v1");
-  // Backward-compatible alias during migration
-  mountApiRoutes("/api");
 
   // Streaming must stay outside /api for reverse-proxy routing.
   app.use("/streaming", streamAuthMiddleware, streamRoutes);

@@ -122,3 +122,52 @@ export function validateOAuthLoginRequest(
 
   next();
 }
+
+export function validateChangePasswordRequest(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+) {
+  assertBodyObject(req.body);
+
+  const { currentPassword, newPassword } = req.body;
+
+  if (!isNonEmptyString(currentPassword) || !isNonEmptyString(newPassword)) {
+    throw new ApiError(400, "current_and_new_password_required");
+  }
+
+  const newPasswordLength = newPassword.length;
+  if (
+    newPasswordLength < PASSWORD_MIN_LENGTH ||
+    newPasswordLength > PASSWORD_MAX_LENGTH
+  ) {
+    throw new ApiError(400, "invalid_new_password");
+  }
+
+  if (currentPassword === newPassword) {
+    throw new ApiError(400, "new_password_must_differ");
+  }
+
+  next();
+}
+
+export function validateChangeEmailRequest(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+) {
+  assertBodyObject(req.body);
+
+  const { currentPassword, newEmail } = req.body;
+
+  if (!isNonEmptyString(currentPassword) || !isNonEmptyString(newEmail)) {
+    throw new ApiError(400, "current_password_and_new_email_required");
+  }
+
+  const normalizedEmail = newEmail.trim().toLowerCase();
+  if (!EMAIL_REGEX.test(normalizedEmail)) {
+    throw new ApiError(400, "invalid_email");
+  }
+
+  next();
+}

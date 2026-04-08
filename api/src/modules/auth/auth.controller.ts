@@ -5,6 +5,8 @@ import { OAuthService } from "./oauth.service.js";
 import { type AuthenticatedRequest } from "../../middlewares/auth.middleware.js";
 
 import type {
+  ChangeEmailDTO,
+  ChangePasswordDTO,
   LoginDTO,
   LogoutDTO,
   OAuthLoginDTO,
@@ -82,6 +84,30 @@ export class AuthController {
     const userId = req.user?.id as string;
 
     const user = await AuthService.getCurrentUser(userId);
+
+    res.status(200).json(user);
+  }
+
+  static async changePassword(
+    req: AuthenticatedRequest,
+    res: Response,
+  ) {
+    const userId = req.user?.id as string;
+    const { currentPassword, newPassword } = req.body as ChangePasswordDTO;
+
+    await AuthService.changePassword(userId, currentPassword, newPassword);
+
+    res.status(200).json({ success: true });
+  }
+
+  static async changeEmail(
+    req: AuthenticatedRequest,
+    res: Response,
+  ) {
+    const userId = req.user?.id as string;
+    const { currentPassword, newEmail } = req.body as ChangeEmailDTO;
+
+    const user = await AuthService.changeEmail(userId, currentPassword, newEmail);
 
     res.status(200).json(user);
   }

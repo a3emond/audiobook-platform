@@ -109,6 +109,14 @@ export class AuthService {
 		}
 	}
 
+	async reloadCurrentUser(): Promise<void> {
+		if (!this.accessTokenState()) {
+			return;
+		}
+
+		await this.fetchCurrentUser();
+	}
+
 	private async fetchCurrentUser(prefetched: User | null = null): Promise<void> {
 		if (prefetched) {
 			this.userState.set(prefetched);

@@ -1,7 +1,13 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
-import type { UpdateSettingsPayload, User, UserSettings } from '../models/api.models';
+import type {
+	ChangeEmailPayload,
+	ChangePasswordPayload,
+	UpdateSettingsPayload,
+	User,
+	UserSettings,
+} from '../models/api.models';
 import { ApiService } from './api.service';
 
 @Injectable({ providedIn: 'root' })
@@ -22,5 +28,13 @@ export class SettingsService {
 
 	updateMyProfile(payload: { profile: { displayName?: string | null; preferredLocale?: 'fr' | 'en' } }): Observable<User> {
 		return this.api.patch<User, { profile: { displayName?: string | null; preferredLocale?: 'fr' | 'en' } }>('/users/me', payload);
+	}
+
+	changePassword(payload: ChangePasswordPayload): Observable<{ success: true }> {
+		return this.api.post<{ success: true }, ChangePasswordPayload>('/auth/change-password', payload);
+	}
+
+	changeEmail(payload: ChangeEmailPayload): Observable<User> {
+		return this.api.post<User, ChangeEmailPayload>('/auth/change-email', payload);
 	}
 }

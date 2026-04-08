@@ -27,6 +27,16 @@ export interface OAuthLoginDTO {
   idToken: string;
 }
 
+export interface ChangePasswordDTO {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface ChangeEmailDTO {
+  currentPassword: string;
+  newEmail: string;
+}
+
 /**
  * Tokens
  */

@@ -338,6 +338,80 @@ export class AuthService {
     logger.debug("auth_session revoked");
   }
 
+  static async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const auth = await AuthModel.findOne({ userId }).select("+passwordHash");
+    if (!auth?.passwordHash) {
+      throw new ApiError(400, "password_auth_not_available");
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(
+      currentPassword,
+      auth.passwordHash,
+    );
+
+    if (!isCurrentPasswordValid) {
+      throw new ApiError(401, "invalid_credentials");
+    }
+
+    auth.passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+    await auth.save();
+
+    logger.debug("auth_password_changed", { userId });
+  }
+
+  static async changeEmail(
+    userId: string,
+    currentPassword: string,
+    newEmail: string,
+  ): Promise<UserDTO> {
+    const auth = await AuthModel.findOne({ userId }).select("+passwordHash");
+    if (!auth?.passwordHash) {
+      throw new ApiError(400, "password_auth_not_available");
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(
+      currentPassword,
+      auth.passwordHash,
+    );
+
+    if (!isCurrentPasswordValid) {
+      throw new ApiError(401, "invalid_credentials");
+    }
+
+    const normalizedEmail = normalizeEmail(newEmail);
+
+    if (normalizedEmail === auth.email) {
+      throw new ApiError(400, "email_unchanged");
+    }
+
+    const [emailOnAnotherAuth, emailOnAnotherUser] = await Promise.all([
+      AuthModel.exists({ email: normalizedEmail, userId: { $ne: userId } }),
+      UserModel.exists({ email: normalizedEmail, _id: { $ne: userId } }),
+    ]);
+
+    if (emailOnAnotherAuth || emailOnAnotherUser) {
+      throw new ApiError(409, "email_already_used");
+    }
+
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      throw new ApiError(404, "user_not_found");
+    }
+
+    user.email = normalizedEmail;
+    auth.email = normalizedEmail;
+
+    await Promise.all([user.save(), auth.save()]);
+
+    logger.debug("auth_email_changed", { userId });
+
+    return toUserDTO(user);
+  }
+
   static async getCurrentUser(userId: string): Promise<UserDTO> {
     const user = await UserModel.findById(userId);
     if (!user) {

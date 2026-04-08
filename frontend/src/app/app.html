@@ -21,9 +21,8 @@
 
     <nav class="nav" [class.open]="mobileNavOpen()" *ngIf="auth.isAuthenticated()">
       <a routerLink="/library"  routerLinkActive="active" (click)="closeMobileNav()">Library</a>
-      <a routerLink="/history"  routerLinkActive="active" (click)="closeMobileNav()">History</a>
-      <a routerLink="/stats"    routerLinkActive="active" (click)="closeMobileNav()">Stats</a>
-      <a routerLink="/settings" routerLinkActive="active" (click)="closeMobileNav()">Settings</a>
+      <a [routerLink]="['/collections', 'auto:listened']" routerLinkActive="active" (click)="closeMobileNav()">Activity</a>
+      <a routerLink="/profile"  routerLinkActive="active" (click)="closeMobileNav()">Profile</a>
 
       <div class="dropdown" *ngIf="auth.isAdmin()">
         <button type="button" class="dropdown-trigger" [class.has-active]="isAdminRouteActive()" (click)="toggleAdminMenu($event)">

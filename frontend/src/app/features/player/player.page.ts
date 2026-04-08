@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { interval, Subscription } from 'rxjs';
 
 import type { Book, Chapter } from '../../core/models/api.models';
@@ -15,7 +15,7 @@ import { PlayerControlsComponent } from './controls';
 @Component({
 	selector: 'app-player-page',
 	standalone: true,
-	imports: [CommonModule, PlayerControlsComponent],
+	imports: [CommonModule, RouterLink, PlayerControlsComponent],
 	template: `
 		<section class="page page-shell player-page">
 			<header class="hero" *ngIf="book() as currentBook">
@@ -112,6 +112,59 @@ import { PlayerControlsComponent } from './controls';
 				class="native-audio"
 			></audio>
 
+			<section class="details card" *ngIf="book() as currentBook">
+				<div class="details-head">
+					<div>
+						<p class="eyebrow">Book Details</p>
+						<h2>About this title</h2>
+					</div>
+					<a
+						*ngIf="currentBook.series"
+						class="btn btn-secondary"
+						[routerLink]="['/series', currentBook.series]"
+					>
+						Open Series
+					</a>
+				</div>
+
+				<div class="detail-grid">
+					<article class="detail-card" *ngIf="currentBook.series">
+						<h3>Series</h3>
+						<p>
+							{{ currentBook.series }}
+							<span *ngIf="currentBook.seriesIndex"> · Book {{ currentBook.seriesIndex }}</span>
+						</p>
+					</article>
+
+					<article class="detail-card" *ngIf="currentBook.genre">
+						<h3>Genre</h3>
+						<p>{{ currentBook.genre }}</p>
+					</article>
+
+					<article class="detail-card" *ngIf="currentBook.tags?.length">
+						<h3>Tags</h3>
+						<p>{{ currentBook.tags?.join(' • ') }}</p>
+					</article>
+
+					<article class="detail-card">
+						<h3>Duration</h3>
+						<p>{{ formatLongDuration(currentBook.duration) }}</p>
+					</article>
+				</div>
+
+				<div class="description" *ngIf="resolvedDescription() as description; else noDescription">
+					<h3>Description</h3>
+					<p>{{ description }}</p>
+				</div>
+
+				<ng-template #noDescription>
+					<div class="description empty-description">
+						<h3>Description</h3>
+						<p>No description is available for this book yet.</p>
+					</div>
+				</ng-template>
+			</section>
+
 			<p *ngIf="error()" class="error">{{ error() }}</p>
 		</section>
 	`,
@@ -136,7 +189,7 @@ import { PlayerControlsComponent } from './controls';
 			.player-page {
 				max-width: 960px;
 				margin: 0 auto;
-				justify-items: center;
+				justify-items: stretch;
 			}
 			.hero {
 				display: grid;
@@ -345,6 +398,70 @@ import { PlayerControlsComponent } from './controls';
 				max-width: none;
 			}
 			.error { color: var(--color-danger); }
+			.details {
+				display: grid;
+				gap: 1rem;
+				width: 100%;
+				background: linear-gradient(145deg, #141414, #101010 74%);
+				border-radius: 1rem;
+			}
+			.details-head {
+				display: flex;
+				align-items: start;
+				justify-content: space-between;
+				gap: 0.8rem;
+			}
+			.eyebrow {
+				margin: 0 0 0.2rem;
+				font-size: 0.74rem;
+				text-transform: uppercase;
+				letter-spacing: 0.08em;
+				color: var(--color-text-muted);
+			}
+			.details-head h2,
+			.detail-card h3,
+			.description h3 {
+				margin: 0;
+			}
+			.detail-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+				gap: 0.75rem;
+			}
+			.detail-card {
+				display: grid;
+				gap: 0.3rem;
+				padding: 0.9rem;
+				border: 1px solid var(--color-border);
+				border-radius: 0.85rem;
+				background: linear-gradient(180deg, #171717, #111111);
+			}
+			.detail-card h3 {
+				font-size: 0.78rem;
+				text-transform: uppercase;
+				letter-spacing: 0.05em;
+				color: var(--color-text-muted);
+			}
+			.detail-card p,
+			.description p {
+				margin: 0;
+				color: var(--color-text);
+			}
+			.description {
+				display: grid;
+				gap: 0.45rem;
+				padding: 1rem;
+				border: 1px solid var(--color-border);
+				border-radius: 0.85rem;
+				background: linear-gradient(180deg, #171717, #111111);
+			}
+			.description p {
+				line-height: 1.7;
+				white-space: pre-line;
+			}
+			.empty-description p {
+				color: var(--color-text-muted);
+			}
 
 			@media (max-width: 820px) {
 				.hero {
@@ -370,6 +487,10 @@ import { PlayerControlsComponent } from './controls';
 				.cover-overlay-actions {
 					top: 0.45rem;
 					right: 0.45rem;
+				}
+				.details-head {
+					flex-direction: column;
+					align-items: stretch;
 				}
 			}
 		`,
@@ -706,6 +827,31 @@ export class PlayerPage implements OnInit, OnDestroy {
 		}
 
 		return `${minutes}:${String(seconds).padStart(2, '0')}`;
+	}
+
+	formatLongDuration(totalSeconds: number): string {
+		const value = Math.max(0, Math.floor(totalSeconds));
+		const hours = Math.floor(value / 3600);
+		const minutes = Math.floor((value % 3600) / 60);
+
+		if (hours <= 0) {
+			return `${minutes} min`;
+		}
+
+		if (minutes === 0) {
+			return `${hours} hr`;
+		}
+
+		return `${hours} hr ${minutes} min`;
+	}
+
+	resolvedDescription(): string | null {
+		const description = this.book()?.description;
+		if (!description) {
+			return null;
+		}
+
+		return description.default?.trim() || description.en?.trim() || description.fr?.trim() || null;
 	}
 
 	coverInitials(title: string): string {

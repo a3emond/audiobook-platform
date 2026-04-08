@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { AuthController } from "./auth.controller.js";
 import {
+	validateChangeEmailRequest,
+	validateChangePasswordRequest,
 	validateLoginRequest,
 	validateLogoutRequest,
 	validateOAuthLoginRequest,
@@ -20,5 +22,17 @@ router.post("/oauth/google", validateOAuthLoginRequest, AuthController.google);
 router.post("/oauth/apple", validateOAuthLoginRequest, AuthController.apple);
 
 router.get("/me", authMiddleware, AuthController.me);
+router.post(
+	"/change-password",
+	authMiddleware,
+	validateChangePasswordRequest,
+	AuthController.changePassword,
+);
+router.post(
+	"/change-email",
+	authMiddleware,
+	validateChangeEmailRequest,
+	AuthController.changeEmail,
+);
 
 export default router;

@@ -44,19 +44,9 @@ export const routes: Routes = [
 		loadComponent: () => import('./features/player/player.page').then((m) => m.PlayerPage),
 	},
 	{
-		path: 'history',
+		path: 'profile',
 		canActivate: [authGuard],
-		loadComponent: () => import('./features/history/history.page').then((m) => m.HistoryPage),
-	},
-	{
-		path: 'stats',
-		canActivate: [authGuard],
-		loadComponent: () => import('./features/stats/stats-page/stats-page.component').then((m) => m.StatsPageComponent),
-	},
-	{
-		path: 'settings',
-		canActivate: [authGuard],
-		loadComponent: () => import('./features/settings/settings.page').then((m) => m.SettingsPage),
+		loadComponent: () => import('./features/profile/profile.page').then((m) => m.ProfilePage),
 	},
 	{
 		path: 'admin/overview',

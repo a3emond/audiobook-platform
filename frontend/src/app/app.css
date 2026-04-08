@@ -5,6 +5,23 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  position: relative;
+  isolation: isolate;
+}
+
+.app-shell::before {
+  content: '';
+  position: fixed;
+  inset: 4.25rem 0 auto;
+  height: min(62vw, 34rem);
+  background-image: url('/logo.png');
+  background-repeat: no-repeat;
+  background-position: center top;
+  background-size: min(78vw, 46rem);
+  opacity: 0.075;
+  filter: saturate(0.95) contrast(1.05);
+  pointer-events: none;
+  z-index: -1;
 }
 
 /* === Topbar =================================================== */
