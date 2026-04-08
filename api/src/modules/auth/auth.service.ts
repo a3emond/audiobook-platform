@@ -47,6 +47,15 @@ function sanitizePreferredLocale(preferredLocale?: "fr" | "en"): "fr" | "en" {
   return preferredLocale === "fr" ? "fr" : "en";
 }
 
+function isDuplicateKeyError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: number }).code === 11000
+  );
+}
+
 function toUserDTO(user: {
   _id: unknown;
   email: string;
@@ -72,6 +81,30 @@ function toUserDTO(user: {
 }
 
 export class AuthService {
+  private static async tryLoginByProvider(
+    profile: OAuthProfile,
+  ): Promise<AuthResponseDTO | null> {
+    const providerAuth = await AuthModel.findOne({
+      "providers.type": profile.provider,
+      "providers.providerId": profile.providerId,
+    });
+
+    if (!providerAuth) {
+      return null;
+    }
+
+    const user = await UserModel.findById(providerAuth.userId);
+    if (!user) {
+      throw new ApiError(404, "user_not_found");
+    }
+
+    const tokens = await this.createAuthSession(user._id.toString(), user.role);
+    return {
+      tokens,
+      user: toUserDTO(user),
+    };
+  }
+
   private static async createAuthSession(
     userId: string,
     role: "admin" | "user",
@@ -239,7 +272,23 @@ export class AuthService {
           linkedAt: new Date(),
         });
 
-        await auth.save();
+        try {
+          await auth.save();
+        } catch (error: unknown) {
+          if (!isDuplicateKeyError(error)) {
+            throw error;
+          }
+
+          const existing = await this.tryLoginByProvider(profile);
+          if (existing) {
+            logger.warn("oauth provider already linked to another account", {
+              provider: profile.provider,
+            });
+            return existing;
+          }
+
+          throw new ApiError(500, "oauth_linking_failed");
+        }
       }
 
       const user = await UserModel.findById(auth.userId);
@@ -280,19 +329,21 @@ export class AuthService {
           ],
         });
       } catch (error: unknown) {
-        const isDuplicateKey =
-          typeof error === "object" &&
-          error !== null &&
-          "code" in error &&
-          (error as { code?: number }).code === 11000;
-
-        if (!isDuplicateKey) {
+        if (!isDuplicateKeyError(error)) {
           throw error;
         }
       }
 
       const linkedAuth = await AuthModel.findOne({ userId: existingUser._id });
       if (!linkedAuth) {
+        const existing = await this.tryLoginByProvider(profile);
+        if (existing) {
+          logger.warn("oauth provider conflict resolved via provider lookup", {
+            provider: profile.provider,
+          });
+          return existing;
+        }
+
         throw new ApiError(500, "oauth_linking_failed");
       }
 
