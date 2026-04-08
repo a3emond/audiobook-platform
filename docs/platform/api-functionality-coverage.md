@@ -2,11 +2,10 @@
 
 This document audits the current API surface against what a production-grade audiobook streaming platform should provide.
 
-Date: 2026-04-07
+Date: 2026-04-08
 
 Note on versioning:
-- Canonical routes are available under `/api/v1/*`.
-- Legacy `/api/*` aliases remain mounted for backward compatibility.
+- Canonical routes are available under `/api/v1/*` only.
 
 ## Scope
 
@@ -23,13 +22,15 @@ Audited API surfaces:
 ### Auth
 
 Implemented:
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `POST /api/auth/refresh`
-- `POST /api/auth/logout`
-- `POST /api/auth/oauth/google`
-- `POST /api/auth/oauth/apple`
-- `GET /api/auth/me`
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout`
+- `POST /api/v1/auth/oauth/google`
+- `POST /api/v1/auth/oauth/apple`
+- `GET /api/v1/auth/me`
+- `POST /api/v1/auth/change-password`
+- `POST /api/v1/auth/change-email`
 
 Status: good baseline coverage.
 
@@ -37,29 +38,29 @@ Status: good baseline coverage.
 
 Implemented:
 - Books (read-only consumer):
-  - `GET /api/books`
-  - `GET /api/books/:bookId`
+  - `GET /api/v1/books`
+  - `GET /api/v1/books/:bookId`
 - Series (read-only app-level):
-  - `GET /api/series`
-  - `GET /api/series/:seriesName`
+  - `GET /api/v1/series`
+  - `GET /api/v1/series/:seriesName`
 - Progress:
-  - `GET /api/progress`
-  - `GET /api/progress/:bookId`
-  - `PUT /api/progress/:bookId`
-  - `POST /api/progress/:bookId/complete`
-  - `DELETE /api/progress/:bookId/complete`
+  - `GET /api/v1/progress`
+  - `GET /api/v1/progress/:bookId`
+  - `PUT /api/v1/progress/:bookId`
+  - `POST /api/v1/progress/:bookId/complete`
+  - `DELETE /api/v1/progress/:bookId/complete`
 - Settings:
-  - `GET /api/settings`
-  - `PATCH /api/settings`
+  - `GET /api/v1/settings`
+  - `PATCH /api/v1/settings`
 - Collections (user-scoped):
-  - `GET /api/collections`
-  - `POST /api/collections`
-  - `GET /api/collections/:collectionId`
-  - `PATCH /api/collections/:collectionId`
-  - `DELETE /api/collections/:collectionId`
+  - `GET /api/v1/collections`
+  - `POST /api/v1/collections`
+  - `GET /api/v1/collections/:collectionId`
+  - `PATCH /api/v1/collections/:collectionId`
+  - `DELETE /api/v1/collections/:collectionId`
 - Users (current user profile):
-  - `GET /api/users/me`
-  - `PATCH /api/users/me`
+  - `GET /api/v1/users/me`
+  - `PATCH /api/v1/users/me`
 
 Status: strong client-consumption baseline.
 
@@ -81,39 +82,39 @@ Status: good baseline for direct file streaming.
 ### Stats and Sessions
 
 Implemented:
-- `GET /api/stats/me`
-- `GET /api/stats/sessions`
-- `POST /api/stats/sessions`
+- `GET /api/v1/stats/me`
+- `GET /api/v1/stats/sessions`
+- `POST /api/v1/stats/sessions`
 
 Status: baseline analytics for user listening lifecycle.
 
 ### Admin and Jobs
 
-Implemented (admin-only under `/api/admin`):
+Implemented (admin-only under `/api/v1/admin`):
 - platform:
-  - `GET /api/admin/overview`
-  - `GET /api/admin/coverage`
+  - `GET /api/v1/admin/overview`
+  - `GET /api/v1/admin/coverage`
 - books management:
-  - `POST /api/admin/books/upload`
-  - `GET /api/admin/books`
-  - `GET /api/admin/books/:bookId`
-  - `PATCH /api/admin/books/:bookId/metadata`
-  - `PATCH /api/admin/books/:bookId/chapters`
-  - `POST /api/admin/books/:bookId/extract-cover`
-  - `DELETE /api/admin/books/:bookId`
+  - `POST /api/v1/admin/books/upload`
+  - `GET /api/v1/admin/books`
+  - `GET /api/v1/admin/books/:bookId`
+  - `PATCH /api/v1/admin/books/:bookId/metadata`
+  - `PATCH /api/v1/admin/books/:bookId/chapters`
+  - `POST /api/v1/admin/books/:bookId/extract-cover`
+  - `DELETE /api/v1/admin/books/:bookId`
 - jobs management:
-  - `POST /api/admin/jobs/enqueue`
-  - `GET /api/admin/jobs/stats`
-  - `GET /api/admin/jobs`
-  - `GET /api/admin/jobs/events`
-  - `GET /api/admin/jobs/:jobId`
-  - `DELETE /api/admin/jobs/:jobId`
+  - `POST /api/v1/admin/jobs/enqueue`
+  - `GET /api/v1/admin/jobs/stats`
+  - `GET /api/v1/admin/jobs`
+  - `GET /api/v1/admin/jobs/events`
+  - `GET /api/v1/admin/jobs/:jobId`
+  - `DELETE /api/v1/admin/jobs/:jobId`
 - users management:
-  - `GET /api/admin/users`
-  - `GET /api/admin/users/:userId`
-  - `PATCH /api/admin/users/:userId/role`
-  - `GET /api/admin/users/:userId/sessions`
-  - `DELETE /api/admin/users/:userId/sessions`
+  - `GET /api/v1/admin/users`
+  - `GET /api/v1/admin/users/:userId`
+  - `PATCH /api/v1/admin/users/:userId/role`
+  - `GET /api/v1/admin/users/:userId/sessions`
+  - `DELETE /api/v1/admin/users/:userId/sessions`
 
 Status: complete for current worker-backed operations.
 
@@ -133,6 +134,7 @@ Status: complete for current worker-backed operations.
 - User collections: covered.
 - User settings and player preferences: covered.
 - Profile/localization preferences: covered.
+- Account security self-service for password-based accounts: covered.
 
 ### Operator/admin capabilities
 
@@ -162,7 +164,7 @@ The API is feature-complete for a functional v1 and includes the prior P0/P1 har
 
 1. Added admin audit log trail for management actions.
 2. Added job event streaming support to reduce dashboard polling load.
-3. Added explicit API versioning strategy (`/api/v1`) with backward-compatible `/api` alias.
+3. Added explicit API versioning strategy with `/api/v1` as the sole supported route prefix.
 4. Added stronger streaming cache validators (`ETag`, `Last-Modified`, `If-Range` handling).
 
 ### P2 (future platform evolution)

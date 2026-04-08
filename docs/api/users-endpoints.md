@@ -2,7 +2,7 @@
 
 This document is for client developers consuming user profile APIs.
 
-Base path: `/api/users`
+Base path: `/api/v1/users`
 
 Authentication: required on all endpoints.
 
@@ -17,6 +17,9 @@ User endpoints are scoped to the authenticated user.
 Current capabilities:
 - fetch current profile
 - update editable profile preferences
+
+Client note:
+- The current web app surfaces editable profile fields inside the unified Profile page instead of a separate Settings page.
 
 ## Endpoints
 

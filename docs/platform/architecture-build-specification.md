@@ -197,14 +197,12 @@ audiobook-platform/
         │   │   │   ├── controls.ts
         │   │   │   └── chapter-list.ts
         │   │   │
-        │   │   ├── settings/
-        │   │   │   └── settings.page.ts
+        │   │   ├── profile/
+        │   │   │   └── profile.page.ts
         │   │   │
-        │   │   ├── stats/
-        │   │   │   └── stats.page.ts
-        │   │   │
-        │   │   ├── history/
-        │   │   │   └── history.page.ts
+        │   │   ├── legal/
+        │   │   │   ├── privacy.page.ts
+        │   │   │   └── terms.page.ts
         │   │   │
         │   │   └── admin/
         │   │       ├── admin-books.page.ts
@@ -1229,14 +1227,16 @@ series ASC, seriesIndex ASC
 
 # 26. API Surface
 
-Base path: `/api`
+Base path: `/api/v1`
 
 ## Auth
 
-- `POST /api/auth/login`
-- `POST /api/auth/register` or admin-created users only
-- `POST /api/auth/refresh` later if needed
-- `GET /api/auth/me`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/register` or admin-created users only
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/change-password`
+- `POST /api/v1/auth/change-email`
+- `GET /api/v1/auth/me`
 
 ## Books
 

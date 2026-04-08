@@ -2,29 +2,34 @@
 
 This document is for client developers integrating authentication flows (web, mobile, desktop).
 
-Base path: `/api/auth`
+Base path: `/api/v1/auth`
 
 ## Quick Flows
 
 ### Email/Password Login
-1. Call `POST /api/auth/login`.
+1. Call `POST /api/v1/auth/login`.
 2. Store `accessToken` and `refreshToken`.
 3. Send `Authorization: Bearer <accessToken>` for protected requests.
 4. When access token expires, call `POST /api/auth/refresh`.
 
 ### Registration
-1. Call `POST /api/auth/register`.
+1. Call `POST /api/v1/auth/register`.
 2. Receive tokens immediately.
 3. Use returned user payload as authenticated session.
 
 ### OAuth Login (Google/Apple)
 1. Obtain provider `idToken` on client.
-2. Call `POST /api/auth/oauth/google` or `POST /api/auth/oauth/apple`.
+2. Call `POST /api/v1/auth/oauth/google` or `POST /api/v1/auth/oauth/apple`.
 3. Receive platform tokens and authenticated user.
 
 ### Logout
-1. Call `POST /api/auth/logout` with current `refreshToken`.
+1. Call `POST /api/v1/auth/logout` with current `refreshToken`.
 2. Delete local access/refresh tokens.
+
+### Account Security
+1. Call `POST /api/v1/auth/change-password` to rotate a password-based account password.
+2. Call `POST /api/v1/auth/change-email` to change the login email on a password-based account.
+3. Refresh the local user state after a successful email change.
 
 ## Response Shapes
 
@@ -229,6 +234,74 @@ Common errors:
 - `401` `missing_token`
 - `401` `invalid_token`
 - `404` `user_not_found`
+
+### POST /change-password
+
+Change the password for the current authenticated user.
+
+Headers:
+
+```text
+Authorization: Bearer <accessToken>
+```
+
+Request:
+
+```json
+{
+  "currentPassword": "old-password",
+  "newPassword": "new-strong-password"
+}
+```
+
+Success:
+- `200 OK`
+
+```json
+{
+  "success": true
+}
+```
+
+Common errors:
+- `400` `invalid_payload`
+- `400` `current_and_new_password_required`
+- `400` `invalid_new_password`
+- `400` `new_password_must_differ`
+- `400` `password_auth_not_available`
+- `401` `invalid_credentials`
+
+### POST /change-email
+
+Change the login email for the current authenticated user.
+
+Headers:
+
+```text
+Authorization: Bearer <accessToken>
+```
+
+Request:
+
+```json
+{
+  "currentPassword": "current-password",
+  "newEmail": "new-address@example.com"
+}
+```
+
+Success:
+- `200 OK`
+- Body: user payload
+
+Common errors:
+- `400` `invalid_payload`
+- `400` `current_password_and_new_email_required`
+- `400` `invalid_email`
+- `400` `email_unchanged`
+- `400` `password_auth_not_available`
+- `401` `invalid_credentials`
+- `409` `email_already_used`
 
 ## Token Handling Guidance
 

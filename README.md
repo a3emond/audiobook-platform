@@ -63,7 +63,7 @@ docker compose up --build
 3. API health check:
 
 ```bash
-curl http://localhost:8100/api/health
+curl http://localhost:8100/api/v1/health
 ```
 
 ## Documentation Maintenance Policy

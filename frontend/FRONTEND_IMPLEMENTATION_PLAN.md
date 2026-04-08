@@ -1,6 +1,6 @@
 # Frontend Implementation Plan
 
-Date: 2026-04-07
+Date: 2026-04-08
 
 ## Objective
 
@@ -21,7 +21,7 @@ Deliver an Angular frontend that consumes the full backend API surface with prod
   - `GET /books/:bookId`
   - `PUT /progress/:bookId`
 - Admin jobs page implemented with initial list (`GET /admin/jobs`) and SSE client wiring for `/admin/jobs/events`.
-- Stats page wired to `GET /stats/me`.
+- Unified profile page now includes listening stats, history, account preferences, and security actions.
 
 ### Completed in follow-up batch
 
@@ -29,8 +29,8 @@ Deliver an Angular frontend that consumes the full backend API surface with prod
 - Added automatic polling fallback when streaming is unavailable.
 - Wired real admin upload page to `POST /admin/books/upload` with queued job id feedback.
 - Wired real admin books page to `GET /admin/books`.
-- Implemented settings page with live reads/updates for `GET /settings`, `PATCH /settings`, `GET /users/me`, and `PATCH /users/me`.
-- Implemented history page with sessions listing from `GET /stats/sessions` including filters and pagination metadata.
+- Merged settings, history, and stats into a unified profile page backed by `GET /settings`, `PATCH /settings`, `GET /users/me`, `PATCH /users/me`, `GET /stats/me`, and `GET /stats/sessions`.
+- Added account security flows on profile via `POST /auth/change-password` and `POST /auth/change-email`.
 - Upgraded stats service typing for `GET /stats/me`, `GET /stats/sessions`, and `POST /stats/sessions`.
 - Expanded library page with API-backed tabs for books, series, and collections.
 - Added collections read/create integration (`GET /collections`, `POST /collections`).
@@ -53,6 +53,8 @@ Deliver an Angular frontend that consumes the full backend API surface with prod
   - `GET /admin/overview`
   - `GET /admin/coverage`
 - Implemented collection book-membership editor for `bookIds` updates (`PATCH /collections/:collectionId`).
+- Added privacy and terms routes for auth/legal flows.
+- Added richer player metadata/details section with description and series quick access.
 
 ### Remaining
 
@@ -136,6 +138,7 @@ Endpoints:
 
 Tasks:
 - Settings form implementation completed for profile, locale, player, and library preferences.
+- Settings UX now lives inside the unified profile page instead of a standalone settings route.
 - Add optimistic updates with rollback on failure.
 
 ### 7) Users
@@ -145,7 +148,8 @@ Endpoints:
 - `PATCH /users/me`
 
 Tasks:
-- Profile panel and locale/displayName editing in settings completed.
+- Profile panel and locale/displayName editing in unified profile completed.
+- Email/password self-service account management completed.
 
 ### 8) Stats
 
@@ -155,7 +159,7 @@ Endpoints:
 - `POST /stats/sessions`
 
 Tasks:
-- Sessions history page implementation completed.
+- Sessions history presentation in unified profile completed.
 - Add listening session ingestion pipeline from player lifecycle.
 - Use idempotency keys for session writes.
 
@@ -170,6 +174,7 @@ Tasks:
 - Add resume banner and quick actions.
 - Integrate `HEAD` for preflight metadata checks.
 - Add robust seek/resume behavior tests.
+- Player metadata/details panel completed with description and series jump.
 
 ### 10) Admin Overview
 

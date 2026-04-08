@@ -2,7 +2,7 @@
 
 This document is for client developers consuming user settings APIs.
 
-Base path: `/api/settings`
+Base path: `/api/v1/settings`
 
 Authentication: required on all endpoints.
 
@@ -54,7 +54,7 @@ Behavior:
 Example:
 
 ```bash
-curl "http://localhost:3000/api/settings" \
+curl "http://localhost:3000/api/v1/settings" \
   -H "Authorization: Bearer <accessToken>"
 ```
 
@@ -106,10 +106,13 @@ Common errors:
 
 ## Typical Client Flow
 
-1. Load `GET /api/settings` during app bootstrap after authentication.
+1. Load `GET /api/v1/settings` after authentication when building the local preference state.
 2. Keep the returned object as the local preference source of truth.
-3. Send `PATCH /api/settings` when the user changes player or library display preferences.
+3. Send `PATCH /api/v1/settings` when the user changes player or library display preferences.
 4. Replace local cached settings with the response body after each successful update.
+
+Client note:
+- The current web app exposes these settings inside the unified Profile page alongside account and security actions.
 
 ## Related Docs
 

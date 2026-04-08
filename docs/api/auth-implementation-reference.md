@@ -13,8 +13,10 @@ Implemented capabilities:
 - Refresh-token session rotation
 - Session revocation (logout)
 - Current authenticated user retrieval
+- Password change for password-based accounts
+- Email change for password-based accounts
 
-Current API base path: `/api/auth`
+Current API base path: `/api/v1/auth`
 
 ## 2. Environment And Runtime Requirements
 
@@ -147,14 +149,14 @@ Fallback email when provider email is unavailable:
 
 ### 7.2 Refresh Strategy
 
-- On `401 invalid_token` from protected APIs, call `/api/auth/refresh` once.
+- On `401 invalid_token` from protected APIs, call `/api/v1/auth/refresh` once.
 - Replace both access token and refresh token with returned values.
 - Retry original request after successful refresh.
 - If refresh fails with `invalid_session` or `session_expired`, force sign-out.
 
 ### 7.3 Logout Strategy
 
-- Call `/api/auth/logout` with latest refresh token.
+- Call `/api/v1/auth/logout` with latest refresh token.
 - Always clear local tokens regardless of response.
 
 ## 8. Security Characteristics
@@ -175,13 +177,24 @@ These points are important for client teams and backend maintainers:
 
 | Method | Path                    | Auth Header Required | Description |
 | ------ | ----------------------- | -------------------- | ----------- |
-| POST   | /api/auth/register      | No                   | Password registration |
-| POST   | /api/auth/login         | No                   | Password login |
-| POST   | /api/auth/refresh       | No                   | Rotate tokens |
-| POST   | /api/auth/logout        | No                   | Revoke refresh session |
-| POST   | /api/auth/oauth/google  | No                   | OAuth Google login/signup |
-| POST   | /api/auth/oauth/apple   | No                   | OAuth Apple login/signup |
-| GET    | /api/auth/me            | Yes                  | Current authenticated user |
+| POST   | /api/v1/auth/register      | No                   | Password registration |
+| POST   | /api/v1/auth/login         | No                   | Password login |
+| POST   | /api/v1/auth/refresh       | No                   | Rotate tokens |
+| POST   | /api/v1/auth/logout        | No                   | Revoke refresh session |
+| POST   | /api/v1/auth/oauth/google  | No                   | OAuth Google login/signup |
+| POST   | /api/v1/auth/oauth/apple   | No                   | OAuth Apple login/signup |
+| GET    | /api/v1/auth/me            | Yes                  | Current authenticated user |
+| POST   | /api/v1/auth/change-password | Yes                | Change password for password-based account |
+| POST   | /api/v1/auth/change-email  | Yes                  | Change login email for password-based account |
+
+Current route note:
+
+- The live API now exposes only versioned auth routes under `/api/v1/auth/*`.
+
+Behavior note:
+
+- `change-password` and `change-email` require an existing password hash and return `password_auth_not_available` for OAuth-only accounts.
+- Email change updates both the user document and auth document to keep duplicated email fields consistent.
 
 ## 11. Changelog Guidance
 
