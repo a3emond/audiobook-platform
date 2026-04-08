@@ -3,8 +3,8 @@ const path = require('path');
 
 const base = '/home/a3emond/projects/audiobook-platform';
 const root = path.join(base, 'frontend/src/app');
-const enPath = path.join(base, 'frontend/src/assets/i18n/en.json');
-const frPath = path.join(base, 'frontend/src/assets/i18n/fr.json');
+const enPath = path.join(base, 'frontend/public/i18n/en.json');
+const frPath = path.join(base, 'frontend/public/i18n/fr.json');
 
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

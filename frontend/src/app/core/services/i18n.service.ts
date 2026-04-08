@@ -52,7 +52,7 @@ export class I18nService {
 
 	private async loadDictionary(locale: 'fr' | 'en'): Promise<Record<string, string>> {
 		try {
-			const response = await fetch(`/assets/i18n/${locale}.json`, {
+			const response = await fetch(`/i18n/${locale}.json`, {
 				headers: {
 					Accept: 'application/json',
 				},
