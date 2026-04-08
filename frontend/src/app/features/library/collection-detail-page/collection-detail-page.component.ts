@@ -5,6 +5,8 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 
 import type { Book, Collection } from '../../../core/models/api.models';
+import { TranslatePipe } from '../../../core/pipes/translate.pipe';
+import { I18nService } from '../../../core/services/i18n.service';
 import { LibraryService } from '../../../core/services/library.service';
 import { ProgressService } from '../../../core/services/progress.service';
 import { BookCardComponent } from '../book-card/book-card.component';
@@ -14,7 +16,7 @@ const AUTO_ACTIVITY_COLLECTION_ID = 'auto:listened';
 @Component({
   selector: 'app-collection-detail-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, BookCardComponent],
+  imports: [CommonModule, FormsModule, RouterLink, BookCardComponent, TranslatePipe],
   templateUrl: './collection-detail-page.component.html',
   styleUrl: './collection-detail-page.component.css',
 })
@@ -23,6 +25,7 @@ export class CollectionDetailPageComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly library = inject(LibraryService);
   private readonly progress = inject(ProgressService);
+  protected readonly i18n = inject(I18nService);
 
   readonly collection = signal<Collection | null>(null);
   readonly books = signal<Book[]>([]);
@@ -42,7 +45,7 @@ export class CollectionDetailPageComponent implements OnInit {
   ngOnInit(): void {
     const collectionId = this.route.snapshot.paramMap.get('collectionId');
     if (!collectionId) {
-      this.error.set('Missing collection id');
+      this.error.set(this.i18n.t('collections.error.missingId', 'Missing collection id'));
       return;
     }
 
@@ -64,7 +67,7 @@ export class CollectionDetailPageComponent implements OnInit {
       return;
     }
 
-    const nextName = prompt('Rename collection', collection.name)?.trim();
+    const nextName = prompt(this.i18n.t('collections.renamePrompt', 'Rename collection'), collection.name)?.trim();
     if (!nextName || nextName === collection.name) {
       return;
     }
@@ -74,7 +77,7 @@ export class CollectionDetailPageComponent implements OnInit {
         this.collection.set(updated);
       },
       error: (error: unknown) => {
-        this.error.set(error instanceof Error ? error.message : 'Unable to rename collection');
+        this.error.set(error instanceof Error ? error.message : this.i18n.t('collections.renameError', 'Unable to rename collection'));
       },
     });
   }
@@ -85,7 +88,7 @@ export class CollectionDetailPageComponent implements OnInit {
       return;
     }
 
-    const confirmed = confirm(`Delete collection "${collection.name}"?`);
+    const confirmed = confirm(this.i18n.t('collections.deleteConfirm', 'Delete collection "{name}"?', { name: collection.name }));
     if (!confirmed) {
       return;
     }
@@ -95,7 +98,7 @@ export class CollectionDetailPageComponent implements OnInit {
         void this.router.navigateByUrl('/library');
       },
       error: (error: unknown) => {
-        this.error.set(error instanceof Error ? error.message : 'Unable to delete collection');
+        this.error.set(error instanceof Error ? error.message : this.i18n.t('collections.deleteError', 'Unable to delete collection'));
       },
     });
   }
@@ -164,7 +167,7 @@ export class CollectionDetailPageComponent implements OnInit {
         this.closeBooksEditor();
       },
       error: (error: unknown) => {
-        this.error.set(error instanceof Error ? error.message : 'Unable to update collection books');
+        this.error.set(error instanceof Error ? error.message : this.i18n.t('collections.updateBooksError', 'Unable to update collection books'));
       },
     });
   }
@@ -195,7 +198,7 @@ export class CollectionDetailPageComponent implements OnInit {
 
         this.collection.set({
           id: AUTO_ACTIVITY_COLLECTION_ID,
-          name: 'Listening Activity',
+          name: this.i18n.t('library.activityCollection', 'Listening Activity'),
           bookIds: orderedBooks.map((book) => book.id),
           updatedAt: new Date().toISOString(),
         });
@@ -204,7 +207,7 @@ export class CollectionDetailPageComponent implements OnInit {
         this.loading.set(false);
       },
       error: (error: unknown) => {
-        this.error.set(error instanceof Error ? error.message : 'Unable to load listening activity');
+        this.error.set(error instanceof Error ? error.message : this.i18n.t('collections.error.activity', 'Unable to load listening activity'));
         this.loading.set(false);
       },
     });
@@ -227,7 +230,7 @@ export class CollectionDetailPageComponent implements OnInit {
               this.loading.set(false);
             },
             error: (error: unknown) => {
-              this.error.set(error instanceof Error ? error.message : 'Unable to load collection books');
+                this.error.set(error instanceof Error ? error.message : this.i18n.t('collections.error.books', 'Unable to load collection books'));
               this.loading.set(false);
             },
           });
@@ -238,7 +241,7 @@ export class CollectionDetailPageComponent implements OnInit {
         this.loading.set(false);
       },
       error: (error: unknown) => {
-        this.error.set(error instanceof Error ? error.message : 'Unable to load collection');
+        this.error.set(error instanceof Error ? error.message : this.i18n.t('collections.error.load', 'Unable to load collection'));
         this.loading.set(false);
       },
     });

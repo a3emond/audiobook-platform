@@ -8,6 +8,8 @@ import type {
   Book,
   Collection,
 } from '../../../core/models/api.models';
+import { TranslatePipe } from '../../../core/pipes/translate.pipe';
+import { I18nService } from '../../../core/services/i18n.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { LibraryService } from '../../../core/services/library.service';
 import { ProgressService } from '../../../core/services/progress.service';
@@ -32,7 +34,7 @@ const AUTO_ACTIVITY_COLLECTION_ID = 'auto:listened';
 @Component({
   selector: 'app-library-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, BookCardComponent, CollectionCardComponent],
+  imports: [CommonModule, FormsModule, RouterLink, BookCardComponent, CollectionCardComponent, TranslatePipe],
   templateUrl: './library-page.component.html',
   styleUrl: './library-page.component.css',
 })
@@ -59,6 +61,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private resizeObserver?: ResizeObserver;
 
   constructor(
+    protected readonly i18n: I18nService,
     private readonly library: LibraryService,
     private readonly auth: AuthService,
     private readonly settingsService: SettingsService,
@@ -144,19 +147,19 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
                 this.loadCollections();
               },
               error: (error: unknown) => {
-                this.error.set(error instanceof Error ? error.message : 'Unable to load series rows');
+                this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.seriesRows', 'Unable to load series rows'));
                 this.loading.set(false);
               },
             });
           },
           error: (error: unknown) => {
-            this.error.set(error instanceof Error ? error.message : 'Unable to load series');
+            this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.series', 'Unable to load series'));
             this.loading.set(false);
           },
         });
       },
       error: (error: unknown) => {
-        this.error.set(error instanceof Error ? error.message : 'Unable to load library');
+        this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.load', 'Unable to load library'));
         this.loading.set(false);
       },
     });
@@ -167,7 +170,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
       next: (response) => {
         const autoCollection: Collection = {
           id: AUTO_ACTIVITY_COLLECTION_ID,
-          name: 'Listening Activity',
+          name: this.i18n.t('library.activityCollection', 'Listening Activity'),
           bookIds: this.listenedBookIds(),
           updatedAt: new Date().toISOString(),
         };
@@ -186,7 +189,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.scheduleRailSync();
       },
       error: (error: unknown) => {
-        this.error.set(error instanceof Error ? error.message : 'Unable to load collections');
+        this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.collections', 'Unable to load collections'));
         this.loading.set(false);
       },
     });
@@ -206,7 +209,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   createCollection(): void {
     const name = this.collectionName.trim();
     if (!name) {
-      this.collectionModalError.set('Collection name is required.');
+      this.collectionModalError.set(this.i18n.t('collections.nameRequired', 'Collection name is required.'));
       return;
     }
 
@@ -216,7 +219,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.reload();
       },
       error: (error: unknown) => {
-        this.collectionModalError.set(error instanceof Error ? error.message : 'Unable to create collection');
+        this.collectionModalError.set(error instanceof Error ? error.message : this.i18n.t('collections.createError', 'Unable to create collection'));
       },
     });
   }

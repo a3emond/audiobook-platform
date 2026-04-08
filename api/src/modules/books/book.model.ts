@@ -150,8 +150,10 @@ const bookSchema = new Schema(
     },
     language: {
       type: String,
+      enum: ["en", "fr"],
       trim: true,
-      default: null,
+      required: true,
+      default: "en",
       index: true,
     },
     chapters: {

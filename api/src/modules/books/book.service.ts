@@ -138,6 +138,13 @@ export class BookService {
 			updates.genre = data.genre;
 		}
 
+		if (data.language !== undefined) {
+			if (data.language !== "en" && data.language !== "fr") {
+				throw new ApiError(400, "book_language_invalid");
+			}
+			updates.language = data.language;
+		}
+
 		if (data.tags !== undefined) {
 			updates.tags = data.tags;
 		}

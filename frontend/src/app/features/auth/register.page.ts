@@ -4,13 +4,14 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 
 import { AppConfigService } from '../../core/services/config.service';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 import { AuthService } from '../../core/services/auth.service';
 import { OAuthButtonsComponent } from './oauth-buttons.js';
 
 @Component({
   selector: 'app-register-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, OAuthButtonsComponent],
+  imports: [CommonModule, FormsModule, RouterLink, OAuthButtonsComponent, TranslatePipe],
   template: `
     <div class="auth-shell">
       <div class="auth-card">
@@ -18,7 +19,7 @@ import { OAuthButtonsComponent } from './oauth-buttons.js';
           <img src="/logo_small.png" alt="StoryWave logo" class="auth-logo" />
           <span>StoryWave</span>
         </div>
-        <h1 class="auth-title">Create account</h1>
+        <h1 class="auth-title">{{ 'auth.register.title' | t:'Create account' }}</h1>
 
         <app-oauth-buttons
           [googleEnabled]="config.googleEnabled"
@@ -28,54 +29,54 @@ import { OAuthButtonsComponent } from './oauth-buttons.js';
         />
 
         <div class="divider" *ngIf="config.googleEnabled || config.appleEnabled">
-          <span>or continue with email</span>
+          <span>{{ 'auth.divider.email' | t:'or continue with email' }}</span>
         </div>
 
         <form (ngSubmit)="submit()" class="form" novalidate>
           <label>
-            Display name <span class="opt">(optional)</span>
+            {{ 'auth.displayName.label' | t:'Display name' }} <span class="opt">{{ 'common.optional' | t:'(optional)' }}</span>
             <input
               name="displayName"
               [(ngModel)]="displayName"
               type="text"
               autocomplete="name"
-              placeholder="Your name"
+              [placeholder]="'auth.displayName.placeholder' | t:'Your name'"
             />
           </label>
 
           <label>
-            Email
+            {{ 'auth.email.label' | t:'Email' }}
             <input
               name="email"
               [(ngModel)]="email"
               type="email"
               required
               autocomplete="email"
-              placeholder="you@example.com"
+              [placeholder]="'auth.email.placeholder' | t:'you@example.com'"
             />
           </label>
 
           <label>
-            Password
+            {{ 'auth.password.label' | t:'Password' }}
             <input
               name="password"
               [(ngModel)]="password"
               type="password"
               required
               autocomplete="new-password"
-              placeholder="Min 8 characters"
+              [placeholder]="'auth.password.newPlaceholder' | t:'Min 8 characters'"
             />
           </label>
 
           <label>
-            Confirm password
+            {{ 'auth.password.confirmLabel' | t:'Confirm password' }}
             <input
               name="confirm"
               [(ngModel)]="confirm"
               type="password"
               required
               autocomplete="new-password"
-              placeholder="Repeat password"
+              [placeholder]="'auth.password.confirmPlaceholder' | t:'Repeat password'"
             />
           </label>
 
@@ -83,19 +84,19 @@ import { OAuthButtonsComponent } from './oauth-buttons.js';
           <p *ngIf="error()" class="text-error">{{ error() }}</p>
 
           <button class="btn submit-btn" type="submit" [disabled]="loading()">
-            {{ loading() ? 'Creating account…' : 'Create account' }}
+            {{ loading() ? ('auth.register.loading' | t:'Creating account…') : ('auth.register.title' | t:'Create account') }}
           </button>
         </form>
 
         <p class="footer-link">
-          Already have an account? <a routerLink="/login">Sign in</a>
+          {{ 'auth.register.haveAccount' | t:'Already have an account?' }} <a routerLink="/login">{{ 'auth.login.title' | t:'Sign in' }}</a>
         </p>
 
         <p class="legal-link">
-          By continuing, you agree to our
-          <a routerLink="/terms">Terms</a>
-          and
-          <a routerLink="/privacy">Privacy Policy</a>.
+          {{ 'auth.legal.prefix' | t:'By continuing, you agree to our' }}
+          <a routerLink="/terms">{{ 'legal.terms.title' | t:'Terms' }}</a>
+          {{ 'auth.legal.and' | t:'and' }}
+          <a routerLink="/privacy">{{ 'legal.privacy.title' | t:'Privacy Policy' }}</a>.
         </p>
       </div>
     </div>
@@ -215,6 +216,7 @@ export class RegisterPage implements OnDestroy {
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
   readonly validationError = signal<string | null>(null);
+  private readonly inferredLocale: 'fr' | 'en' = navigator.language?.toLowerCase().startsWith('fr') ? 'fr' : 'en';
 
   constructor(
     protected readonly config: AppConfigService,
@@ -248,6 +250,7 @@ export class RegisterPage implements OnDestroy {
       await this.auth.register({
         email: this.email,
         password: this.password,
+        preferredLocale: this.inferredLocale,
         ...(this.displayName.trim() ? { displayName: this.displayName.trim() } : {}),
       });
       await this.router.navigateByUrl('/library');

@@ -34,6 +34,7 @@ async function createBookDocument(bookData: Record<string, unknown>) {
 export interface IngestJobPayload {
   sourcePath: string;
   cleanupSource?: boolean;
+  language?: "en" | "fr";
 }
 
 export async function handleIngestJob(
@@ -47,6 +48,7 @@ export async function handleIngestJob(
 
   const sourcePath = payload.sourcePath;
   const cleanupSource = payload.cleanupSource === true;
+  const language = payload.language === "fr" || payload.language === "en" ? payload.language : "en";
   const sourceExists = await fileService.exists(sourcePath);
 
   if (!sourceExists) {
@@ -110,7 +112,7 @@ export async function handleIngestJob(
       duration: Math.round(probeInfo.duration),
       chapters: extractedMetadata.chapters,
       genre: "Audiobook",
-      language: "en",
+      language,
       description: {
         default: null,
         fr: null,

@@ -17,6 +17,7 @@ export interface BookFilters {
   author?: string;
   series?: string;
   genre?: string;
+  language?: string;
   limit?: number;
   offset?: number;
 }
@@ -28,7 +29,7 @@ export class LibraryService {
   constructor(private readonly api: ApiService) {}
 
   listBooks(filters: BookFilters = {}): Observable<ListBooksResponse> {
-    return this.api.get<ListBooksResponse>('/books', { params: filters });
+    return this.api.get<ListBooksResponse>('/books', { params: this.withDefaultLanguage(filters) });
   }
 
   getBook(bookId: string): Observable<Book> {
@@ -36,11 +37,13 @@ export class LibraryService {
   }
 
   listSeries(filters: SeriesFilters = {}): Observable<ListSeriesResponse> {
-    return this.api.get<ListSeriesResponse>('/series', { params: filters });
+    return this.api.get<ListSeriesResponse>('/series', { params: this.withDefaultLanguage(filters) });
   }
 
   getSeries(seriesName: string): Observable<SeriesDetail> {
-    return this.api.get<SeriesDetail>(`/series/${encodeURIComponent(seriesName)}`);
+    return this.api.get<SeriesDetail>(`/series/${encodeURIComponent(seriesName)}`, {
+      params: this.withDefaultLanguage({}),
+    });
   }
 
   getCollection(collectionId: string): Observable<Collection> {
@@ -61,5 +64,18 @@ export class LibraryService {
 
   deleteCollection(collectionId: string): Observable<void> {
     return this.api.delete<void>(`/collections/${collectionId}`);
+  }
+
+  private withDefaultLanguage<T extends BookFilters>(filters: T): T {
+    if (filters.language) {
+      return filters;
+    }
+
+    const persisted = localStorage.getItem('app.locale');
+    const language = persisted === 'fr' || persisted === 'en' ? persisted : 'en';
+    return {
+      ...filters,
+      language,
+    };
   }
 }

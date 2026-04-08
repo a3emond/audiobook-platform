@@ -25,6 +25,7 @@ export function validateRegisterRequest(
   assertBodyObject(req.body);
 
   const { email, password, displayName } = req.body;
+  const preferredLocale = req.body.preferredLocale;
 
   if (!isNonEmptyString(email) || !isNonEmptyString(password)) {
     throw new ApiError(400, "email_and_password_required");
@@ -53,6 +54,10 @@ export function validateRegisterRequest(
     ) {
       throw new ApiError(400, "invalid_display_name");
     }
+  }
+
+  if (preferredLocale !== undefined && preferredLocale !== "en" && preferredLocale !== "fr") {
+    throw new ApiError(400, "invalid_preferred_locale");
   }
 
   next();

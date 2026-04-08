@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, effect, signal } from '@angular/core';
+import { Component, HostListener, OnDestroy, effect, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Subscription } from 'rxjs';
 
@@ -8,10 +8,17 @@ import { AuthService } from './core/services/auth.service';
 import { CompletedBooksService } from './core/services/completed-books.service';
 import { LibraryService } from './core/services/library.service';
 import { ProgressService } from './core/services/progress.service';
+import { I18nService } from './core/services/i18n.service';
+import { RealtimeService } from './core/services/realtime.service';
 
 interface InProgressBookItem {
   book: Book;
   progress: Progress;
+}
+
+interface ToastItem {
+  id: string;
+  text: string;
 }
 
 @Component({
@@ -20,11 +27,13 @@ interface InProgressBookItem {
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
-export class App {
+export class App implements OnDestroy {
   readonly adminMenuOpen  = signal(false);
   readonly mobileNavOpen  = signal(false);
   readonly inProgressBooks = signal<InProgressBookItem[]>([]);
+  readonly notifications = signal<ToastItem[]>([]);
   private progressChangedSub?: Subscription;
+  private realtimeSub?: Subscription;
 
   constructor(
     protected readonly auth: AuthService,
@@ -32,6 +41,8 @@ export class App {
     private readonly progressService: ProgressService,
     private readonly libraryService: LibraryService,
     private readonly completedBooks: CompletedBooksService,
+    protected readonly i18n: I18nService,
+    private readonly realtime: RealtimeService,
   ) {
     effect(() => {
       if (this.auth.isAuthenticated()) {
@@ -42,11 +53,31 @@ export class App {
       this.inProgressBooks.set([]);
     });
 
+    effect(() => {
+      const locale = this.auth.user()?.profile.preferredLocale;
+      if (locale === 'en' || locale === 'fr') {
+        void this.i18n.setLocale(locale);
+      }
+    });
+
     this.progressChangedSub = this.progressService.progressChanged$.subscribe(() => {
       if (this.auth.isAuthenticated()) {
         this.loadInProgressBooks();
       }
     });
+
+    this.realtime.connect();
+    this.realtimeSub = this.realtime
+      .on<{ book?: { title?: string } }>('catalog.book.added')
+      .subscribe((payload) => {
+        const title = payload.book?.title || this.i18n.t('common.unknownTitle', 'Unknown title');
+        this.pushNotification(`${this.i18n.t('toast.newBook', 'New book added')}: ${title}`);
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.progressChangedSub?.unsubscribe();
+    this.realtimeSub?.unsubscribe();
   }
 
   isAdminRouteActive(): boolean {
@@ -80,6 +111,22 @@ export class App {
     this.closeMobileNav();
     await this.auth.logout();
     await this.router.navigateByUrl('/login');
+  }
+
+  t(key: string, fallback: string): string {
+    return this.i18n.t(key, fallback);
+  }
+
+  discussionsLink(): string[] {
+    return ['/discussions', this.i18n.locale()];
+  }
+
+  async switchLocale(locale: 'en' | 'fr'): Promise<void> {
+    if (this.i18n.locale() === locale) {
+      return;
+    }
+
+    await this.i18n.setLocale(locale);
   }
 
   coverUrl(book: Book): string {
@@ -152,5 +199,13 @@ export class App {
         this.inProgressBooks.set([]);
       },
     });
+  }
+
+  private pushNotification(text: string): void {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    this.notifications.update((items) => [...items, { id, text }].slice(-4));
+    setTimeout(() => {
+      this.notifications.update((items) => items.filter((item) => item.id !== id));
+    }, 5000);
   }
 }

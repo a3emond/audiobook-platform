@@ -43,6 +43,10 @@ function resolveOAuthEmail(profile: OAuthProfile): string {
   return `${profile.providerId}@${profile.provider}.local`;
 }
 
+function sanitizePreferredLocale(preferredLocale?: "fr" | "en"): "fr" | "en" {
+  return preferredLocale === "fr" ? "fr" : "en";
+}
+
 function toUserDTO(user: {
   _id: unknown;
   email: string;
@@ -60,7 +64,7 @@ function toUserDTO(user: {
     role: user.role,
     profile: {
       displayName: user.profile?.displayName ?? null,
-      preferredLocale: user.profile?.preferredLocale ?? "fr",
+      preferredLocale: user.profile?.preferredLocale ?? "en",
     },
     createdAt: user.createdAt?.toISOString(),
     updatedAt: user.updatedAt?.toISOString(),
@@ -93,6 +97,7 @@ export class AuthService {
     email: string,
     password: string,
     displayName?: string,
+    preferredLocale?: "fr" | "en",
   ): Promise<AuthResponseDTO> {
     if (!email || !password) {
       throw new ApiError(400, "email_and_password_required");
@@ -116,7 +121,7 @@ export class AuthService {
       email: normalizedEmail,
       profile: {
         displayName: displayName?.trim() || null,
-        preferredLocale: "fr",
+        preferredLocale: sanitizePreferredLocale(preferredLocale),
       },
     });
 
@@ -181,7 +186,10 @@ export class AuthService {
     };
   }
 
-  static async loginWithOAuth(profile: OAuthProfile): Promise<AuthResponseDTO> {
+  static async loginWithOAuth(
+    profile: OAuthProfile,
+    preferredLocale?: "fr" | "en",
+  ): Promise<AuthResponseDTO> {
     let auth = await AuthModel.findOne({
       "providers.type": profile.provider,
       "providers.providerId": profile.providerId,
@@ -255,7 +263,7 @@ export class AuthService {
       email,
       profile: {
         displayName: profile.name?.trim() || null,
-        preferredLocale: "fr",
+        preferredLocale: sanitizePreferredLocale(preferredLocale),
       },
     });
 

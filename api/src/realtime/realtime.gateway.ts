@@ -1,0 +1,141 @@
+import type { Server as HttpServer } from "node:http";
+import { WebSocketServer, type WebSocket } from "ws";
+
+import { logger } from "../config/logger.js";
+import { BookModel } from "../modules/books/book.model.js";
+import { JobModel } from "../modules/jobs/job.model.js";
+import {
+  subscribeRealtimeEvents,
+  type RealtimeEventEnvelope,
+} from "./realtime.events.js";
+
+export class RealtimeGateway {
+  private wss?: WebSocketServer;
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private jobsCursor = new Date(Date.now() - 30_000);
+  private booksCursor = new Date(Date.now() - 30_000);
+  private unsubscribe?: () => void;
+
+  start(server: HttpServer): void {
+    this.wss = new WebSocketServer({
+      server,
+      path: "/ws",
+    });
+
+    this.wss.on("connection", (socket) => {
+      this.send(socket, {
+        type: "system.connected",
+        ts: new Date().toISOString(),
+        payload: { ok: true },
+      });
+    });
+
+    this.unsubscribe = subscribeRealtimeEvents((event) => {
+      this.broadcast(event);
+    });
+
+    this.pollTimer = setInterval(() => {
+      void this.flushChanges();
+    }, 2000);
+
+    logger.info("Realtime websocket gateway started");
+  }
+
+  stop(): void {
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
+
+    this.unsubscribe?.();
+    this.unsubscribe = undefined;
+
+    this.wss?.close();
+    this.wss = undefined;
+  }
+
+  private async flushChanges(): Promise<void> {
+    await Promise.all([this.broadcastJobUpdates(), this.broadcastBookInsertions()]);
+  }
+
+  private async broadcastJobUpdates(): Promise<void> {
+    const jobs = await JobModel.find({ updatedAt: { $gt: this.jobsCursor } })
+      .sort({ updatedAt: 1 })
+      .limit(200)
+      .select("_id type status updatedAt createdAt attempt maxAttempts error");
+
+    if (jobs.length === 0) {
+      return;
+    }
+
+    this.jobsCursor = new Date(jobs[jobs.length - 1].updatedAt ?? new Date());
+
+    for (const job of jobs) {
+      this.broadcast({
+        type: "job.state.changed",
+        ts: new Date().toISOString(),
+        payload: {
+          job: {
+            id: String(job._id),
+            type: job.type,
+            status: job.status,
+            createdAt: job.createdAt?.toISOString(),
+            updatedAt: job.updatedAt?.toISOString(),
+            attempt: job.attempt,
+            maxAttempts: job.maxAttempts,
+            error: job.error ?? null,
+          },
+        },
+      });
+    }
+  }
+
+  private async broadcastBookInsertions(): Promise<void> {
+    const books = await BookModel.find({ createdAt: { $gt: this.booksCursor } })
+      .sort({ createdAt: 1 })
+      .limit(100)
+      .select("_id title author language createdAt");
+
+    if (books.length === 0) {
+      return;
+    }
+
+    this.booksCursor = new Date(books[books.length - 1].createdAt ?? new Date());
+
+    for (const book of books) {
+      this.broadcast({
+        type: "catalog.book.added",
+        ts: new Date().toISOString(),
+        payload: {
+          book: {
+            id: String(book._id),
+            title: book.title,
+            author: book.author,
+            language: book.language ?? null,
+            createdAt: book.createdAt?.toISOString(),
+          },
+        },
+      });
+    }
+  }
+
+  private broadcast(event: RealtimeEventEnvelope): void {
+    if (!this.wss) {
+      return;
+    }
+
+    const raw = JSON.stringify(event);
+    for (const client of this.wss.clients) {
+      this.send(client, raw);
+    }
+  }
+
+  private send(socket: WebSocket, payload: RealtimeEventEnvelope | string): void {
+    if (socket.readyState !== socket.OPEN) {
+      return;
+    }
+
+    const raw = typeof payload === "string" ? payload : JSON.stringify(payload);
+    socket.send(raw);
+  }
+}

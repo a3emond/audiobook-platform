@@ -45,7 +45,7 @@ export class AdminController {
 	}
 
 	static async uploadBook(
-		req: Request & { file?: Express.Multer.File },
+			req: Request<unknown, unknown, { language?: string }> & { file?: Express.Multer.File },
 		res: Response<UploadBookResponseDTO>,
 	) {
 		const file = req.file;
@@ -53,11 +53,16 @@ export class AdminController {
 			throw new ApiError(400, "upload_file_required");
 		}
 
+			const language = req.body.language === "fr" || req.body.language === "en" ? req.body.language : null;
+			if (!language) {
+				throw new ApiError(400, "upload_language_required");
+			}
+
 		const { targetPath } = await persistUploadFile(file, ALLOWED_EXTENSIONS);
 
 		const job = await JobService.enqueueJob(
 			"INGEST",
-			{ sourcePath: targetPath, cleanupSource: true },
+				{ sourcePath: targetPath, cleanupSource: true, language },
 			3,
 		);
 
@@ -73,6 +78,7 @@ export class AdminController {
 				author?: string;
 				series?: string;
 				genre?: string;
+				language?: string;
 			}
 		> & {
 			files?:
@@ -108,6 +114,11 @@ export class AdminController {
 		const author = req.body.author?.trim() || "Unknown Author";
 		const series = req.body.series?.trim() || null;
 		const genre = req.body.genre?.trim() || null;
+		const language = req.body.language === "fr" || req.body.language === "en" ? req.body.language : null;
+
+		if (!language) {
+			throw new ApiError(400, "upload_language_required");
+		}
 
 		const job = await JobService.enqueueJob(
 			"INGEST_MP3_AS_M4B",
@@ -121,6 +132,7 @@ export class AdminController {
 					author,
 					series,
 					genre,
+					language,
 				},
 			},
 			3,

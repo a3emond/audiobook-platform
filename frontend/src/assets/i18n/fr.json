@@ -1,0 +1,13 @@
+{
+	"nav.library": "Bibliotheque",
+	"nav.activity": "Activite",
+	"nav.profile": "Profil",
+	"nav.discussions": "Discussions",
+	"toast.newBook": "Nouveau livre ajoute",
+	"discussions.title": "Discussions",
+	"discussions.placeholder": "Ecrire un message",
+	"discussions.send": "Envoyer",
+	"discussions.noMessages": "Aucun message pour le moment. Lancez la conversation.",
+	"discussions.lang.en": "Anglais",
+	"discussions.lang.fr": "Francais"
+}

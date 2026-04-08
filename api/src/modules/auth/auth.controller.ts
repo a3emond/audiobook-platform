@@ -15,13 +15,33 @@ import type {
 } from "../../dto/auth.dto.js";
 
 export class AuthController {
+  private static resolvePreferredLocale(
+    explicit: unknown,
+    acceptLanguageHeader: string | undefined,
+  ): "fr" | "en" {
+    if (explicit === "fr" || explicit === "en") {
+      return explicit;
+    }
+
+    if (acceptLanguageHeader?.toLowerCase().startsWith("fr")) {
+      return "fr";
+    }
+
+    return "en";
+  }
+
   static async register(
     req: Request<unknown, unknown, RegisterDTO>,
     res: Response,
   ) {
-    const { email, password, displayName } = req.body;
+    const { email, password, displayName, preferredLocale } = req.body;
 
-    const result = await AuthService.register(email, password, displayName);
+    const result = await AuthService.register(
+      email,
+      password,
+      displayName,
+      this.resolvePreferredLocale(preferredLocale, req.headers["accept-language"]),
+    );
 
     res.status(201).json(result);
   }
@@ -63,7 +83,10 @@ export class AuthController {
     const { idToken } = req.body;
 
     const profile = await OAuthService.verifyGoogle(idToken);
-    const result = await AuthService.loginWithOAuth(profile);
+    const result = await AuthService.loginWithOAuth(
+      profile,
+      this.resolvePreferredLocale(undefined, req.headers["accept-language"]),
+    );
 
     res.status(200).json(result);
   }
@@ -75,7 +98,10 @@ export class AuthController {
     const { idToken } = req.body;
 
     const profile = await OAuthService.verifyApple(idToken);
-    const result = await AuthService.loginWithOAuth(profile);
+    const result = await AuthService.loginWithOAuth(
+      profile,
+      this.resolvePreferredLocale(undefined, req.headers["accept-language"]),
+    );
 
     res.status(200).json(result);
   }

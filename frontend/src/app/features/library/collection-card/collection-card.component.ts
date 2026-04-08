@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 
 import type { Collection } from '../../../core/models/api.models';
 import { CompletedBooksService } from '../../../core/services/completed-books.service';
+import { I18nService } from '../../../core/services/i18n.service';
 
 interface PreviewImage {
   bookId: string;
@@ -22,7 +23,10 @@ export class CollectionCardComponent {
 
   @Input() previewImages: PreviewImage[] = [];
 
-  constructor(private readonly completedBooks: CompletedBooksService) {}
+  constructor(
+    private readonly completedBooks: CompletedBooksService,
+    protected readonly i18n: I18nService,
+  ) {}
 
   fallbackLabel(): string {
     const label = this.collection?.name

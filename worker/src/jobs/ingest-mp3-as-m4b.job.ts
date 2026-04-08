@@ -24,6 +24,7 @@ interface IngestMp3AsM4BPayload {
 		author?: string;
 		series?: string | null;
 		genre?: string | null;
+		language?: "en" | "fr";
 	};
 }
 
@@ -76,6 +77,9 @@ export async function handleIngestMp3AsM4BJob(
 	const author = payload.metadata?.author?.trim() || "Unknown Author";
 	const series = payload.metadata?.series?.trim() || null;
 	const genre = payload.metadata?.genre?.trim() || "Audiobook";
+	const language = payload.metadata?.language === "fr" || payload.metadata?.language === "en"
+		? payload.metadata.language
+		: "en";
 
 	const metadataPath = `/tmp/ingest-mp3-metadata-${job._id}.txt`;
 	const convertedPath = `/tmp/ingest-mp3-audio-${job._id}.m4b`;
@@ -115,7 +119,7 @@ export async function handleIngestMp3AsM4BJob(
 			duration: Math.round(convertedProbe.duration),
 			chapters: ffMetadata.chapters,
 			genre,
-			language: "en",
+			language,
 			description: {
 				default: null,
 				fr: null,

@@ -65,6 +65,7 @@ Upload an audiobook file from the admin app and enqueue ingest.
 Request:
 - `multipart/form-data`
 - file field name: `file`
+- language field name: `language` (`en` or `fr`) (required)
 - supported extensions: `.m4b`, `.m4a`, `.mp3`, `.ogg`, `.wav`
 
 Response:
@@ -79,6 +80,18 @@ Behavior:
 - writes the uploaded file to shared server storage under an internal uploads folder
 - enqueues an `INGEST` worker job with source path
 - ingest job copies audio to final library location and can clean temporary upload source
+- language is now mandatory to keep library filtering reliable
+
+### POST /books/upload/mp3
+
+Upload one MP3 source file and optional cover image to enqueue conversion + ingest.
+
+Request:
+- `multipart/form-data`
+- file field name: `file`
+- optional cover field name: `cover`
+- required language field name: `language` (`en` or `fr`)
+- optional metadata fields: `title`, `author`, `series`, `genre`
 
 ### GET /books
 

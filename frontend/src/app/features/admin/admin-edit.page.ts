@@ -54,6 +54,14 @@ interface EditableChapter {
 				</label>
 
 				<label>
+					Language
+					<select name="language" [(ngModel)]="language">
+						<option value="en">English</option>
+						<option value="fr">French</option>
+					</select>
+				</label>
+
+				<label>
 					Tags (comma-separated)
 					<input name="tags" [(ngModel)]="tagsRaw" />
 				</label>
@@ -163,6 +171,7 @@ export class AdminEditPage implements OnInit {
 	series = '';
 	seriesIndex: number | null = null;
 	genre = '';
+	language: 'en' | 'fr' = 'en';
 	tagsRaw = '';
 	descriptionDefault = '';
 	chapterRows: EditableChapter[] = [];
@@ -193,6 +202,7 @@ export class AdminEditPage implements OnInit {
 				author: this.author.trim() || undefined,
 				series: this.series.trim() || null,
 				seriesIndex: this.seriesIndex,
+				language: this.language,
 				genre: this.genre.trim() || null,
 				tags: this.tagsRaw
 					.split(',')
@@ -350,6 +360,7 @@ export class AdminEditPage implements OnInit {
 		this.series = book.series ?? '';
 		this.seriesIndex = book.seriesIndex ?? null;
 		this.genre = book.genre ?? '';
+		this.language = book.language === 'fr' ? 'fr' : 'en';
 		this.tagsRaw = (book.tags ?? []).join(', ');
 		this.descriptionDefault = book.description?.default ?? '';
 		this.chapterRows = (book.chapters ?? []).map((chapter) => ({

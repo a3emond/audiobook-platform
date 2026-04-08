@@ -28,6 +28,8 @@ Use this section as the single source of truth for project documentation. Any ne
 - [Users API Endpoints](docs/api/users-endpoints.md)
 - [Streaming API Endpoints](docs/api/streaming-endpoints.md)
 - [Jobs API Endpoints](docs/api/jobs-endpoints.md)
+- [Discussions API Endpoints](docs/api/discussions-endpoints.md)
+- [Realtime Websocket Events](docs/api/realtime-events.md)
 
 ### Worker
 

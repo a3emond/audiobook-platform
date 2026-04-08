@@ -31,6 +31,7 @@ export interface RegisterPayload {
   email: string;
   password: string;
   displayName?: string;
+  preferredLocale?: 'fr' | 'en';
 }
 
 export interface ChangePasswordPayload {
@@ -57,6 +58,7 @@ export interface Book {
   title: string;
   author: string;
   duration: number;
+  language?: 'fr' | 'en' | string | null;
   coverPath?: string | null;
   series?: string | null;
   seriesIndex?: number | null;
@@ -172,4 +174,38 @@ export interface Collection {
 
 export interface ListCollectionsResponse extends PaginationMeta {
   collections: Collection[];
+}
+
+export type DiscussionLanguage = 'fr' | 'en';
+export type DiscussionChannelKey = 'general' | 'book-requests' | 'series-talk' | 'recommendations';
+
+export interface DiscussionChannel {
+  key: DiscussionChannelKey;
+  lang: DiscussionLanguage;
+  title: string;
+  description: string;
+}
+
+export interface DiscussionMessage {
+  id: string;
+  channelKey: DiscussionChannelKey;
+  lang: DiscussionLanguage;
+  body: string;
+  author: {
+    id: string;
+    displayName: string;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ListDiscussionMessagesResponse {
+  messages: DiscussionMessage[];
+  hasMore: boolean;
+}
+
+export interface RealtimeEventEnvelope<T = unknown> {
+  type: string;
+  ts: string;
+  payload: T;
 }

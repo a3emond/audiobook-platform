@@ -6,6 +6,7 @@ import { RouterLink } from '@angular/router';
 import type { Book, ListeningSession, PaginationMeta } from '../../core/models/api.models';
 import type { UserStatsResponse } from '../../core/services/stats.service';
 import { AuthService } from '../../core/services/auth.service';
+import { I18nService } from '../../core/services/i18n.service';
 import { LibraryService } from '../../core/services/library.service';
 import { SettingsService } from '../../core/services/settings.service';
 import { StatsService } from '../../core/services/stats.service';
@@ -484,6 +485,7 @@ export class ProfilePage implements OnInit, AfterViewInit, OnDestroy {
   private readonly statsService = inject(StatsService);
   private readonly library = inject(LibraryService);
   private readonly settingsService = inject(SettingsService);
+  private readonly i18n = inject(I18nService);
 
   readonly auth = this.authService;
   readonly stats = signal<UserStatsResponse | null>(null);
@@ -598,6 +600,7 @@ export class ProfilePage implements OnInit, AfterViewInit, OnDestroy {
             .subscribe({
               next: async () => {
                 await this.authService.reloadCurrentUser();
+                await this.i18n.setLocale(this.preferredLocale);
                 this.preferencesSuccess.set('Preferences saved');
                 this.preferencesSaving.set(false);
               },

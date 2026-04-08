@@ -1,9 +1,10 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
+import { Subscription } from 'rxjs';
 
 import type { Book, ListBooksResponse } from '../models/api.models';
 import { ApiService } from './api.service';
-import { AuthService } from './auth.service';
+import { RealtimeService } from './realtime.service';
 
 export interface AdminJob {
   id: string;
@@ -100,6 +101,7 @@ interface UpdateBookMetadataPayload {
   author?: string;
   series?: string | null;
   seriesIndex?: number | null;
+  language?: 'en' | 'fr';
   genre?: string | null;
   tags?: string[];
   description?: {
@@ -123,13 +125,14 @@ interface Mp3ConversionMetadataPayload {
   author?: string;
   series?: string;
   genre?: string;
+  language: 'fr' | 'en';
 }
 
 @Injectable({ providedIn: 'root' })
 export class AdminService {
   constructor(
     private readonly api: ApiService,
-    private readonly auth: AuthService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   listAdminBooks(limit = 20, offset = 0): Observable<ListBooksResponse> {
@@ -144,9 +147,10 @@ export class AdminService {
     return this.api.get<AdminCoverage>('/admin/coverage');
   }
 
-  uploadBook(file: File): Observable<{ jobId: string }> {
+  uploadBook(file: File, language: 'fr' | 'en'): Observable<{ jobId: string }> {
     const form = new FormData();
     form.append('file', file);
+    form.append('language', language);
     return this.api.postFormData<{ jobId: string }>('/admin/books/upload', form);
   }
 
@@ -174,6 +178,7 @@ export class AdminService {
     if (metadata.genre) {
       form.append('genre', metadata.genre);
     }
+    form.append('language', metadata.language);
 
     return this.api.postFormData<{ jobId: string }>('/admin/books/upload/mp3', form);
   }
@@ -191,111 +196,36 @@ export class AdminService {
     onConnectionState?: (connected: boolean, mode: 'stream' | 'poll') => void;
     onError?: (message: string) => void;
   }): JobEventStreamHandle {
-    const controller = new AbortController();
-    let pollTimer: ReturnType<typeof setInterval> | null = null;
-    let stopped = false;
+    this.realtime.connect();
+    options.onConnectionState?.(this.realtime.connected(), 'stream');
 
-    const stopPolling = (): void => {
-      if (pollTimer) {
-        clearInterval(pollTimer);
-        pollTimer = null;
-      }
-    };
-
-    const startPolling = (): void => {
-      if (pollTimer) {
-        return;
-      }
-
-      options.onConnectionState?.(true, 'poll');
-      const tick = (): void => {
-        this.listJobs(25, 0).subscribe({
-          next: (response) => options.onJobs(response.jobs),
-          error: () => options.onError?.('Polling failed'),
-        });
-      };
-
-      tick();
-      pollTimer = setInterval(tick, 5000);
-    };
-
-    const readEventStream = async (): Promise<void> => {
-      const token = this.auth.accessToken();
-      if (!token) {
-        throw new Error('Missing access token for job events stream');
-      }
-
-      const response = await fetch('/api/v1/admin/jobs/events', {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'text/event-stream',
+    const subscriptions: Subscription[] = [];
+    const stateTimer = setInterval(() => {
+      options.onConnectionState?.(this.realtime.connected(), 'stream');
+    }, 1200);
+    subscriptions.push(
+      this.realtime.on<{ job?: AdminJob }>('job.state.changed').subscribe({
+        next: (payload) => {
+          if (payload.job) {
+            options.onJobs([payload.job]);
+          }
         },
-        signal: controller.signal,
-      });
+        error: () => options.onError?.('Realtime job updates unavailable'),
+      }),
+    );
 
-      if (!response.ok || !response.body) {
-        throw new Error(`Job events stream unavailable (${response.status})`);
-      }
-
-      options.onConnectionState?.(true, 'stream');
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder('utf-8');
-      let buffer = '';
-
-      while (!stopped) {
-        const { value, done } = await reader.read();
-        if (done) {
-          break;
-        }
-
-        buffer += decoder.decode(value, { stream: true });
-        const chunks = buffer.split('\n\n');
-        buffer = chunks.pop() ?? '';
-
-        for (const raw of chunks) {
-          const lines = raw.split('\n');
-          let eventName = 'message';
-          const dataLines: string[] = [];
-
-          for (const line of lines) {
-            if (line.startsWith('event:')) {
-              eventName = line.slice(6).trim();
-              continue;
-            }
-            if (line.startsWith('data:')) {
-              dataLines.push(line.slice(5).trimStart());
-            }
-          }
-
-          if (eventName !== 'jobs') {
-            continue;
-          }
-
-          const payload = dataLines.join('\n');
-          try {
-            const parsed = JSON.parse(payload) as { jobs?: AdminJob[] };
-            if (Array.isArray(parsed.jobs)) {
-              options.onJobs(parsed.jobs);
-            }
-          } catch {
-            options.onError?.('Malformed job events payload');
-          }
-        }
-      }
-    };
-
-    void readEventStream().catch((error: unknown) => {
-      options.onConnectionState?.(false, 'stream');
-      options.onError?.(error instanceof Error ? error.message : 'Stream unavailable, falling back to polling');
-      startPolling();
-    });
+    subscriptions.push(
+      this.realtime.events$.subscribe(() => {
+        options.onConnectionState?.(this.realtime.connected(), 'stream');
+      }),
+    );
 
     return {
       stop: () => {
-        stopped = true;
-        stopPolling();
-        controller.abort();
+        clearInterval(stateTimer);
+        for (const subscription of subscriptions) {
+          subscription.unsubscribe();
+        }
       },
     };
   }

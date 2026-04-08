@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { AdminService } from './admin.service';
 import { ApiService } from './api.service';
-import { AuthService } from './auth.service';
+import { RealtimeService } from './realtime.service';
 
 describe('AdminService', () => {
   it('calls getOverview endpoint', async () => {
@@ -16,8 +16,8 @@ describe('AdminService', () => {
       ),
     } as unknown as ApiService;
 
-    const authStub = { accessToken: () => 'token' } as unknown as AuthService;
-    const service = new AdminService(apiSpy, authStub);
+    const realtimeStub = { connect: vi.fn(), connected: vi.fn().mockReturnValue(true), on: vi.fn(), events$: of(null) } as unknown as RealtimeService;
+    const service = new AdminService(apiSpy, realtimeStub);
 
     await firstValueFrom(service.getOverview());
 
@@ -36,8 +36,8 @@ describe('AdminService', () => {
       ),
     } as unknown as ApiService;
 
-    const authStub = { accessToken: () => 'token' } as unknown as AuthService;
-    const service = new AdminService(apiSpy, authStub);
+    const realtimeStub = { connect: vi.fn(), connected: vi.fn().mockReturnValue(true), on: vi.fn(), events$: of(null) } as unknown as RealtimeService;
+    const service = new AdminService(apiSpy, realtimeStub);
 
     await firstValueFrom(service.updateUserRole('u1', 'admin'));
 

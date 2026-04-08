@@ -49,6 +49,16 @@ export const routes: Routes = [
 		loadComponent: () => import('./features/profile/profile.page').then((m) => m.ProfilePage),
 	},
 	{
+		path: 'discussions',
+		canActivate: [authGuard],
+		loadComponent: () => import('./features/discussions/discussions-redirect.page').then((m) => m.DiscussionsRedirectPage),
+	},
+	{
+		path: 'discussions/:lang',
+		canActivate: [authGuard],
+		loadComponent: () => import('./features/discussions/discussions.page').then((m) => m.DiscussionsPage),
+	},
+	{
 		path: 'admin/overview',
 		canActivate: [adminGuard],
 		loadComponent: () => import('./features/admin/admin-overview.page').then((m) => m.AdminOverviewPage),

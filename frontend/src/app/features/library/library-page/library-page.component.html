@@ -1,26 +1,26 @@
 <section class="library-page page-shell">
   <header class="hero">
     <div>
-      <h1>Library</h1>
-      <p>Streaming-style discovery from latest drops to full series rails.</p>
+      <h1>{{ 'library.title' | t:'Library' }}</h1>
+      <p>{{ 'library.subtitle' | t:'Streaming-style discovery from latest drops to full series rails.' }}</p>
     </div>
   </header>
 
   <section class="toolbar card">
     <label>
-      <span>Filter</span>
+      <span>{{ 'common.filter' | t:'Filter' }}</span>
       <input
         name="q"
         [(ngModel)]="q"
         (ngModelChange)="onFilterChange()"
-        placeholder="Filter by title, author, or series"
+        [placeholder]="'library.filter.placeholder' | t:'Filter by title, author, or series'"
       />
     </label>
-    <button type="button" class="clear-filter-btn" (click)="clearFilter()" [disabled]="!hasActiveQuery()">Clear</button>
+    <button type="button" class="clear-filter-btn" (click)="clearFilter()" [disabled]="!hasActiveQuery()">{{ 'common.clear' | t:'Clear' }}</button>
   </section>
 
   @if (loading()) {
-    <p class="text-muted">Loading content…</p>
+    <p class="text-muted">{{ 'library.loading' | t:'Loading content…' }}</p>
   }
 
   @if (error()) {
@@ -31,7 +31,7 @@
     @if (showLatestRow()) {
       <section class="row-block">
         <div class="row-head">
-          <h2>Latest Added</h2>
+          <h2>{{ 'library.latest' | t:'Latest Added' }}</h2>
         </div>
         <div class="rail-wrap" [class.fade-left]="canScrollLeft('latest')" [class.fade-right]="canScrollRight('latest')">
           @if (railOverflows('latest')) {
@@ -40,7 +40,7 @@
               class="rail-nav left"
               [disabled]="!canScrollLeft('latest')"
               (click)="scrollRail('latest', latestRail, -1)"
-              aria-label="Scroll left"
+              [attr.aria-label]="'common.scrollLeft' | t:'Scroll left'"
             >
               ‹
             </button>
@@ -69,12 +69,12 @@
 
     @if (shouldShowNoBooksState()) {
       <section class="empty-state card">
-        <h3>{{ hasActiveQuery() ? 'No books match this search' : 'No books available yet' }}</h3>
+        <h3>{{ hasActiveQuery() ? ('library.empty.searchTitle' | t:'No books match this search') : ('library.empty.title' | t:'No books available yet') }}</h3>
         <p>
-          {{ hasActiveQuery() ? 'Try a broader search, or clear the filter to view everything.' : 'Books will appear here once content is added to the library.' }}
+          {{ hasActiveQuery() ? ('library.empty.searchBody' | t:'Try a broader search, or clear the filter to view everything.') : ('library.empty.body' | t:'Books will appear here once content is added to the library.') }}
         </p>
         @if (hasActiveQuery()) {
-          <button type="button" class="btn" (click)="clearFilter()">Clear search</button>
+          <button type="button" class="btn" (click)="clearFilter()">{{ 'library.clearSearch' | t:'Clear search' }}</button>
         }
       </section>
     }
@@ -84,7 +84,7 @@
         <section class="row-block">
           <div class="row-head">
             <h2>{{ series.name }}</h2>
-            <a class="open-series-btn" [routerLink]="['/series', series.name]">Open series</a>
+            <a class="open-series-btn" [routerLink]="['/series', series.name]">{{ 'series.open' | t:'Open series' }}</a>
           </div>
           <div class="rail-wrap" [class.fade-left]="canScrollLeft('series:' + series.id)" [class.fade-right]="canScrollRight('series:' + series.id)">
             @if (railOverflows('series:' + series.id)) {
@@ -93,7 +93,7 @@
                 class="rail-nav left"
                 [disabled]="!canScrollLeft('series:' + series.id)"
                 (click)="scrollRail('series:' + series.id, seriesRail, -1)"
-                aria-label="Scroll left"
+                [attr.aria-label]="'common.scrollLeft' | t:'Scroll left'"
               >
                 ‹
               </button>
@@ -130,8 +130,8 @@
 
     <section class="row-block">
       <div class="row-head">
-        <h2>Your Collections</h2>
-        <button type="button" class="create-collection-btn subtle" (click)="openCreateCollectionModal()" aria-label="Create collection">+ New</button>
+        <h2>{{ 'collections.title' | t:'Your Collections' }}</h2>
+        <button type="button" class="create-collection-btn subtle" (click)="openCreateCollectionModal()" [attr.aria-label]="'collections.create' | t:'Create collection'">+ {{ 'common.new' | t:'New' }}</button>
       </div>
       <div class="rail-wrap" [class.fade-left]="canScrollLeft('collections')" [class.fade-right]="canScrollRight('collections')">
         @if (railOverflows('collections')) {
@@ -140,7 +140,7 @@
             class="rail-nav left"
             [disabled]="!canScrollLeft('collections')"
             (click)="scrollRail('collections', collectionRail, -1)"
-            aria-label="Scroll left"
+            [attr.aria-label]="'common.scrollLeft' | t:'Scroll left'"
           >
             ‹
           </button>
@@ -173,13 +173,13 @@
   @if (createCollectionOpen()) {
     <div class="modal-backdrop" (click)="closeCreateCollectionModal()">
       <div class="modal card" (click)="$event.stopPropagation()">
-        <h3>New collection</h3>
+        <h3>{{ 'collections.new' | t:'New collection' }}</h3>
         <label>
-          <span>Name</span>
+          <span>{{ 'common.name' | t:'Name' }}</span>
           <input
             name="collectionName"
             [(ngModel)]="collectionName"
-            placeholder="e.g. Sunday chill"
+            [placeholder]="'collections.placeholder' | t:'e.g. Sunday chill'"
             (keyup.enter)="createCollection()"
           />
         </label>
@@ -189,8 +189,8 @@
         }
 
         <div class="modal-actions">
-          <button class="btn" type="button" (click)="createCollection()">Create</button>
-          <button class="btn btn-secondary" type="button" (click)="closeCreateCollectionModal()">Cancel</button>
+          <button class="btn" type="button" (click)="createCollection()">{{ 'common.create' | t:'Create' }}</button>
+          <button class="btn btn-secondary" type="button" (click)="closeCreateCollectionModal()">{{ 'common.cancel' | t:'Cancel' }}</button>
         </div>
       </div>
     </div>

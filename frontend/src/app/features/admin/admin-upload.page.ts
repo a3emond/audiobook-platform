@@ -10,6 +10,7 @@ interface Mp3QueueMetadata {
 	author: string;
 	series: string;
 	genre: string;
+	language: 'fr' | 'en';
 	coverFile: File | null;
 }
 
@@ -20,6 +21,7 @@ interface UploadQueueItem {
 	status: 'queued' | 'uploading' | 'done' | 'failed';
 	jobId?: string;
 	error?: string;
+	language: 'fr' | 'en';
 	mp3?: Mp3QueueMetadata;
 }
 
@@ -46,6 +48,7 @@ interface UploadQueueItem {
 					<tr>
 						<th>File</th>
 						<th>Type</th>
+						<th>Lang</th>
 						<th>MP3 Metadata</th>
 						<th>Cover</th>
 						<th>Status</th>
@@ -57,6 +60,32 @@ interface UploadQueueItem {
 					<tr *ngFor="let item of queue()">
 						<td>{{ item.file.name }}</td>
 						<td>{{ item.type }}</td>
+						<td>
+							<div class="lang-radio">
+								<label>
+									<input
+										type="radio"
+										[name]="'lang-' + item.id"
+										[value]="'en'"
+										[checked]="item.language === 'en'"
+										[disabled]="loading()"
+										(change)="updateItemLanguage(item.id, 'en')"
+									/>
+									EN
+								</label>
+								<label>
+									<input
+										type="radio"
+										[name]="'lang-' + item.id"
+										[value]="'fr'"
+										[checked]="item.language === 'fr'"
+										[disabled]="loading()"
+										(change)="updateItemLanguage(item.id, 'fr')"
+									/>
+									FR
+								</label>
+							</div>
+						</td>
 						<td>
 							<div *ngIf="item.type === 'mp3'" class="mp3-inline-grid">
 								<input
@@ -83,6 +112,7 @@ interface UploadQueueItem {
 									[value]="item.mp3?.genre || ''"
 									(input)="updateMp3Field(item.id, 'genre', $any($event.target).value)"
 								/>
+								<p class="hint">Language is required for every uploaded book.</p>
 							</div>
 							<span *ngIf="item.type !== 'mp3'">-</span>
 						</td>
@@ -147,6 +177,8 @@ interface UploadQueueItem {
 			.queue-table th, .queue-table td { border: 1px solid var(--color-border); padding: 0.4rem; text-align: left; }
 			.queue-table th { background: #1a1a1a; color: var(--color-text-muted); }
 			.mp3-inline-grid { display: grid; gap: 0.35rem; min-width: 16rem; }
+			.lang-radio { display: flex; gap: 0.5rem; font-size: 0.82rem; }
+			.hint { margin: 0; color: var(--color-text-muted); font-size: 0.75rem; }
 			.cover-cell { display: grid; gap: 0.35rem; }
 			.jobs-panel { display: grid; gap: 0.5rem; }
 			.jobs-panel h2 { margin: 0; font-size: 1rem; }
@@ -162,12 +194,12 @@ export class AdminUploadPage implements OnDestroy {
 	readonly trackedJobIds = signal<string[]>([]);
 	readonly jobsById = signal<Record<string, AdminJob>>({});
 
-	private pollTimer: ReturnType<typeof setInterval> | null = null;
+	private jobsStreamHandle?: { stop: () => void };
 
 	constructor(private readonly admin: AdminService) {}
 
 	ngOnDestroy(): void {
-		this.stopPolling();
+		this.jobsStreamHandle?.stop();
 	}
 
 	onFilesPicked(event: Event): void {
@@ -206,13 +238,40 @@ export class AdminUploadPage implements OnDestroy {
 		} as Partial<Mp3QueueMetadata>);
 	}
 
+	updateItemLanguage(itemId: string, language: 'fr' | 'en'): void {
+		this.queue.update((items) =>
+			items.map((item) => {
+				if (item.id !== itemId) {
+					return item;
+				}
+
+				if (item.type === 'mp3' && item.mp3) {
+					return {
+						...item,
+						language,
+						mp3: {
+							...item.mp3,
+							language,
+						},
+					};
+				}
+
+				return {
+					...item,
+					language,
+				};
+			}),
+		);
+	}
+
 	clearQueue(): void {
 		this.queue.set([]);
 		this.lastQueuedJobId.set(null);
 		this.error.set(null);
 		this.trackedJobIds.set([]);
 		this.jobsById.set({});
-		this.stopPolling();
+		this.jobsStreamHandle?.stop();
+		this.jobsStreamHandle = undefined;
 	}
 
 	startQueue(): void {
@@ -263,10 +322,11 @@ export class AdminUploadPage implements OnDestroy {
 						author: item.mp3?.author.trim() || undefined,
 						series: item.mp3?.series.trim() || undefined,
 						genre: item.mp3?.genre.trim() || undefined,
+						language: item.language,
 					},
 					item.mp3?.coverFile ?? null,
 				)
-			: this.admin.uploadBook(item.file);
+			: this.admin.uploadBook(item.file, item.language);
 
 		request.subscribe({
 			next: (response) => {
@@ -328,8 +388,10 @@ export class AdminUploadPage implements OnDestroy {
 					author: '',
 					series: '',
 					genre: 'Audiobook',
+					language: 'en',
 					coverFile: null,
 				},
+				language: 'en',
 			};
 		}
 
@@ -338,6 +400,7 @@ export class AdminUploadPage implements OnDestroy {
 			file,
 			type,
 			status: 'queued',
+			language: 'en',
 		};
 	}
 
@@ -363,60 +426,45 @@ export class AdminUploadPage implements OnDestroy {
 		if (!this.trackedJobIds().includes(jobId)) {
 			this.trackedJobIds.update((ids) => [...ids, jobId]);
 		}
-		this.startPolling();
+		this.startRealtimeTracking();
 	}
 
-	private startPolling(): void {
-		if (this.pollTimer) {
+	private startRealtimeTracking(): void {
+		if (this.jobsStreamHandle) {
 			return;
 		}
 
-		this.pollTimer = setInterval(() => {
-			void this.pollJobStatuses();
-		}, 3000);
+		this.jobsStreamHandle = this.admin.startJobsStream({
+			onJobs: (jobs) => {
+				const tracked = new Set(this.trackedJobIds());
+				this.jobsById.update((current) => {
+					const next = { ...current };
+					for (const job of jobs) {
+						if (tracked.has(job.id)) {
+							next[job.id] = job;
+						}
+					}
+					return next;
+				});
 
-		void this.pollJobStatuses();
-	}
+				const allTerminal = this.trackedJobIds().every((jobId) => {
+					const status = this.jobsById()[jobId]?.status;
+					return status === 'done' || status === 'failed';
+				});
 
-	private stopPolling(): void {
-		if (!this.pollTimer) {
-			return;
-		}
-		clearInterval(this.pollTimer);
-		this.pollTimer = null;
-	}
-
-	private async pollJobStatuses(): Promise<void> {
-		const jobIds = this.trackedJobIds();
-		if (jobIds.length === 0) {
-			this.stopPolling();
-			return;
-		}
-
-		const updates: Record<string, AdminJob> = {};
-		for (const jobId of jobIds) {
-			try {
-				const job = await firstValueFrom(this.admin.getJob(jobId));
-				updates[jobId] = job;
-			} catch {
-				// Ignore polling errors for individual jobs.
-			}
-		}
-
-		if (Object.keys(updates).length > 0) {
-			this.jobsById.update((current) => ({
-				...current,
-				...updates,
-			}));
-		}
-
-		const allTerminal = jobIds.every((jobId) => {
-			const status = (updates[jobId] ?? this.jobsById()[jobId])?.status;
-			return status === 'done' || status === 'failed';
+				if (allTerminal) {
+					this.jobsStreamHandle?.stop();
+					this.jobsStreamHandle = undefined;
+				}
+			},
 		});
 
-		if (allTerminal) {
-			this.stopPolling();
+		for (const jobId of this.trackedJobIds()) {
+			void firstValueFrom(this.admin.getJob(jobId))
+				.then((job) => {
+					this.jobsById.update((current) => ({ ...current, [job.id]: job }));
+				})
+				.catch(() => undefined);
 		}
 	}
 }

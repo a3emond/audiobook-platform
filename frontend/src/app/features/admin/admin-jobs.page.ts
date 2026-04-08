@@ -10,8 +10,8 @@ import { AdminJob, AdminService, JobEventStreamHandle } from '../../core/service
 	template: `
 		<section class="admin-page page-shell">
 			<h1>Admin Jobs</h1>
-			<p *ngIf="!connected()">Connecting...</p>
-			<p *ngIf="connected()">Mode: {{ mode() === 'stream' ? 'Authenticated SSE stream' : 'Polling fallback' }}</p>
+			<p *ngIf="!connected()">Connecting websocket...</p>
+			<p *ngIf="connected()">Mode: {{ mode() === 'stream' ? 'Realtime websocket' : 'Polling fallback' }}</p>
 			<p *ngIf="error()" class="error">{{ error() }}</p>
 
 			<table *ngIf="jobs().length > 0" class="admin-table">

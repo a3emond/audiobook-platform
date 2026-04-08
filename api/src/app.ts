@@ -21,6 +21,7 @@ import statsRoutes from "./modules/stats/stats.routes.js";
 import userRoutes from "./modules/users/user.routes.js";
 import streamRoutes from "./modules/streaming/stream.routes.js";
 import { streamAuthMiddleware } from "./modules/streaming/stream-auth.middleware.js";
+import discussionRoutes from "./modules/discussions/discussion.routes.js";
 
 export function createApp() {
   const app = express();
@@ -51,6 +52,7 @@ export function createApp() {
     app.use(`${prefix}/progress`, authMiddleware, progressRoutes);
     app.use(`${prefix}/users`, authMiddleware, userRoutes);
     app.use(`${prefix}/settings`, authMiddleware, settingsRoutes);
+    app.use(`${prefix}/discussions`, authMiddleware, discussionRoutes);
     app.use(`${prefix}/collections`, authMiddleware, collectionRoutes);
     app.use(`${prefix}/series`, authMiddleware, seriesRoutes);
     app.use(`${prefix}/stats`, authMiddleware, statsRoutes);

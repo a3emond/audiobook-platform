@@ -57,6 +57,7 @@ export interface UpdateBookMetadataDTO {
   author?: string;
   series?: string | null;
   seriesIndex?: number | null;
+  language?: "en" | "fr";
   genre?: string | null;
   tags?: string[];
   description?: LocalizedTextDTO;

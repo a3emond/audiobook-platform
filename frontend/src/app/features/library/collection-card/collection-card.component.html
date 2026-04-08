@@ -18,12 +18,12 @@
   </a>
 
   <h3>{{ collection.name }}</h3>
-  <p>Books: {{ collection.bookIds.length }}</p>
+  <p>{{ i18n.t('collections.booksLabel', 'Books: {count}', { count: collection.bookIds.length }) }}</p>
   @if (collection.updatedAt) {
-    <p>Updated: {{ collection.updatedAt | date: 'medium' }}</p>
+    <p>{{ i18n.t('common.updated', 'Updated:') }} {{ collection.updatedAt | date: 'medium' }}</p>
   }
 
   <div class="actions">
-    <a class="btn-open" [routerLink]="['/collections', collection.id]">Open collection</a>
+    <a class="btn-open" [routerLink]="['/collections', collection.id]">{{ i18n.t('collections.open', 'Open collection') }}</a>
   </div>
 </article>

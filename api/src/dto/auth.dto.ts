@@ -13,6 +13,7 @@ export interface RegisterDTO {
   email: string;
   password: string;
   displayName?: string;
+  preferredLocale?: "fr" | "en";
 }
 
 export interface RefreshDTO {

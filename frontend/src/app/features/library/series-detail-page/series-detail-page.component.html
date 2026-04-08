@@ -1,15 +1,15 @@
 <section class="detail-page page-shell">
-  <a routerLink="/library" class="back">← Back to library</a>
+  <a routerLink="/library" class="back">← {{ 'library.back' | t:'Back to library' }}</a>
 
   @if (series(); as s) {
     <header class="hero">
       <h1>{{ s.name }}</h1>
-      <p>{{ s.bookCount }} book{{ s.bookCount === 1 ? '' : 's' }} · {{ s.authors.join(', ') || 'Unknown author' }}</p>
+      <p>{{ 'series.summary' | t:'{count} books · {authors}': { count: s.bookCount, authors: (s.authors.join(', ') || ('series.unknownAuthor' | t:'Unknown author')) } }}</p>
     </header>
   }
 
   @if (loading()) {
-    <p class="text-muted">Loading series…</p>
+    <p class="text-muted">{{ 'series.loading' | t:'Loading series…' }}</p>
   }
 
   @if (error()) {

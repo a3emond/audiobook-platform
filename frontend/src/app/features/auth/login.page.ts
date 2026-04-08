@@ -4,13 +4,14 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 
 import { AppConfigService } from '../../core/services/config.service';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 import { AuthService } from '../../core/services/auth.service';
 import { OAuthButtonsComponent } from './oauth-buttons';
 
 @Component({
   selector: 'app-login-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, OAuthButtonsComponent],
+  imports: [CommonModule, FormsModule, RouterLink, OAuthButtonsComponent, TranslatePipe],
   template: `
     <div class="auth-shell">
       <div class="auth-card">
@@ -18,7 +19,7 @@ import { OAuthButtonsComponent } from './oauth-buttons';
           <img src="/logo_small.png" alt="StoryWave logo" class="auth-logo" />
           <span>StoryWave</span>
         </div>
-        <h1 class="auth-title">Sign in</h1>
+        <h1 class="auth-title">{{ 'auth.login.title' | t:'Sign in' }}</h1>
 
         <app-oauth-buttons
           [googleEnabled]="config.googleEnabled"
@@ -29,50 +30,50 @@ import { OAuthButtonsComponent } from './oauth-buttons';
         />
 
         <div class="divider" *ngIf="config.googleEnabled || config.appleEnabled">
-          <span>or continue with email</span>
+          <span>{{ 'auth.divider.email' | t:'or continue with email' }}</span>
         </div>
 
         <form (ngSubmit)="submit()" class="form" novalidate>
           <label>
-            Email
+            {{ 'auth.email.label' | t:'Email' }}
             <input
               name="email"
               [(ngModel)]="email"
               type="email"
               required
               autocomplete="email"
-              placeholder="you@example.com"
+              [placeholder]="'auth.email.placeholder' | t:'you@example.com'"
             />
           </label>
 
           <label>
-            Password
+            {{ 'auth.password.label' | t:'Password' }}
             <input
               name="password"
               [(ngModel)]="password"
               type="password"
               required
               autocomplete="current-password"
-              placeholder="Your password"
+              [placeholder]="'auth.password.currentPlaceholder' | t:'Your password'"
             />
           </label>
 
           <p *ngIf="error()" class="text-error">{{ error() }}</p>
 
           <button class="btn submit-btn" type="submit" [disabled]="loading()">
-            {{ loading() ? 'Signing in…' : 'Sign in' }}
+            {{ loading() ? ('auth.login.loading' | t:'Signing in…') : ('auth.login.title' | t:'Sign in') }}
           </button>
         </form>
 
         <p class="footer-link">
-          Don't have an account? <a routerLink="/register">Create one</a>
+          {{ 'auth.login.noAccount' | t:'Don\'t have an account?' }} <a routerLink="/register">{{ 'auth.login.createOne' | t:'Create one' }}</a>
         </p>
 
         <p class="legal-link">
-          By continuing, you agree to our
-          <a routerLink="/terms">Terms</a>
-          and
-          <a routerLink="/privacy">Privacy Policy</a>.
+          {{ 'auth.legal.prefix' | t:'By continuing, you agree to our' }}
+          <a routerLink="/terms">{{ 'legal.terms.title' | t:'Terms' }}</a>
+          {{ 'auth.legal.and' | t:'and' }}
+          <a routerLink="/privacy">{{ 'legal.privacy.title' | t:'Privacy Policy' }}</a>.
         </p>
       </div>
     </div>
