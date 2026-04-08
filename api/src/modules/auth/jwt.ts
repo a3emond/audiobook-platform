@@ -39,6 +39,18 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
   }
 }
 
+export function tryVerifyAccessToken(token: string): AccessTokenPayload | null {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (typeof decoded !== "object" || !decoded.sub) {
+      return null;
+    }
+    return decoded as AccessTokenPayload;
+  } catch {
+    return null;
+  }
+}
+
 export function extractBearerToken(header?: string): string | null {
   if (!header) return null;
 

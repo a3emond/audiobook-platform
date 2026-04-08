@@ -16,7 +16,11 @@ FROM nginx:alpine
 # nginx config
 COPY infra/nginx/default.conf /etc/nginx/conf.d/default.conf
 
-# angular build output
-COPY --from=builder /app/dist /usr/share/nginx/html
+# entrypoint: generates env.js from container env vars at startup
+COPY infra/nginx/30-env.sh /docker-entrypoint.d/30-env.sh
+RUN chmod +x /docker-entrypoint.d/30-env.sh
+
+# angular build output — Angular 17+ writes to dist/<project>/browser/
+COPY --from=builder /app/dist/app/browser /usr/share/nginx/html
 
 EXPOSE 80

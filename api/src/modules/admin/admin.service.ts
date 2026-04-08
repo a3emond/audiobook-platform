@@ -85,6 +85,12 @@ export class AdminService {
 					description: "Upload audiobook file and enqueue ingest",
 				},
 				{
+					method: "POST",
+					path: "/api/admin/books/upload/mp3",
+					area: "books",
+					description: "Upload MP3 + metadata + optional cover and enqueue M4B build",
+				},
+				{
 					method: "GET",
 					path: "/api/admin/books",
 					area: "books",
@@ -113,6 +119,12 @@ export class AdminService {
 					path: "/api/admin/books/:bookId/extract-cover",
 					area: "books",
 					description: "Queue cover extraction",
+				},
+				{
+					method: "POST",
+					path: "/api/admin/books/:bookId/cover",
+					area: "books",
+					description: "Upload and queue embedded cover replacement",
 				},
 				{
 					method: "DELETE",

@@ -1,0 +1,52 @@
+<article class="book-card card">
+  <button type="button" class="cover-trigger" (click)="openDetails()" [attr.aria-label]="'Open details for ' + book.title">
+    <app-cover-tile [imageUrl]="coverUrl()" [fallback]="coverInitials()" [alt]="book.title + ' cover'" [completed]="isCompleted()" />
+  </button>
+</article>
+
+@if (detailOpen()) {
+  <div class="book-modal-backdrop" (click)="closeDetails()">
+    <section class="book-modal card" (click)="$event.stopPropagation()">
+      <button type="button" class="close-btn" (click)="closeDetails()" aria-label="Close details">×</button>
+
+      <div class="modal-hero">
+        <div class="modal-cover">
+          <app-cover-tile [imageUrl]="coverUrl()" [fallback]="coverInitials()" [alt]="book.title + ' cover'" [completed]="isCompleted()" />
+        </div>
+
+        <div class="modal-main">
+          <h3>{{ book.title }}</h3>
+          <p class="author">{{ book.author }}</p>
+
+          <div class="meta-grid">
+            <p><strong>Duration:</strong> {{ formatDuration(book.duration) }}</p>
+            @if (book.series) {
+              <p>
+                <strong>Series:</strong>
+                {{ book.series }}
+                @if (book.seriesIndex) {
+                  <span>#{{ book.seriesIndex }}</span>
+                }
+              </p>
+            }
+            @if (book.genre) {
+              <p><strong>Genre:</strong> {{ book.genre }}</p>
+            }
+            @if (book.tags && book.tags.length > 0) {
+              <p><strong>Tags:</strong> {{ book.tags.join(', ') }}</p>
+            }
+          </div>
+
+          <p class="description">{{ descriptionText() }}</p>
+
+          <div class="actions">
+            <a class="play" [routerLink]="['/player', book.id]" (click)="closeDetails()">Play</a>
+            @if (book.series) {
+              <a class="open-series" [routerLink]="['/series', book.series]" (click)="closeDetails()">Open series</a>
+            }
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+}

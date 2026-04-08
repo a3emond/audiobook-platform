@@ -1,0 +1,71 @@
+<section class="detail-page page-shell">
+  <a routerLink="/library" class="back">← Back to library</a>
+
+  @if (collection(); as c) {
+    <header class="hero">
+      <h1>{{ c.name }}</h1>
+      <p>{{ books().length }} book{{ books().length === 1 ? '' : 's' }}</p>
+      @if (!isAutoCollection()) {
+        <div class="actions">
+          <button type="button" class="btn btn-secondary" (click)="openBooksEditor()">Edit books</button>
+          <button type="button" class="btn btn-secondary" (click)="renameCollection()">Rename</button>
+          <button type="button" class="btn btn-danger" (click)="deleteCollection()">Delete</button>
+        </div>
+      }
+    </header>
+  }
+
+  @if (loading()) {
+    <p class="text-muted">Loading collection…</p>
+  }
+
+  @if (error()) {
+    <p class="text-error">{{ error() }}</p>
+  }
+
+  @if (!loading() && books().length > 0) {
+    <div class="card-grid">
+      @for (book of books(); track book.id) {
+        <app-book-card [book]="book" />
+      }
+    </div>
+  }
+
+  @if (!loading() && !error() && books().length === 0) {
+    <p class="text-muted">This collection is empty.</p>
+  }
+
+  @if (editingBooks() && !isAutoCollection()) {
+    <section class="editor card">
+      <h3>Manage collection books</h3>
+
+      <label>
+        <span>Filter books</span>
+        <input
+          name="collectionBookSearch"
+          [(ngModel)]="editorFilter"
+          (ngModelChange)="onEditorFilterChange()"
+          placeholder="Type title or author"
+        />
+      </label>
+
+      <div class="editor-list">
+        @for (book of editorBooks(); track book.id) {
+          <label class="editor-item">
+            <input
+              type="checkbox"
+              [checked]="isCollectionBookSelected(book.id)"
+              (change)="toggleCollectionBook(book.id, $event)"
+            />
+            <span>{{ book.title }} · {{ book.author }}</span>
+          </label>
+        }
+      </div>
+
+      <div class="editor-actions">
+        <button type="button" class="btn" (click)="saveBooksEditor()">Save</button>
+        <button type="button" class="btn btn-secondary" (click)="closeBooksEditor()">Cancel</button>
+      </div>
+    </section>
+  }
+</section>

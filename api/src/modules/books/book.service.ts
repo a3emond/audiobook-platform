@@ -160,7 +160,7 @@ export class BookService {
 		const book = await BookModel.findByIdAndUpdate(
 			bookId,
 			{ $set: updates },
-			{ new: true },
+			{ returnDocument: "after" },
 		);
 
 		if (!book) {
@@ -201,7 +201,7 @@ export class BookService {
 					updatedAt: new Date(),
 				},
 			},
-			{ new: true },
+			{ returnDocument: "after" },
 		);
 
 		if (!book) {
@@ -267,6 +267,42 @@ export class BookService {
 			type: "DELETE_BOOK",
 			status: "queued",
 			payload: { bookId },
+			output: null,
+			error: null,
+			attempt: 0,
+			maxAttempts: 3,
+			runAfter: new Date(),
+		});
+
+		return String(job._id);
+	}
+
+	static async enqueueReplaceCover(
+		bookId: string,
+		sourcePath: string,
+		cleanupSource = true,
+	): Promise<string> {
+		if (!mongoose.Types.ObjectId.isValid(bookId)) {
+			throw new ApiError(400, "book_invalid_id");
+		}
+
+		if (!sourcePath || typeof sourcePath !== "string") {
+			throw new ApiError(400, "cover_source_path_required");
+		}
+
+		const exists = await BookModel.exists({ _id: bookId });
+		if (!exists) {
+			throw new ApiError(404, "book_not_found");
+		}
+
+		const job = await JobModel.create({
+			type: "REPLACE_COVER",
+			status: "queued",
+			payload: {
+				bookId,
+				sourcePath,
+				cleanupSource,
+			},
 			output: null,
 			error: null,
 			attempt: 0,

@@ -4,8 +4,6 @@ import type { SettingsDTO, UpdateSettingsDTO } from "../../dto/settings.dto.js";
 import { ApiError } from "../../utils/api-error.js";
 import {
 	JUMP_VALUES,
-	SORT_DIRECTIONS,
-	SORT_FIELDS,
 	SettingsModel,
 	type UserSettingsDocument,
 } from "./settings.model.js";
@@ -27,8 +25,6 @@ function toSettingsDTO(settings: UserSettingsDocument): SettingsDTO {
 				settings.player.autoMarkCompletedThresholdSeconds,
 		},
 		library: {
-			sortBy: settings.library.sortBy,
-			sortDirection: settings.library.sortDirection,
 			showCompleted: settings.library.showCompleted,
 		},
 	};
@@ -92,19 +88,6 @@ function validateUpdate(data: UpdateSettingsDTO): void {
 		throw new ApiError(400, "settings_invalid_resume_threshold");
 	}
 
-	if (
-		data.library?.sortBy !== undefined &&
-		!SORT_FIELDS.includes(data.library.sortBy)
-	) {
-		throw new ApiError(400, "settings_invalid_sort_by");
-	}
-
-	if (
-		data.library?.sortDirection !== undefined &&
-		!SORT_DIRECTIONS.includes(data.library.sortDirection)
-	) {
-		throw new ApiError(400, "settings_invalid_sort_direction");
-	}
 }
 
 export class SettingsService {
@@ -154,14 +137,6 @@ export class SettingsService {
 		if (data.player?.autoMarkCompletedThresholdSeconds !== undefined) {
 			settings.player.autoMarkCompletedThresholdSeconds =
 				data.player.autoMarkCompletedThresholdSeconds;
-		}
-
-		if (data.library?.sortBy !== undefined) {
-			settings.library.sortBy = data.library.sortBy;
-		}
-
-		if (data.library?.sortDirection !== undefined) {
-			settings.library.sortDirection = data.library.sortDirection;
 		}
 
 		if (data.library?.showCompleted !== undefined) {

@@ -1,0 +1,27 @@
+.detail-page {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.back {
+  font-size: 0.9rem;
+  text-decoration: none;
+  width: fit-content;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: 2rem;
+  letter-spacing: -0.02em;
+}
+
+.hero p {
+  margin: 0.25rem 0 0;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 720px) {
+  .hero h1 {
+    font-size: 1.5rem;
+  }
+}

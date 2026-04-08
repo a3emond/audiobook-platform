@@ -16,7 +16,7 @@ Settings are user-scoped and automatically initialized on first access.
 
 Current capabilities:
 - get current user settings
-- partially update player, locale, and library preferences
+- partially update player, locale, and library display preferences
 
 ## Data Shape
 
@@ -37,8 +37,6 @@ Current capabilities:
     "autoMarkCompletedThresholdSeconds": 20
   },
   "library": {
-    "sortBy": "recent",
-    "sortDirection": "desc",
     "showCompleted": true
   }
 }
@@ -85,8 +83,6 @@ Request body:
     "autoMarkCompletedThresholdSeconds": 20
   },
   "library": {
-    "sortBy": "title",
-    "sortDirection": "asc",
     "showCompleted": false
   }
 }
@@ -97,7 +93,7 @@ Behavior:
 - validates locale against supported values: `en`, `fr`
 - validates jump values against the allowed set: `5`, `10`, `15`, `20`, `25`, `30`
 - validates `playbackRate` in the inclusive range `0.5` to `3`
-- validates library sorting fields and direction
+- `library.showCompleted` is a boolean; false hides completed books in the library
 
 Common errors:
 - `400` `settings_invalid_locale`
@@ -107,14 +103,12 @@ Common errors:
 - `400` `settings_invalid_playback_rate`
 - `400` `settings_invalid_completion_threshold`
 - `400` `settings_invalid_resume_threshold`
-- `400` `settings_invalid_sort_by`
-- `400` `settings_invalid_sort_direction`
 
 ## Typical Client Flow
 
 1. Load `GET /api/settings` during app bootstrap after authentication.
 2. Keep the returned object as the local preference source of truth.
-3. Send `PATCH /api/settings` when the user changes player or library preferences.
+3. Send `PATCH /api/settings` when the user changes player or library display preferences.
 4. Replace local cached settings with the response body after each successful update.
 
 ## Related Docs

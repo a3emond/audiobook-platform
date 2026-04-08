@@ -48,6 +48,9 @@ services:
       - api
     ports:
       - "127.0.0.1:8100:80"
+    environment:
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
     networks:
       - app_net
 

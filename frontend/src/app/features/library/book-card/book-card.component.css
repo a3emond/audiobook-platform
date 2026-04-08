@@ -1,0 +1,130 @@
+.book-card {
+  padding: 0.5rem;
+  background: linear-gradient(180deg, #fff, #fbfdff);
+}
+
+.cover-trigger {
+  display: block;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 0.7rem;
+  overflow: hidden;
+  transition: transform 130ms ease, box-shadow 130ms ease;
+}
+
+.cover-trigger:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgb(15 23 42 / 0.24);
+}
+
+.book-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 260;
+  background: rgb(15 23 42 / 0.54);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.book-modal {
+  position: relative;
+  width: min(52rem, 100%);
+  max-height: min(90vh, 52rem);
+  overflow: auto;
+  padding: 1rem;
+}
+
+.close-btn {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 1px solid #d5deea;
+  background: #fff;
+  font-size: 1.15rem;
+  cursor: pointer;
+}
+
+.modal-hero {
+  display: grid;
+  grid-template-columns: minmax(160px, 210px) 1fr;
+  gap: 1rem;
+}
+
+.modal-cover {
+  width: 100%;
+}
+
+.modal-main h3 {
+  margin: 0;
+  font-size: clamp(1.18rem, 2.3vw, 1.55rem);
+  line-height: 1.2;
+}
+
+.author {
+  margin: 0.35rem 0 0.7rem;
+  color: #334155;
+}
+
+.meta-grid {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.meta-grid p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #3b4f67;
+}
+
+.description {
+  margin: 0.85rem 0;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.actions {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.play,
+.open-series {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.48rem 0.82rem;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.open-series {
+  background: #eef6ff;
+  color: #0b3a66;
+  border: 1px solid #b8d2ef;
+}
+
+@media (max-width: 780px) {
+  .book-modal {
+    padding: 0.8rem;
+  }
+
+  .modal-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-cover {
+    width: min(240px, 100%);
+  }
+}

@@ -19,12 +19,20 @@ const DEFAULT_TIMEOUT_MS = 300000; // 5 minutes
 function parseFFprobeJson(jsonStr: string): ProbeInfo {
   const data = JSON.parse(jsonStr);
 
-  if (!data.format || typeof data.format.duration !== "number") {
+  const rawDuration = data?.format?.duration;
+  const duration =
+    typeof rawDuration === "number"
+      ? rawDuration
+      : typeof rawDuration === "string"
+        ? Number(rawDuration)
+        : NaN;
+
+  if (!Number.isFinite(duration) || duration <= 0) {
     throw new Error("invalid_ffprobe_output: missing duration");
   }
 
   return {
-    duration: data.format.duration,
+    duration,
     format: data.format.format_name || "unknown",
   };
 }
@@ -127,6 +135,94 @@ export class FFmpegService {
 
     if (result.exitCode !== 0) {
       throw new Error(`extract_cover_failed: ${result.stderr}`);
+    }
+  }
+
+  async remuxWithMetadataAndCover(
+    inputPath: string,
+    metadataPath: string,
+    coverPath: string,
+    outputPath: string,
+  ): Promise<void> {
+    const result = await this.execute([
+      "-i",
+      `"${inputPath}"`,
+      "-i",
+      `"${coverPath}"`,
+      "-i",
+      `"${metadataPath}"`,
+      "-map",
+      "0:a",
+      "-map",
+      "1:v",
+      "-map_metadata",
+      "2",
+      "-map_chapters",
+      "2",
+      "-c:a",
+      "copy",
+      "-c:v",
+      "mjpeg",
+      "-disposition:v:0",
+      "attached_pic",
+      `"${outputPath}"`,
+    ]);
+
+    if (result.exitCode !== 0) {
+      throw new Error(`remux_with_cover_failed: ${result.stderr}`);
+    }
+  }
+
+  async buildM4bFromAudio(
+    inputPath: string,
+    metadataPath: string,
+    outputPath: string,
+    coverPath?: string | null,
+  ): Promise<void> {
+    const args = [
+      "-i",
+      `"${inputPath}"`,
+    ];
+
+    if (coverPath) {
+      args.push("-i", `"${coverPath}"`);
+    }
+
+    args.push("-i", `"${metadataPath}"`);
+
+    if (coverPath) {
+      args.push(
+        "-map",
+        "0:a",
+        "-map",
+        "1:v",
+        "-map_metadata",
+        "2",
+        "-map_chapters",
+        "2",
+      );
+    } else {
+      args.push(
+        "-map",
+        "0:a",
+        "-map_metadata",
+        "1",
+        "-map_chapters",
+        "1",
+      );
+    }
+
+    args.push("-c:a", "aac", "-b:a", "96k");
+
+    if (coverPath) {
+      args.push("-c:v", "mjpeg", "-disposition:v:0", "attached_pic");
+    }
+
+    args.push("-movflags", "+faststart", `"${outputPath}"`);
+
+    const result = await this.execute(args);
+    if (result.exitCode !== 0) {
+      throw new Error(`build_m4b_failed: ${result.stderr}`);
     }
   }
 }

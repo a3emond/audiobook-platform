@@ -1,0 +1,26 @@
+<section class="detail-page page-shell">
+  <a routerLink="/library" class="back">← Back to library</a>
+
+  @if (series(); as s) {
+    <header class="hero">
+      <h1>{{ s.name }}</h1>
+      <p>{{ s.bookCount }} book{{ s.bookCount === 1 ? '' : 's' }} · {{ s.authors.join(', ') || 'Unknown author' }}</p>
+    </header>
+  }
+
+  @if (loading()) {
+    <p class="text-muted">Loading series…</p>
+  }
+
+  @if (error()) {
+    <p class="text-error">{{ error() }}</p>
+  }
+
+  @if (series(); as s) {
+    <div class="card-grid">
+      @for (book of s.books; track book.id) {
+        <app-book-card [book]="book" />
+      }
+    </div>
+  }
+</section>

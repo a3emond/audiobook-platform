@@ -1,0 +1,21 @@
+@if (imageUrl && !imageFailed) {
+  <div class="cover" [attr.aria-label]="alt">
+    <img [src]="imageUrl" [attr.alt]="alt" (error)="onError()" />
+    @if (completed) {
+      <div class="completed-overlay">
+        <span class="check">✓</span>
+        <span>Completed</span>
+      </div>
+    }
+  </div>
+} @else {
+  <div class="cover fallback" [attr.aria-label]="alt">
+    <span>{{ fallback }}</span>
+    @if (completed) {
+      <div class="completed-overlay">
+        <span class="check">✓</span>
+        <span>Completed</span>
+      </div>
+    }
+  </div>
+}

@@ -1,0 +1,110 @@
+.collection-card {
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.cover-fan {
+  position: relative;
+  height: 126px;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  overflow: hidden;
+  display: block;
+}
+
+.fan-image-wrap {
+  position: absolute;
+  top: 14px;
+  width: 78px;
+  height: 98px;
+  border-radius: 0.55rem;
+  overflow: hidden;
+  box-shadow: 0 10px 16px rgb(2 6 23 / 0.42);
+  border: 1px solid rgb(241 245 249 / 0.2);
+}
+
+.fan-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fan-image-wrap.i0 {
+  left: calc(50% - 70px);
+  transform: rotate(-12deg);
+  z-index: 1;
+}
+
+.fan-image-wrap.i1 {
+  left: calc(50% - 39px);
+  z-index: 2;
+}
+
+.fan-image-wrap.i2 {
+  left: calc(50% - 8px);
+  transform: rotate(12deg);
+  z-index: 1;
+}
+
+.cover-completed-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgb(2 6 23 / 0.5);
+  color: #e2fbe8;
+  display: grid;
+  place-content: center;
+  gap: 0.08rem;
+  text-align: center;
+  font-size: 0.42rem;
+  font-weight: 800;
+}
+
+.cover-completed-overlay .check {
+  color: #22c55e;
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.fan-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.collection-card h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.collection-card p {
+  margin: 0.15rem 0;
+  color: #334155;
+}
+
+.actions {
+  display: flex;
+  gap: 0.45rem;
+  margin-top: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.btn-open {
+  padding: 0.42rem 0.62rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--color-border);
+  background: #f8fafc;
+  font-size: 0.82rem;
+  text-decoration: none;
+  color: #0f172a;
+}
+
+.btn-open {
+  background: #111827;
+  border-color: #1f2937;
+  color: #f8fafc;
+}

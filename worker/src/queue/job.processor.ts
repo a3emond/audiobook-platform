@@ -1,7 +1,9 @@
 import { handleDeleteBookJob } from "../jobs/delete-book.job.js";
 import { handleExtractCoverJob } from "../jobs/extract-cover.job.js";
 import { handleIngestJob } from "../jobs/ingest.job.js";
+import { handleIngestMp3AsM4BJob } from "../jobs/ingest-mp3-as-m4b.job.js";
 import { handleReplaceFileJob } from "../jobs/replace-file.job.js";
+import { handleReplaceCoverJob } from "../jobs/replace-cover.job.js";
 import { handleRescanJob } from "../jobs/rescan.job.js";
 import { handleWriteMetadataJob } from "../jobs/write-metadata.job.js";
 
@@ -17,9 +19,11 @@ type JobHandler = (job: JobDocument) => Promise<JobHandlerOutput>;
 
 const handlers: Record<JobType, JobHandler> = {
 	INGEST: handleIngestJob,
+	INGEST_MP3_AS_M4B: handleIngestMp3AsM4BJob,
 	RESCAN: handleRescanJob,
 	WRITE_METADATA: handleWriteMetadataJob,
 	EXTRACT_COVER: handleExtractCoverJob,
+	REPLACE_COVER: handleReplaceCoverJob,
 	DELETE_BOOK: handleDeleteBookJob,
 	REPLACE_FILE: handleReplaceFileJob,
 };
@@ -175,7 +179,7 @@ export class JobProcessor {
 			},
 			{
 				sort: { createdAt: 1 },
-				new: true,
+				returnDocument: "after",
 			},
 		);
 	}

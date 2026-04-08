@@ -20,6 +20,7 @@ import adminRoutes from "./modules/admin/admin.routes.js";
 import statsRoutes from "./modules/stats/stats.routes.js";
 import userRoutes from "./modules/users/user.routes.js";
 import streamRoutes from "./modules/streaming/stream.routes.js";
+import { streamAuthMiddleware } from "./modules/streaming/stream-auth.middleware.js";
 
 export function createApp() {
   const app = express();
@@ -61,7 +62,7 @@ export function createApp() {
   mountApiRoutes("/api");
 
   // Streaming must stay outside /api for reverse-proxy routing.
-  app.use("/streaming", authMiddleware, streamRoutes);
+  app.use("/streaming", streamAuthMiddleware, streamRoutes);
 
   // -------------------------
   // Error middleware (LAST)

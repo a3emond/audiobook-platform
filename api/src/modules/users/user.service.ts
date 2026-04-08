@@ -81,7 +81,7 @@ export class UserService {
 		const user = await UserModel.findByIdAndUpdate(
 			userId,
 			{ $set: { ...updates, updatedAt: new Date() } },
-			{ new: true },
+			{ returnDocument: "after" },
 		);
 
 		if (!user) {

@@ -123,7 +123,7 @@ export class ProgressService {
 					createdAt: new Date(),
 				},
 			},
-			{ new: true, upsert: true },
+			{ returnDocument: "after", upsert: true },
 		);
 
 		return toProgressDTO(progress);

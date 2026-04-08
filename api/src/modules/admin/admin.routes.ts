@@ -8,11 +8,13 @@ import { UserController } from "../users/user.controller.js";
 import { AdminController } from "./admin.controller.js";
 import { adminAuditMiddleware } from "./admin-audit.middleware.js";
 
+const MAX_UPLOAD_BYTES = Number(process.env.UPLOAD_MAX_FILE_SIZE_BYTES || 2 * 1024 * 1024 * 1024);
+
 const router = Router();
 const upload = multer({
 	storage: multer.memoryStorage(),
 	limits: {
-		fileSize: 2 * 1024 * 1024 * 1024, // 2GB
+		fileSize: MAX_UPLOAD_BYTES,
 	},
 });
 
@@ -21,6 +23,15 @@ router.use(adminAuditMiddleware);
 router.get("/overview", AdminController.getOverview);
 router.get("/coverage", AdminController.getCoverage);
 router.post("/books/upload", upload.single("file"), AdminController.uploadBook);
+router.post(
+	"/books/upload/mp3",
+	upload.fields([
+		{ name: "file", maxCount: 1 },
+		{ name: "cover", maxCount: 1 },
+	]),
+	AdminController.uploadMp3Book,
+);
+router.post("/books/:bookId/cover", upload.single("cover"), AdminController.replaceBookCover);
 
 router.get("/books", BookController.listBooks);
 router.get("/books/:bookId", BookController.getBook);

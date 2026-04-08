@@ -1,0 +1,27 @@
+.stats-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.8rem;
+}
+
+.stat {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.stat h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+}
+
+.stat p {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}

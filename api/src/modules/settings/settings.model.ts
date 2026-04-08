@@ -7,14 +7,19 @@ import mongoose, {
 } from "mongoose";
 
 export const JUMP_VALUES = [5, 10, 15, 20, 25, 30] as const;
-export const SORT_FIELDS = [
-  "recent",
-  "title",
-  "author",
-  "series",
-  "progress",
-] as const;
-export const SORT_DIRECTIONS = ["asc", "desc"] as const;
+
+const librarySettingsSchema = new Schema(
+  {
+    showCompleted: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  {
+    _id: false,
+    versionKey: false,
+  },
+);
 
 const resumeRewindSchema = new Schema(
   {
@@ -77,29 +82,6 @@ const playerSettingsSchema = new Schema(
   },
 );
 
-const librarySettingsSchema = new Schema(
-  {
-    sortBy: {
-      type: String,
-      enum: SORT_FIELDS,
-      default: "series",
-    },
-    sortDirection: {
-      type: String,
-      enum: SORT_DIRECTIONS,
-      default: "asc",
-    },
-    showCompleted: {
-      type: Boolean,
-      default: true,
-    },
-  },
-  {
-    _id: false,
-    versionKey: false,
-  },
-);
-
 const settingsSchema = new Schema(
   {
     userId: {
@@ -120,11 +102,7 @@ const settingsSchema = new Schema(
     },
     library: {
       type: librarySettingsSchema,
-      default: () => ({
-        sortBy: "series",
-        sortDirection: "asc",
-        showCompleted: true,
-      }),
+      default: () => ({ showCompleted: true }),
     },
   },
   {

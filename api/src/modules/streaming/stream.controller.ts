@@ -91,6 +91,43 @@ function shouldHonorRange(ifRange: string | undefined, etag: string, lastModifie
 }
 
 export class StreamingController {
+	static async getBookCover(
+		req: AuthenticatedRequest & { params: { bookId?: string } },
+		res: Response,
+	) {
+		if (!req.user?.id) {
+			throw new ApiError(401, 'missing_token');
+		}
+
+		const bookId = String(req.params.bookId);
+		const { filePath, size, mimeType, etag, lastModified } = await StreamingService.getCoverFileInfo(bookId);
+
+		res.setHeader('ETag', etag);
+		res.setHeader('Last-Modified', lastModified.toUTCString());
+		res.setHeader('Cache-Control', 'private, max-age=86400');
+
+		if (
+			isNotModified(
+				typeof req.headers['if-none-match'] === 'string' ? req.headers['if-none-match'] : undefined,
+				typeof req.headers['if-modified-since'] === 'string'
+					? req.headers['if-modified-since']
+					: undefined,
+				etag,
+				lastModified,
+			)
+		) {
+			res.status(304).end();
+			return;
+		}
+
+		res.status(200);
+		res.setHeader('Content-Length', String(size));
+		res.setHeader('Content-Type', mimeType);
+
+		const stream = fs.createReadStream(filePath);
+		stream.pipe(res);
+	}
+
 	static async getBookAudioHead(
 		req: AuthenticatedRequest & { params: { bookId?: string } },
 		res: Response,

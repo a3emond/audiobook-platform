@@ -11,6 +11,17 @@ export interface IngestJobOutputDTO {
   chapters: number;
 }
 
+export interface IngestMp3AsM4BJobOutputDTO {
+  bookId: string;
+  filePath: string;
+  coverPath: string | null;
+  checksum: string;
+  duration: number;
+  title: string;
+  author: string;
+  chapters: number;
+}
+
 export interface RescanJobOutputDTO {
   force: boolean;
   targetCount: number;
@@ -37,6 +48,12 @@ export interface ExtractCoverJobOutputDTO {
   reason?: string;
 }
 
+export interface ReplaceCoverJobOutputDTO {
+  bookId: string;
+  filePath: string;
+  coverPath: string | null;
+}
+
 export interface DeleteBookJobOutputDTO {
   bookId: string;
   deleted: boolean;
@@ -55,17 +72,21 @@ export interface ReplaceFileJobOutputDTO {
 
 export type JobOutputDTO =
   | IngestJobOutputDTO
+  | IngestMp3AsM4BJobOutputDTO
   | RescanJobOutputDTO
   | WriteMetadataJobOutputDTO
   | ExtractCoverJobOutputDTO
+  | ReplaceCoverJobOutputDTO
   | DeleteBookJobOutputDTO
   | ReplaceFileJobOutputDTO;
 
 export type JobTypeDTO =
   | "INGEST"
+  | "INGEST_MP3_AS_M4B"
   | "RESCAN"
   | "WRITE_METADATA"
   | "EXTRACT_COVER"
+  | "REPLACE_COVER"
   | "DELETE_BOOK"
   | "REPLACE_FILE";
 
@@ -78,9 +99,11 @@ export type JobStatusDTO =
 
 export interface JobOutputByTypeDTO {
   INGEST: IngestJobOutputDTO;
+  INGEST_MP3_AS_M4B: IngestMp3AsM4BJobOutputDTO;
   RESCAN: RescanJobOutputDTO;
   WRITE_METADATA: WriteMetadataJobOutputDTO;
   EXTRACT_COVER: ExtractCoverJobOutputDTO;
+  REPLACE_COVER: ReplaceCoverJobOutputDTO;
   DELETE_BOOK: DeleteBookJobOutputDTO;
   REPLACE_FILE: ReplaceFileJobOutputDTO;
 }

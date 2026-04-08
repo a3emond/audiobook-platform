@@ -1,0 +1,29 @@
+<article class="collection-card card">
+  <a class="cover-fan" [routerLink]="['/collections', collection.id]">
+    @for (preview of previewImages.slice(0, 3); track preview.url; let i = $index) {
+      <div class="fan-image-wrap" [class.i0]="i === 0" [class.i1]="i === 1" [class.i2]="i === 2">
+        <img class="fan-image" [src]="preview.url" [alt]="collection.name + ' cover ' + (i + 1)" />
+        @if (isCompleted(preview.bookId)) {
+          <div class="cover-completed-overlay">
+            <span class="check">✓</span>
+            <span>Completed</span>
+          </div>
+        }
+      </div>
+    }
+
+    @if (previewImages.length === 0) {
+      <div class="fan-fallback">{{ fallbackLabel() }}</div>
+    }
+  </a>
+
+  <h3>{{ collection.name }}</h3>
+  <p>Books: {{ collection.bookIds.length }}</p>
+  @if (collection.updatedAt) {
+    <p>Updated: {{ collection.updatedAt | date: 'medium' }}</p>
+  }
+
+  <div class="actions">
+    <a class="btn-open" [routerLink]="['/collections', collection.id]">Open collection</a>
+  </div>
+</article>

@@ -1,0 +1,29 @@
+<section class="stats-page page-shell">
+  <h1 class="hero-title">Stats</h1>
+
+  @if (!stats()) {
+    <p class="text-muted">Loading stats...</p>
+  } @else {
+    <div class="stats-grid">
+      <article class="card stat">
+        <h3>Lifetime listening</h3>
+        <p>{{ formatDuration(stats()?.lifetime?.totalListeningSeconds ?? 0) }}</p>
+      </article>
+
+      <article class="card stat">
+        <h3>Total sessions</h3>
+        <p>{{ stats()?.lifetime?.totalSessions ?? 0 }}</p>
+      </article>
+
+      <article class="card stat">
+        <h3>Last 7 days</h3>
+        <p>{{ formatDuration(stats()?.rolling?.last7DaysListeningSeconds ?? 0) }}</p>
+      </article>
+
+      <article class="card stat">
+        <h3>Last 30 days</h3>
+        <p>{{ formatDuration(stats()?.rolling?.last30DaysListeningSeconds ?? 0) }}</p>
+      </article>
+    </div>
+  }
+</section>

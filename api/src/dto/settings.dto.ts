@@ -16,8 +16,6 @@ export interface SettingsDTO {
   };
 
   library: {
-    sortBy: "recent" | "title" | "author" | "series" | "progress";
-    sortDirection: "asc" | "desc";
     showCompleted: boolean;
   };
 }

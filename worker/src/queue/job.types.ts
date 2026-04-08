@@ -7,9 +7,11 @@ import mongoose, {
 
 export const JOB_TYPES = [
 	"INGEST",
+	"INGEST_MP3_AS_M4B",
 	"RESCAN",
 	"WRITE_METADATA",
 	"EXTRACT_COVER",
+	"REPLACE_COVER",
 	"DELETE_BOOK",
 	"REPLACE_FILE",
 ] as const;

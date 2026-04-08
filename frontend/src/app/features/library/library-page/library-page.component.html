@@ -1,0 +1,198 @@
+<section class="library-page page-shell">
+  <header class="hero">
+    <div>
+      <h1>Library</h1>
+      <p>Streaming-style discovery from latest drops to full series rails.</p>
+    </div>
+  </header>
+
+  <section class="toolbar card">
+    <label>
+      <span>Filter</span>
+      <input
+        name="q"
+        [(ngModel)]="q"
+        (ngModelChange)="onFilterChange()"
+        placeholder="Filter by title, author, or series"
+      />
+    </label>
+    <button type="button" class="clear-filter-btn" (click)="clearFilter()" [disabled]="!hasActiveQuery()">Clear</button>
+  </section>
+
+  @if (loading()) {
+    <p class="text-muted">Loading content…</p>
+  }
+
+  @if (error()) {
+    <p class="text-error">{{ error() }}</p>
+  }
+
+  @if (!loading()) {
+    @if (showLatestRow()) {
+      <section class="row-block">
+        <div class="row-head">
+          <h2>Latest Added</h2>
+        </div>
+        <div class="rail-wrap" [class.fade-left]="canScrollLeft('latest')" [class.fade-right]="canScrollRight('latest')">
+          @if (railOverflows('latest')) {
+            <button
+              type="button"
+              class="rail-nav left"
+              [disabled]="!canScrollLeft('latest')"
+              (click)="scrollRail('latest', latestRail, -1)"
+              aria-label="Scroll left"
+            >
+              ‹
+            </button>
+          }
+          <div class="media-rail" #railEl #latestRail data-rail-id="latest" role="list" (scroll)="onRailScroll('latest', latestRail)">
+          @for (book of latestBooks(); track book.id) {
+            <div class="media-cell" role="listitem">
+              <app-book-card [book]="book" />
+            </div>
+          }
+          </div>
+          @if (railOverflows('latest')) {
+            <button
+              type="button"
+              class="rail-nav right"
+              [disabled]="!canScrollRight('latest')"
+              (click)="scrollRail('latest', latestRail, 1)"
+              aria-label="Scroll right"
+            >
+              ›
+            </button>
+          }
+        </div>
+      </section>
+    }
+
+    @if (shouldShowNoBooksState()) {
+      <section class="empty-state card">
+        <h3>{{ hasActiveQuery() ? 'No books match this search' : 'No books available yet' }}</h3>
+        <p>
+          {{ hasActiveQuery() ? 'Try a broader search, or clear the filter to view everything.' : 'Books will appear here once content is added to the library.' }}
+        </p>
+        @if (hasActiveQuery()) {
+          <button type="button" class="btn" (click)="clearFilter()">Clear search</button>
+        }
+      </section>
+    }
+
+    @if (hasSeriesRows()) {
+      @for (series of seriesRails(); track series.id) {
+        <section class="row-block">
+          <div class="row-head">
+            <h2>{{ series.name }}</h2>
+            <a class="open-series-btn" [routerLink]="['/series', series.name]">Open series</a>
+          </div>
+          <div class="rail-wrap" [class.fade-left]="canScrollLeft('series:' + series.id)" [class.fade-right]="canScrollRight('series:' + series.id)">
+            @if (railOverflows('series:' + series.id)) {
+              <button
+                type="button"
+                class="rail-nav left"
+                [disabled]="!canScrollLeft('series:' + series.id)"
+                (click)="scrollRail('series:' + series.id, seriesRail, -1)"
+                aria-label="Scroll left"
+              >
+                ‹
+              </button>
+            }
+            <div
+              class="media-rail"
+              #railEl
+              #seriesRail
+              [attr.data-rail-id]="'series:' + series.id"
+              role="list"
+              (scroll)="onRailScroll('series:' + series.id, seriesRail)"
+            >
+            @for (book of series.books; track book.id) {
+              <div class="media-cell" role="listitem">
+                <app-book-card [book]="book" />
+              </div>
+            }
+            </div>
+            @if (railOverflows('series:' + series.id)) {
+              <button
+                type="button"
+                class="rail-nav right"
+                [disabled]="!canScrollRight('series:' + series.id)"
+                (click)="scrollRail('series:' + series.id, seriesRail, 1)"
+                aria-label="Scroll right"
+              >
+                ›
+              </button>
+            }
+          </div>
+        </section>
+      }
+    }
+
+    <section class="row-block">
+      <div class="row-head">
+        <h2>Your Collections</h2>
+        <button type="button" class="create-collection-btn subtle" (click)="openCreateCollectionModal()" aria-label="Create collection">+ New</button>
+      </div>
+      <div class="rail-wrap" [class.fade-left]="canScrollLeft('collections')" [class.fade-right]="canScrollRight('collections')">
+        @if (railOverflows('collections')) {
+          <button
+            type="button"
+            class="rail-nav left"
+            [disabled]="!canScrollLeft('collections')"
+            (click)="scrollRail('collections', collectionRail, -1)"
+            aria-label="Scroll left"
+          >
+            ‹
+          </button>
+        }
+        <div class="collection-rail" #railEl #collectionRail data-rail-id="collections" role="list" (scroll)="onRailScroll('collections', collectionRail)">
+      @for (collection of visibleCollections(); track collection.id) {
+          <div class="collection-cell" role="listitem">
+            <app-collection-card
+              [collection]="collection"
+              [previewImages]="collectionPreviewUrls(collection)"
+            />
+          </div>
+      }
+        </div>
+        @if (railOverflows('collections')) {
+          <button
+            type="button"
+            class="rail-nav right"
+            [disabled]="!canScrollRight('collections')"
+            (click)="scrollRail('collections', collectionRail, 1)"
+            aria-label="Scroll right"
+          >
+            ›
+          </button>
+        }
+      </div>
+    </section>
+  }
+
+  @if (createCollectionOpen()) {
+    <div class="modal-backdrop" (click)="closeCreateCollectionModal()">
+      <div class="modal card" (click)="$event.stopPropagation()">
+        <h3>New collection</h3>
+        <label>
+          <span>Name</span>
+          <input
+            name="collectionName"
+            [(ngModel)]="collectionName"
+            placeholder="e.g. Sunday chill"
+            (keyup.enter)="createCollection()"
+          />
+        </label>
+
+        @if (collectionModalError()) {
+          <p class="text-error">{{ collectionModalError() }}</p>
+        }
+
+        <div class="modal-actions">
+          <button class="btn" type="button" (click)="createCollection()">Create</button>
+          <button class="btn btn-secondary" type="button" (click)="closeCreateCollectionModal()">Cancel</button>
+        </div>
+      </div>
+    </div>
+  }
+</section>

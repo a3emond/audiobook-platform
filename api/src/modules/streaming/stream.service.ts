@@ -24,7 +24,61 @@ function inferAudioMimeType(filePath: string): string {
 	return "application/octet-stream";
 }
 
+function inferImageMimeType(filePath: string): string {
+	const lower = filePath.toLowerCase();
+	if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+		return 'image/jpeg';
+	}
+	if (lower.endsWith('.png')) {
+		return 'image/png';
+	}
+	if (lower.endsWith('.webp')) {
+		return 'image/webp';
+	}
+	return 'application/octet-stream';
+}
+
 export class StreamingService {
+	static async getCoverFileInfo(bookId: string): Promise<{
+		filePath: string;
+		size: number;
+		mimeType: string;
+		lastModified: Date;
+		etag: string;
+	}> {
+		if (!mongoose.Types.ObjectId.isValid(bookId)) {
+			throw new ApiError(400, 'book_invalid_id');
+		}
+
+		const book = await BookModel.findById(bookId);
+		if (!book) {
+			throw new ApiError(404, 'book_not_found');
+		}
+
+		if (!book.coverPath) {
+			throw new ApiError(404, 'cover_not_found');
+		}
+
+		let stat;
+		try {
+			stat = await fs.stat(book.coverPath);
+		} catch {
+			throw new ApiError(404, 'cover_not_found');
+		}
+
+		if (!stat.isFile()) {
+			throw new ApiError(404, 'cover_not_found');
+		}
+
+		return {
+			filePath: book.coverPath,
+			size: stat.size,
+			mimeType: inferImageMimeType(book.coverPath),
+			lastModified: stat.mtime,
+			etag: `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`,
+		};
+	}
+
 	static async getAudioFileInfo(bookId: string): Promise<{
 		filePath: string;
 		size: number;

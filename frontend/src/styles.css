@@ -1,1 +1,168 @@
-/* You can add global styles to this file, and also import other style files */
+/* === Design tokens ============================================ */
+:root {
+  --color-bg:            #f7f8fa;
+  --color-surface:       #ffffff;
+  --color-border:        #e4e4e7;
+  --color-text:          #1f2937;
+  --color-text-muted:    #6b7280;
+  --color-primary:       #0f172a;
+  --color-accent:        #3b82f6;
+  --color-accent-hover:  #2563eb;
+  --color-danger:        #dc2626;
+  --color-success:       #16a34a;
+  --radius-sm:           0.25rem;
+  --radius:              0.5rem;
+  --radius-lg:           0.75rem;
+  --shadow-sm:           0 1px 2px 0 rgb(0 0 0 / 0.07);
+  --shadow:              0 1px 3px 0 rgb(0 0 0 / 0.1);
+  --shadow-lg:           0 4px 12px -1px rgb(0 0 0 / 0.12);
+  --topbar-h:            3.5rem;
+}
+
+/* === Global reset ============================================= */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  font-size: 16px;
+  color: var(--color-text);
+  background: var(--color-bg);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100%;
+}
+
+a { color: var(--color-accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+button { cursor: pointer; font-family: inherit; font-size: inherit; }
+
+/* === Form elements ============================================ */
+input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.75rem;
+  outline: none;
+  background: var(--color-surface);
+  color: var(--color-text);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgb(59 130 246 / 0.15);
+}
+
+input:disabled, select:disabled {
+  background: #f1f5f9;
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* === Button utilities ========================================= */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  font-size: 0.875rem;
+  background: var(--color-accent);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--color-accent-hover); text-decoration: none; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-secondary {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+.btn-secondary:hover { background: #f1f5f9; }
+
+.btn-danger {
+  background: var(--color-danger);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-danger:hover { background: #b91c1c; }
+
+/* === Card utility ============================================= */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  box-shadow: var(--shadow-sm);
+}
+
+/* === Status text ============================================== */
+.text-error   { color: var(--color-danger); font-size: 0.875rem; }
+.text-success { color: var(--color-success); font-size: 0.875rem; }
+.text-muted   { color: var(--color-text-muted); font-size: 0.875rem; }
+
+/* === Page-level skeleton ====================================== */
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.page-header h1 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  flex: 1;
+}
+
+.page-shell {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.85rem;
+}
+
+.hero-title {
+  font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  margin: 0;
+}
+
+.hero-subtitle {
+  margin-top: 0.25rem;
+  color: var(--color-text-muted);
+}
+
+/* === Table utility ============================================ */
+table { width: 100%; border-collapse: collapse; background: var(--color-surface); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); }
+th, td { border-bottom: 1px solid var(--color-border); padding: 0.6rem 0.75rem; text-align: left; font-size: 0.875rem; }
+th { background: #f8fafc; font-weight: 600; color: var(--color-text-muted); }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #fafafa; }

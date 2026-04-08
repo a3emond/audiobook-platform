@@ -138,7 +138,7 @@ export class CollectionService {
 		const collection = await CollectionModel.findByIdAndUpdate(
 			{ _id: collectionId, userId },
 			{ $set: { ...updates, updatedAt: new Date() } },
-			{ new: true },
+			{ returnDocument: "after" },
 		);
 
 		if (!collection) {

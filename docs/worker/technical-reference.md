@@ -48,7 +48,9 @@ The **Worker Service** is a job queue system designed to handle long-running, co
 │ ├─ JobProcessor │ (state machine)
 │ └─ Job Handlers │
 │    ├─ ingest    │
+│    ├─ ingest-mp3-as-m4b
 │    ├─ extract-cover
+│    ├─ replace-cover
 │    ├─ write-metadata
 │    ├─ rescan    │
 │    ├─ replace-file
@@ -295,7 +297,15 @@ const formatted = formatSha256(hexDigest);
 ```typescript
 interface JobDocument {
   _id: ObjectId;
-  type: "ingest" | "extract-cover" | "write-metadata" | "rescan" | "replace-file" | "delete-book";
+  type:
+    | "INGEST"
+    | "INGEST_MP3_AS_M4B"
+    | "EXTRACT_COVER"
+    | "REPLACE_COVER"
+    | "WRITE_METADATA"
+    | "RESCAN"
+    | "REPLACE_FILE"
+    | "DELETE_BOOK";
   payload: Record<string, unknown>;
   status: "queued" | "running" | "retrying" | "done" | "failed";
   attempt: number;
@@ -351,6 +361,39 @@ interface JobDocument {
 - `ingest_source_not_found`: Source file doesn't exist
 - `ingest_payload_invalid`: Missing sourcePath
 - `ingest_metadata_parse_failed`: Can't read FFMetadata
+
+### Ingest MP3 as M4B Job
+
+**Purpose**: Build a new M4B from uploaded MP3 with admin-provided metadata and optional cover art.
+
+**Payload**:
+```typescript
+{
+  sourcePath: string;
+  coverPath?: string | null;
+  cleanupSource?: boolean;
+  cleanupCover?: boolean;
+  metadata?: {
+    title?: string;
+    author?: string;
+    series?: string | null;
+    genre?: string | null;
+  };
+}
+```
+
+### Replace Cover Job
+
+**Purpose**: Replace the embedded cover image in an existing audiobook file and remux metadata without re-encoding audio.
+
+**Payload**:
+```typescript
+{
+  bookId: string;
+  sourcePath: string;
+  cleanupSource?: boolean;
+}
+```
 - FFmpeg timeout: File too large or corrupted
 
 ### Extract Cover Job
