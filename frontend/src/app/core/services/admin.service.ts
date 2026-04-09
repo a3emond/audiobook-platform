@@ -128,6 +128,8 @@ export interface WorkerQueueSettings {
   heavyWindowEnabled: boolean;
   heavyWindowStart: string;
   heavyWindowEnd: string;
+  heavyConcurrency: number;
+  fastConcurrency: number;
 }
 
 export interface WorkerSettings {

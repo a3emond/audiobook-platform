@@ -168,7 +168,10 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 		`
 		/* ── Host ─────────────────────────────────────────────────── */
 		:host {
-			display: contents;
+			display: flex;
+			flex: 1;
+			min-height: 0;
+			overflow: hidden;
 		}
 
 		/* ── Overlay (mobile only) ────────────────────────────────── */
@@ -179,7 +182,8 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 		/* ── Shell wrapper ─────────────────────────────────────────── */
 		.admin-shell {
 			display: flex;
-			height: calc(100svh - var(--topbar-h, 3.5rem));
+			flex: 1;
+			min-height: 0;
 			overflow: hidden;
 			background: var(--color-bg);
 		}
@@ -197,8 +201,12 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 			overflow-y: auto;
 			overflow-x: hidden;
 			scrollbar-width: thin;
+			scrollbar-color: #242424 transparent;
 			z-index: 50;
 		}
+		.admin-sidebar::-webkit-scrollbar { width: 3px; }
+		.admin-sidebar::-webkit-scrollbar-track { background: transparent; }
+		.admin-sidebar::-webkit-scrollbar-thumb { background: #222; border-radius: 99px; }
 
 		/* Header */
 		.sidebar-header {
@@ -404,7 +412,12 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 			overflow-x: hidden;
 			padding: 1.75rem 2.25rem;
 			scrollbar-width: thin;
+			scrollbar-color: #2e2e2e transparent;
 		}
+		.admin-main::-webkit-scrollbar { width: 5px; }
+		.admin-main::-webkit-scrollbar-track { background: transparent; }
+		.admin-main::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 99px; }
+		.admin-main::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
 
 		/* ══════════════════════════════════════════════════════════
 		   RESPONSIVE

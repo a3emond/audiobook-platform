@@ -8,6 +8,8 @@ export interface WorkerQueueSettings {
   heavyWindowEnabled: boolean;
   heavyWindowStart: string;
   heavyWindowEnd: string;
+  heavyConcurrency: number;
+  fastConcurrency: number;
 }
 
 const DEFAULT_SETTINGS: WorkerQueueSettings = {
@@ -16,6 +18,8 @@ const DEFAULT_SETTINGS: WorkerQueueSettings = {
   heavyWindowEnabled: false,
   heavyWindowStart: "03:00",
   heavyWindowEnd: "05:00",
+  heavyConcurrency: 1,
+  fastConcurrency: 0,
 };
 
 function parseNumberEnv(name: string, fallback: number): number {
@@ -115,6 +119,14 @@ export class WorkerSettingsService {
         typeof queue.heavyWindowEnd === "string"
           ? queue.heavyWindowEnd
           : DEFAULT_SETTINGS.heavyWindowEnd,
+      heavyConcurrency:
+        typeof queue.heavyConcurrency === "number" && queue.heavyConcurrency >= 1
+          ? Math.round(queue.heavyConcurrency)
+          : DEFAULT_SETTINGS.heavyConcurrency,
+      fastConcurrency:
+        typeof queue.fastConcurrency === "number" && queue.fastConcurrency >= 0
+          ? Math.round(queue.fastConcurrency)
+          : DEFAULT_SETTINGS.fastConcurrency,
     };
   }
 }

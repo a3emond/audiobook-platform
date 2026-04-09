@@ -91,6 +91,10 @@ export class App implements OnDestroy {
     this.mobileNavOpen.set(false);
   }
 
+  isAdminRoute(): boolean {
+    return this.router.url.startsWith('/admin');
+  }
+
   async logout(): Promise<void> {
     this.closeMobileNav();
     await this.auth.logout();

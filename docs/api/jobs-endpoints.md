@@ -38,7 +38,7 @@ For the full admin route inventory, see [Admin API Endpoints](./admin-endpoints.
 | `RESCAN` | Verify library files and sync DB | 50 | No |
 | `DELETE_BOOK` | Remove book record and files | 50 | No |
 
-Heavy jobs are subject to optional time-window scheduling configured in worker settings. `SANITIZE_MP3_TO_M4B` is created automatically by `INGEST_MP3_AS_M4B` — clients should not enqueue it directly.
+Heavy jobs are subject to optional time-window scheduling configured in worker settings. With lane mode enabled, heavy jobs run on `heavyConcurrency` slots while lightweight jobs can keep flowing on `fastConcurrency` slots. `SANITIZE_MP3_TO_M4B` is created automatically by `INGEST_MP3_AS_M4B` — clients should not enqueue it directly.
 
 ---
 

@@ -53,6 +53,10 @@ Admin capabilities are optional per client:
 - Job monitoring views
 - User management views
 
+Admin upload UX requirement:
+- Prepared upload queues should survive admin route navigation within the same app session.
+- A full browser reload may require re-selecting files, but per-item metadata choices should remain recoverable where feasible.
+
 ## 2. API Integration Contract
 
 ### 2.1 Base Paths

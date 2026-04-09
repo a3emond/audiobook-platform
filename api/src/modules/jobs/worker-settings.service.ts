@@ -9,6 +9,8 @@ export interface WorkerSettingsDTO {
     heavyWindowEnabled: boolean;
     heavyWindowStart: string;
     heavyWindowEnd: string;
+    heavyConcurrency: number;
+    fastConcurrency: number;
   };
   updatedAt?: string;
 }
@@ -52,6 +54,8 @@ function toDto(doc: WorkerSettingsDocument): WorkerSettingsDTO {
       heavyWindowEnabled: doc.queue.heavyWindowEnabled,
       heavyWindowStart: doc.queue.heavyWindowStart,
       heavyWindowEnd: doc.queue.heavyWindowEnd,
+      heavyConcurrency: doc.queue.heavyConcurrency,
+      fastConcurrency: doc.queue.fastConcurrency,
     },
     updatedAt: doc.updatedAt?.toISOString(),
   };
@@ -95,6 +99,12 @@ export class WorkerSettingsService {
       if (patch.queue.heavyWindowEnd !== undefined) {
         doc.queue.heavyWindowEnd = patch.queue.heavyWindowEnd;
       }
+      if (patch.queue.heavyConcurrency !== undefined) {
+        doc.queue.heavyConcurrency = patch.queue.heavyConcurrency;
+      }
+      if (patch.queue.fastConcurrency !== undefined) {
+        doc.queue.fastConcurrency = patch.queue.fastConcurrency;
+      }
     }
 
     await doc.save();
@@ -128,6 +138,14 @@ export class WorkerSettingsService {
     if (patch.queue.heavyWindowEnd !== undefined && !TIME_PATTERN.test(patch.queue.heavyWindowEnd)) {
       throw new ApiError(400, "worker_settings_invalid_end_time");
     }
+
+    if (patch.queue.heavyConcurrency !== undefined && (patch.queue.heavyConcurrency < 1 || !Number.isInteger(patch.queue.heavyConcurrency))) {
+      throw new ApiError(400, "worker_settings_invalid_heavy_concurrency");
+    }
+
+    if (patch.queue.fastConcurrency !== undefined && (patch.queue.fastConcurrency < 0 || !Number.isInteger(patch.queue.fastConcurrency))) {
+      throw new ApiError(400, "worker_settings_invalid_fast_concurrency");
+    }
   }
 
   private static async findOrCreate(): Promise<WorkerSettingsDocument> {
@@ -144,6 +162,8 @@ export class WorkerSettingsService {
         heavyWindowEnabled: String(process.env.HEAVY_JOB_WINDOW_ENABLED || "false") === "true",
         heavyWindowStart: process.env.HEAVY_JOB_WINDOW_START || "03:00",
         heavyWindowEnd: process.env.HEAVY_JOB_WINDOW_END || "05:00",
+        heavyConcurrency: Math.max(1, parseNumberEnv("WORKER_CONCURRENCY_HEAVY", parseNumberEnv("WORKER_CONCURRENCY", 1))),
+        fastConcurrency: Math.max(0, parseNumberEnv("WORKER_CONCURRENCY_FAST", 0)),
       },
     });
   }

@@ -327,6 +327,21 @@
   box-shadow: 0 8px 18px rgb(0 0 0 / 0.35);
 }
 
+/* === Admin layout mode (full-height, no outer scroll) ======== */
+.app-shell.admin-layout {
+  height: 100vh;
+  overflow: hidden;
+}
+.app-shell.admin-layout .progress-strip { display: none; }
+.app-shell.admin-layout .main-content {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  max-width: 100%;
+  overflow: hidden;
+  display: flex;
+}
+
 /* === Mobile =================================================== */
 @media (max-width: 768px) {
   .hamburger { display: flex; }

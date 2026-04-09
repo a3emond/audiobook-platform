@@ -69,9 +69,15 @@ Stored in `worker_settings` collection with `key: "worker"`. Read by the worker 
     heavyWindowEnabled: boolean;  // restrict heavy jobs to a time window
     heavyWindowStart: string;     // "HH:MM"
     heavyWindowEnd: string;       // "HH:MM" — midnight crossover supported
+    heavyConcurrency: number;     // 'any' lane slots (process all job types)
+    fastConcurrency: number;      // 'fast' lane slots (skip heavy job types)
   }
 }
 ```
+
+Lane behavior:
+- `any` lane slots can process all jobs, but heavy types are still gated by `heavyWindow*` when enabled.
+- `fast` lane slots always skip heavy job types and keep lightweight jobs flowing.
 
 ### Book `processingState` Field
 
@@ -196,7 +202,7 @@ sequenceDiagram
     participant DB
     participant Worker
 
-    Admin->>API: PATCH /admin/worker-settings\n{heavyWindowEnabled: true, heavyWindowStart: "03:00"}
+    Admin->>API: PATCH /admin/worker-settings\n{heavyWindowEnabled: true, heavyWindowStart: "03:00", heavyConcurrency: 1, fastConcurrency: 2}
     API->>DB: findOneAndUpdate worker_settings
     API-->>Admin: updated settings
 
@@ -274,7 +280,12 @@ WORKER_SETTINGS_CACHE_TTL_MS=15000
 
 ```bash
 WORKER_POLL_MS=1500
-WORKER_CONCURRENCY=1
+# Lane-based concurrency (preferred)
+WORKER_CONCURRENCY_HEAVY=1
+WORKER_CONCURRENCY_FAST=2
+
+# Legacy flat concurrency fallback (used when WORKER_CONCURRENCY_HEAVY is unset)
+# WORKER_CONCURRENCY=1
 WORKER_RETRY_BASE_MS=2000
 WORKER_RETRY_MAX_MS=60000
 JOB_LOG_RETENTION_DAYS=15
@@ -329,8 +340,9 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/admin/jobs/$JOB
 ### Scale Throughput
 
 ```bash
-# More concurrent jobs per instance
-WORKER_CONCURRENCY=4
+# Lane-based throughput tuning
+WORKER_CONCURRENCY_HEAVY=1
+WORKER_CONCURRENCY_FAST=3
 
 # Multiple worker instances (use different WORKER_IDs)
 docker compose up --scale worker=2

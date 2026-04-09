@@ -48,6 +48,16 @@ const workerSettingsSchema = new Schema(
           message: "worker_settings_invalid_end_time",
         },
       },
+      heavyConcurrency: {
+        type: Number,
+        min: 1,
+        default: 1,
+      },
+      fastConcurrency: {
+        type: Number,
+        min: 0,
+        default: 0,
+      },
     },
   },
   {
@@ -64,6 +74,8 @@ export type WorkerSettings = InferSchemaType<typeof workerSettingsSchema> & {
     heavyWindowEnabled: boolean;
     heavyWindowStart: string;
     heavyWindowEnd: string;
+    heavyConcurrency: number;
+    fastConcurrency: number;
   };
 };
 

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input, OnInit, signal } from '@angular/core';
+import { Component, Input, OnChanges, OnDestroy, OnInit, SimpleChanges, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AdminService, type JobLog } from '../../core/services/admin.service';
 
@@ -210,7 +210,7 @@ import { AdminService, type JobLog } from '../../core/services/admin.service';
 		`,
 	],
 })
-export class AdminJobLogsComponent implements OnInit {
+export class AdminJobLogsComponent implements OnInit, OnChanges, OnDestroy {
 	@Input()
 	jobId!: string;
 
@@ -228,6 +228,20 @@ export class AdminJobLogsComponent implements OnInit {
 
 	ngOnInit(): void {
 		this.refreshLogs();
+	}
+
+	ngOnChanges(changes: SimpleChanges): void {
+		if (changes['jobId'] && !changes['jobId'].isFirstChange()) {
+			// Stop any running auto-refresh for the previous job
+			if (this.refreshInterval) {
+				clearInterval(this.refreshInterval);
+				this.refreshInterval = undefined;
+				this.autoRefresh.set(false);
+			}
+			this.offset.set(0);
+			this.logs.set([]);
+			this.refreshLogs();
+		}
 	}
 
 	refreshLogs(): void {

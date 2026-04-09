@@ -20,6 +20,8 @@ export class WorkerSettingsController {
           heavyWindowEnabled?: boolean;
           heavyWindowStart?: string;
           heavyWindowEnd?: string;
+          heavyConcurrency?: number;
+          fastConcurrency?: number;
         };
       }
     >,

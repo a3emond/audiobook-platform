@@ -10,284 +10,412 @@ selector: 'app-admin-jobs-page',
 standalone: true,
 imports: [CommonModule, FormsModule, AdminJobLogsComponent],
 template: `
-		<div class="admin-page">
-			<h1>Admin Jobs</h1>
-			<p *ngIf="!connected()">Connecting websocket...</p>
-			<p *ngIf="connected()">Mode: {{ mode() === 'stream' ? 'Realtime websocket' : 'Polling fallback' }}</p>
-			<p *ngIf="error()" class="error">{{ error() }}</p>
+	<div class="admin-page">
 
-			<section class="settings-panel" *ngIf="settingsDraft() as s">
-				<h3>Worker Queue Settings</h3>
-				<p class="settings-help">
-					Heavy jobs can be delayed and restricted to a time window (server local time).
-				</p>
-				<div class="settings-grid">
-					<label>
-						<span>Heavy job delay (ms)</span>
-						<input type="number" min="0" [(ngModel)]="s.heavyJobDelayMs" />
-					</label>
+		<!-- Page header -->
+		<div class="page-hd">
+			<h1>Jobs &amp; Queue</h1>
+			<span class="conn-badge" [class.online]="connected()">
+				<span class="conn-dot"></span>
+				{{ connected() ? (mode() === 'stream' ? 'Live' : 'Polling') : 'Offline' }}
+			</span>
+		</div>
+		<p *ngIf="error()" class="text-error">{{ error() }}</p>
 
-					<label class="checkbox-row">
-						<input type="checkbox" [(ngModel)]="s.heavyWindowEnabled" />
-						<span>Restrict heavy jobs to a time window</span>
-					</label>
+		<!-- ── Worker Queue Settings ────────────────────────────── -->
+		<section class="settings-panel" *ngIf="settingsDraft() as s">
+			<div class="settings-header">
+				<h2 class="settings-title">Worker Queue Settings</h2>
+				<p class="settings-help">Configure scheduling behaviour for heavy background jobs.</p>
+			</div>
 
-					<label>
-						<span>Window start</span>
-						<input type="time" [(ngModel)]="s.heavyWindowStart" [disabled]="!s.heavyWindowEnabled" />
-					</label>
+			<!-- Scheduling controls -->
+			<div class="schedule-row">
+				<label class="field">
+					<span class="field-label">Heavy slots</span>
+					<input type="number" min="1" max="16" class="field-input narrow" [(ngModel)]="s.heavyConcurrency" />
+				</label>
 
-					<label>
-						<span>Window end</span>
-						<input type="time" [(ngModel)]="s.heavyWindowEnd" [disabled]="!s.heavyWindowEnabled" />
-					</label>
+				<label class="field">
+					<span class="field-label">Fast slots</span>
+					<input type="number" min="0" max="16" class="field-input narrow" [(ngModel)]="s.fastConcurrency" />
+				</label>
 
-					<div class="checkbox-group">
-						<span class="group-label">Mark job types as "heavy" (subject to delay &amp; time window)</span>
-						<label class="checkbox-row" *ngFor="let type of allJobTypes">
-							<input type="checkbox"
-								[checked]="s.heavyJobTypes.includes(type)"
-								(change)="toggleHeavyType(s, type, $any($event.target).checked)" />
-							<span>{{ type }}</span>
-						</label>
+				<label class="field">
+					<span class="field-label">Delay (ms)</span>
+					<input type="number" min="0" class="field-input narrow" [(ngModel)]="s.heavyJobDelayMs" />
+				</label>
+
+				<div class="toggle-field">
+					<span class="field-label">Time window</span>
+					<div class="toggle-row">
+						<button type="button" class="toggle-switch" [class.on]="s.heavyWindowEnabled"
+							[attr.aria-checked]="s.heavyWindowEnabled" role="switch"
+							(click)="s.heavyWindowEnabled = !s.heavyWindowEnabled">
+							<span class="toggle-thumb"></span>
+						</button>
+						<span class="toggle-hint">{{ s.heavyWindowEnabled ? 'Enabled' : 'Disabled' }}</span>
 					</div>
 				</div>
 
-				<div class="actions">
-					<button type="button" (click)="saveWorkerSettings()" [disabled]="savingSettings()">
-						{{ savingSettings() ? 'Saving...' : 'Save worker settings' }}
-					</button>
-					<button type="button" class="ghost" (click)="reloadWorkerSettings()" [disabled]="savingSettings()">
-						Reload
-					</button>
-				</div>
-				<p *ngIf="settingsMessage()" class="settings-message">{{ settingsMessage() }}</p>
-			</section>
+				<label class="field" [class.faded]="!s.heavyWindowEnabled">
+					<span class="field-label">Start</span>
+					<input type="time" class="field-input" [(ngModel)]="s.heavyWindowStart" [disabled]="!s.heavyWindowEnabled" />
+				</label>
 
-			<div class="jobs-container">
-				<div class="jobs-list">
-					<h3>Jobs Queue</h3>
-					<table *ngIf="jobs().length > 0" class="admin-table">
-						<thead>
-							<tr>
-								<th>Type</th>
-								<th>Status</th>
-								<th>Progress</th>
-								<th>Updated</th>
-							</tr>
-						</thead>
-						<tbody>
-							<tr *ngFor="let job of jobs()" 
-								(click)="selectJob(job)"
-								[class.selected]="selectedJobId() === job.id"
-								class="clickable">
-								<td>{{ job.type }}</td>
-								<td>
-									<span class="badge" [class]="'status-' + job.status">{{ job.status }}</span>
-								</td>
-								<td>{{ job.attempt }}/{{ job.maxAttempts }}</td>
-								<td>{{ job.updatedAt || '-' }}</td>
-							</tr>
-						</tbody>
-					</table>
-					<p *ngIf="jobs().length === 0" class="empty">No jobs</p>
-				</div>
+				<label class="field" [class.faded]="!s.heavyWindowEnabled">
+					<span class="field-label">End</span>
+					<input type="time" class="field-input" [(ngModel)]="s.heavyWindowEnd" [disabled]="!s.heavyWindowEnabled" />
+				</label>
+			</div>
 
-				<div class="job-detail" *ngIf="selectedJobId()">
-					<app-admin-job-logs [jobId]="selectedJobId()!"></app-admin-job-logs>
+			<!-- Heavy job type chips -->
+			<div class="types-section">
+				<span class="field-label">Heavy job types <span class="types-hint">(click to toggle)</span></span>
+				<div class="type-chips">
+					<button type="button" class="type-chip" *ngFor="let type of allJobTypes"
+						[class.selected]="s.heavyJobTypes.includes(type)"
+						(click)="toggleHeavyType(s, type, !s.heavyJobTypes.includes(type))">
+						{{ type }}
+					</button>
 				</div>
 			</div>
+
+			<!-- Actions -->
+			<div class="settings-footer">
+				<button type="button" class="btn-save" (click)="saveWorkerSettings()" [disabled]="savingSettings()">
+					{{ savingSettings() ? 'Saving…' : 'Save settings' }}
+				</button>
+				<button type="button" class="btn-ghost" (click)="reloadWorkerSettings()" [disabled]="savingSettings()">Reload</button>
+				<span *ngIf="settingsMessage()" class="settings-msg">{{ settingsMessage() }}</span>
+			</div>
+		</section>
+
+		<!-- ── Jobs queue + log detail ──────────────────────────── -->
+		<div class="jobs-pane">
+			<div class="jobs-list">
+				<p class="pane-label">Jobs Queue</p>
+				<table *ngIf="jobs().length > 0" class="jobs-table">
+					<thead>
+						<tr>
+							<th>Type</th>
+							<th>Status</th>
+							<th>Attempts</th>
+							<th>Updated</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr *ngFor="let job of jobs()"
+							(click)="selectJob(job)"
+							[class.selected]="selectedJobId() === job.id">
+							<td class="type-cell">{{ job.type }}</td>
+							<td><span class="badge" [class]="'status-' + job.status">{{ job.status }}</span></td>
+							<td class="dim-cell">{{ job.attempt }}/{{ job.maxAttempts }}</td>
+							<td class="dim-cell">{{ job.updatedAt | date:'HH:mm:ss' }}</td>
+						</tr>
+					</tbody>
+				</table>
+				<p *ngIf="jobs().length === 0" class="empty-hint">No jobs in queue</p>
+			</div>
+
+			<div class="logs-pane" *ngIf="selectedJobId(); else noSelection">
+				<app-admin-job-logs [jobId]="selectedJobId()!"></app-admin-job-logs>
+			</div>
+			<ng-template #noSelection>
+				<div class="no-selection">Select a job to view its logs</div>
+			</ng-template>
 		</div>
-	`,
+
+	</div>
+`,
 styles: [
 `
-			.admin-page {
-				display: grid;
-				gap: 0.9rem;
-			}
+	.admin-page {
+		display: flex;
+		flex-direction: column;
+		gap: 1.25rem;
+	}
 
-			.jobs-container {
-				display: grid;
-				grid-template-columns: 1fr 1fr;
-				gap: 1rem;
-			}
+	/* Page header */
+	.page-hd {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+	.page-hd h1 {
+		margin: 0;
+		font-size: 1.35rem;
+		font-weight: 700;
+	}
+	.conn-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		padding: 0.22rem 0.6rem;
+		border-radius: 999px;
+		font-size: 0.7rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		background: rgba(255 255 255 / 0.05);
+		color: var(--color-text-muted);
+		border: 1px solid var(--color-border);
+	}
+	.conn-badge.online {
+		color: var(--color-success);
+		border-color: rgba(52 211 153 / 0.35);
+		background: rgba(52 211 153 / 0.08);
+	}
+	.conn-dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: currentColor;
+		flex-shrink: 0;
+	}
+	.conn-badge.online .conn-dot { box-shadow: 0 0 5px currentColor; }
+	.text-error { color: var(--color-danger); font-size: 0.875rem; margin: 0; }
 
-			.jobs-list {
-				display: flex;
-				flex-direction: column;
-				gap: 0.5rem;
-			}
+	/* ── Settings panel ─────────────────────────────────────── */
+	.settings-panel {
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius, 0.5rem);
+		padding: 1rem 1.25rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+	.settings-header { display: flex; flex-direction: column; gap: 0.15rem; }
+	.settings-title { margin: 0; font-size: 0.9rem; font-weight: 600; }
+	.settings-help { margin: 0; font-size: 0.8rem; color: var(--color-text-muted); }
 
-			.jobs-list h3 {
-				margin: 0;
-				font-size: 1rem;
-			}
+	.field-label {
+		display: block;
+		font-size: 0.7rem;
+		text-transform: uppercase;
+		letter-spacing: 0.07em;
+		color: var(--color-text-muted);
+		font-weight: 600;
+	}
+	.types-hint {
+		text-transform: none;
+		letter-spacing: 0;
+		font-weight: 400;
+		opacity: 0.6;
+	}
 
-			.admin-table {
-				width: 100%;
-				border-collapse: collapse;
-				background: var(--color-surface);
-				font-size: 0.9rem;
-			}
+	/* Scheduling row */
+	.schedule-row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		gap: 1rem;
+	}
+	.field { display: flex; flex-direction: column; gap: 0.3rem; }
+	.field-input {
+		padding: 0.42rem 0.65rem;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm, 0.25rem);
+		background: #0c0c0f;
+		color: var(--color-text);
+		font-size: 0.875rem;
+		min-width: 0;
+		transition: border-color 0.15s;
+	}
+	.field-input:focus { border-color: var(--color-accent); outline: none; }
+	.field-input.narrow { width: 8rem; }
+	.faded { opacity: 0.38; pointer-events: none; }
 
-			.admin-table th,
-			.admin-table td {
-				border: 1px solid var(--color-border);
-				padding: 0.45rem;
-				text-align: left;
-			}
+	/* Toggle switch */
+	.toggle-field { display: flex; flex-direction: column; gap: 0.3rem; }
+	.toggle-row { display: flex; align-items: center; gap: 0.55rem; height: 2.1rem; }
+	.toggle-hint { font-size: 0.8rem; color: var(--color-text-muted); }
+	.toggle-switch {
+		position: relative;
+		width: 2.4rem;
+		height: 1.3rem;
+		border-radius: 999px;
+		background: #1f1f22;
+		border: 1px solid var(--color-border);
+		cursor: pointer;
+		transition: background 0.18s, border-color 0.18s;
+		flex-shrink: 0;
+		padding: 0;
+	}
+	.toggle-switch.on {
+		background: var(--color-primary);
+		border-color: var(--color-primary);
+	}
+	.toggle-thumb {
+		position: absolute;
+		top: 2px;
+		left: 2px;
+		width: 0.875rem;
+		height: 0.875rem;
+		border-radius: 50%;
+		background: #666;
+		transition: transform 0.18s, background 0.18s;
+	}
+	.toggle-switch.on .toggle-thumb {
+		transform: translateX(1.1rem);
+		background: #fff;
+	}
 
-			.admin-table th {
-				background: #1a1a1a;
-				color: var(--color-text-muted);
-			}
+	/* Job type chips */
+	.types-section { display: flex; flex-direction: column; gap: 0.45rem; }
+	.type-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+	.type-chip {
+		padding: 0.28rem 0.7rem;
+		border-radius: 999px;
+		border: 1px solid var(--color-border);
+		background: transparent;
+		color: var(--color-text-muted);
+		font-size: 0.71rem;
+		font-family: ui-monospace, "Cascadia Code", "Fira Code", monospace;
+		letter-spacing: 0.02em;
+		cursor: pointer;
+		transition: background 0.12s, color 0.12s, border-color 0.12s;
+		white-space: nowrap;
+	}
+	.type-chip:hover {
+		border-color: rgb(255 138 0 / 0.45);
+		color: var(--color-text);
+		background: rgb(255 138 0 / 0.06);
+	}
+	.type-chip.selected {
+		background: rgb(255 138 0 / 0.14);
+		border-color: rgb(255 138 0 / 0.48);
+		color: var(--color-primary);
+		font-weight: 700;
+	}
 
-			.admin-table tbody tr {
-				cursor: pointer;
-			}
+	/* Settings actions */
+	.settings-footer { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+	.btn-save {
+		padding: 0.42rem 0.9rem;
+		background: var(--color-primary);
+		color: #111;
+		border: none;
+		border-radius: var(--radius-sm, 0.25rem);
+		font-size: 0.82rem;
+		font-weight: 700;
+		cursor: pointer;
+		transition: background 0.15s;
+	}
+	.btn-save:hover { background: var(--color-accent-hover); }
+	.btn-save:disabled { opacity: 0.45; cursor: not-allowed; }
+	.btn-ghost {
+		padding: 0.42rem 0.75rem;
+		background: transparent;
+		color: var(--color-text-muted);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm, 0.25rem);
+		font-size: 0.82rem;
+		cursor: pointer;
+		transition: background 0.12s, color 0.12s;
+	}
+	.btn-ghost:hover { background: rgb(255 255 255 / 0.05); color: var(--color-text); }
+	.btn-ghost:disabled { opacity: 0.45; cursor: not-allowed; }
+	.settings-msg { font-size: 0.8rem; color: var(--color-text-muted); margin-left: 0.15rem; }
 
-			.admin-table tbody tr.clickable:hover {
-				background: rgba(100, 150, 255, 0.1);
-			}
+	/* ── Jobs + logs pane ───────────────────────────────────── */
+	.jobs-pane {
+		display: grid;
+		grid-template-columns: minmax(0, 360px) 1fr;
+		gap: 1rem;
+		align-items: start;
+	}
+	.pane-label {
+		margin: 0 0 0.55rem;
+		font-size: 0.7rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.07em;
+		color: var(--color-text-muted);
+	}
+	.jobs-list { display: flex; flex-direction: column; min-width: 0; }
+	.jobs-table {
+		width: 100%;
+		border-collapse: collapse;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius, 0.5rem);
+		overflow: hidden;
+		font-size: 0.82rem;
+	}
+	.jobs-table th {
+		background: #161618;
+		color: var(--color-text-muted);
+		padding: 0.42rem 0.65rem;
+		text-align: left;
+		font-size: 0.68rem;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		font-weight: 600;
+		border-bottom: 1px solid var(--color-border);
+	}
+	.jobs-table td {
+		padding: 0.45rem 0.65rem;
+		border-bottom: 1px solid rgba(255 255 255 / 0.04);
+	}
+	.jobs-table tbody tr {
+		cursor: pointer;
+		transition: background 0.1s;
+	}
+	.jobs-table tbody tr:hover { background: rgb(255 255 255 / 0.025); }
+	.jobs-table tbody tr.selected { background: rgb(255 138 0 / 0.09); }
+	.jobs-table tbody tr.selected td { border-bottom-color: rgb(255 138 0 / 0.1); }
+	.jobs-table tbody tr:last-child td { border-bottom: none; }
+	.type-cell { font-family: ui-monospace, monospace; font-size: 0.75rem; }
+	.dim-cell { color: var(--color-text-muted); white-space: nowrap; }
 
-			.admin-table tbody tr.selected {
-				background: rgba(100, 150, 255, 0.2);
-				border: 2px solid var(--color-primary);
-			}
+	/* Status badges (pill style) */
+	.badge {
+		display: inline-block;
+		padding: 0.16rem 0.5rem;
+		border-radius: 999px;
+		font-size: 0.67rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+	.status-queued   { background: rgba(96 165 250 / 0.15); color: #60a5fa; }
+	.status-running  { background: rgba(52 211 153 / 0.15); color: #34d399; }
+	.status-done     { background: rgba(74 222 128 / 0.12); color: #4ade80; }
+	.status-failed   { background: rgba(248 113 113 / 0.15); color: #f87171; }
+	.status-retrying { background: rgba(251 191 36 / 0.15); color: #fbbf24; }
 
-			.badge {
-				display: inline-block;
-				padding: 0.2rem 0.5rem;
-				border-radius: 0.25rem;
-				font-size: 0.8rem;
-				font-weight: bold;
-				text-transform: uppercase;
-			}
+	.empty-hint {
+		color: var(--color-text-muted);
+		font-size: 0.85rem;
+		text-align: center;
+		padding: 2rem 1rem;
+		border: 1px dashed var(--color-border);
+		border-radius: var(--radius, 0.5rem);
+	}
 
-			.status-queued {
-				background: rgba(100, 150, 255, 0.3);
-				color: #64c8ff;
-			}
+	.logs-pane { display: flex; flex-direction: column; min-width: 0; }
+	.no-selection {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: 1px dashed var(--color-border);
+		border-radius: var(--radius, 0.5rem);
+		color: var(--color-text-muted);
+		font-size: 0.85rem;
+		min-height: 14rem;
+	}
 
-			.status-running {
-				background: rgba(100, 200, 100, 0.3);
-				color: #64ff64;
-			}
-
-			.status-done {
-				background: rgba(100, 200, 100, 0.3);
-				color: #64ff64;
-			}
-
-			.status-failed {
-				background: rgba(255, 100, 100, 0.3);
-				color: #ff6464;
-			}
-
-			.status-retrying {
-				background: rgba(255, 200, 100, 0.3);
-				color: #ffc864;
-			}
-
-			.job-detail {
-				display: flex;
-				flex-direction: column;
-				gap: 0.5rem;
-			}
-
-			.error {
-				color: var(--color-danger);
-			}
-
-			.empty {
-				color: var(--color-text-muted);
-				text-align: center;
-				padding: 1rem;
-			}
-
-			.settings-panel {
-				display: grid;
-				gap: 0.65rem;
-				background: var(--color-surface);
-				border: 1px solid var(--color-border);
-				padding: 0.8rem;
-				border-radius: 0.4rem;
-			}
-
-			.settings-panel h3 {
-				margin: 0;
-				font-size: 1rem;
-			}
-
-			.settings-help {
-				margin: 0;
-				color: var(--color-text-muted);
-				font-size: 0.9rem;
-			}
-
-			.settings-grid {
-				display: grid;
-				grid-template-columns: repeat(2, minmax(220px, 1fr));
-				gap: 0.6rem;
-			}
-
-			.settings-grid label {
-				display: grid;
-				gap: 0.3rem;
-				font-size: 0.9rem;
-			}
-
-			.settings-grid input,
-			.settings-grid select {
-				padding: 0.4rem;
-				border: 1px solid var(--color-border);
-				border-radius: 0.3rem;
-				background: #101113;
-				color: var(--color-text);
-			}
-
-			.checkbox-row {
-				display: flex !important;
-				align-items: center;
-				gap: 0.45rem;
-			}
-
-			.actions {
-				display: flex;
-				gap: 0.5rem;
-			}
-
-			.actions button {
-				padding: 0.4rem 0.7rem;
-				border-radius: 0.3rem;
-				border: 1px solid var(--color-border);
-				background: var(--color-primary);
-				color: #111;
-				cursor: pointer;
-			}
-
-			.actions button.ghost {
-				background: transparent;
-				color: var(--color-text);
-			}
-
-			.settings-message {
-				margin: 0;
-				font-size: 0.9rem;
-				color: var(--color-text-muted);
-			}
-
-			@media (max-width: 1200px) {
-				.jobs-container {
-					grid-template-columns: 1fr;
-				}
-
-				.settings-grid {
-					grid-template-columns: 1fr;
-				}
-			}
-		`,
-],
+	/* Responsive */
+	@media (max-width: 900px) {
+		.jobs-pane { grid-template-columns: 1fr; }
+	}
+	@media (max-width: 600px) {
+		.schedule-row { flex-direction: column; align-items: stretch; }
+		.field-input.narrow { width: 100%; }
+	}
+`,],
 })
 export class AdminJobsPage implements OnInit, OnDestroy {
 	readonly jobs = signal<AdminJob[]>([]);
@@ -370,6 +498,8 @@ heavyJobDelayMs: settings.queue.heavyJobDelayMs,
 heavyWindowEnabled: settings.queue.heavyWindowEnabled,
 heavyWindowStart: settings.queue.heavyWindowStart,
 heavyWindowEnd: settings.queue.heavyWindowEnd,
+heavyConcurrency: settings.queue.heavyConcurrency,
+fastConcurrency: settings.queue.fastConcurrency,
 });
 			},
 			error: () => this.settingsMessage.set('Could not load worker settings'),
@@ -393,6 +523,8 @@ heavyJobDelayMs: saved.queue.heavyJobDelayMs,
 heavyWindowEnabled: saved.queue.heavyWindowEnabled,
 heavyWindowStart: saved.queue.heavyWindowStart,
 heavyWindowEnd: saved.queue.heavyWindowEnd,
+heavyConcurrency: saved.queue.heavyConcurrency,
+fastConcurrency: saved.queue.fastConcurrency,
 });
 				this.settingsMessage.set('Worker settings saved');
 			},

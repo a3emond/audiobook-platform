@@ -19,6 +19,14 @@ import {
 type JobHandlerOutput = Record<string, unknown> | null | void;
 type JobHandler = (job: JobDocument) => Promise<JobHandlerOutput>;
 
+/**
+ * 'any'  — can claim any job type; heavy types are skipped only when
+ *           outside the configured time window (existing behaviour).
+ * 'fast' — never claims heavy job types, regardless of the time window.
+ *           Ensures these slots stay responsive for lightweight operations.
+ */
+export type SlotLane = 'any' | 'fast';
+
 const handlers: Record<JobType, JobHandler> = {
 	INGEST: handleIngestJob,
 	INGEST_MP3_AS_M4B: handleIngestMp3AsM4BJob,
@@ -69,7 +77,10 @@ function computeRetryDelayMs(attempt: number): number {
 }
 
 export class JobProcessor {
-	constructor(private readonly workerId: string) {}
+	constructor(
+		private readonly workerId: string,
+		private readonly lane: SlotLane = 'any',
+	) {}
 
 	async processNext(): Promise<boolean> {
 		const job = await this.claimNextJob();
@@ -205,7 +216,15 @@ export class JobProcessor {
 			runAfter: { $lte: now },
 		};
 
-		if (!heavyWindowOpen && queueSettings.heavyJobTypes.length > 0) {
+		const hasHeavyTypes = queueSettings.heavyJobTypes.length > 0;
+
+		if (this.lane === 'fast' && hasHeavyTypes) {
+			// Fast slots permanently exclude heavy types — they must stay
+			// available for quick operations at all times.
+			query.type = { $nin: queueSettings.heavyJobTypes };
+		} else if (this.lane === 'any' && !heavyWindowOpen && hasHeavyTypes) {
+			// Any-lane slots respect the time window: skip heavy types
+			// outside the allowed window.
 			query.type = { $nin: queueSettings.heavyJobTypes };
 		}
 
