@@ -5,6 +5,8 @@ import { Injectable } from '@angular/core';
 interface WindowEnv {
   GOOGLE_CLIENT_ID?: string;
   APPLE_CLIENT_ID?: string;
+  GOOGLE_ALLOWED_ORIGINS?: string;
+  APPLE_ALLOWED_ORIGINS?: string;
 }
 
 declare global {
@@ -26,10 +28,37 @@ export class AppConfigService {
   }
 
   get googleEnabled(): boolean {
-    return !!this.googleClientId;
+    if (!this.googleClientId) {
+      return false;
+    }
+
+    return this.isProviderEnabledForOrigin(this.env.GOOGLE_ALLOWED_ORIGINS);
   }
 
   get appleEnabled(): boolean {
-    return !!this.appleClientId;
+    if (!this.appleClientId) {
+      return false;
+    }
+
+    return this.isProviderEnabledForOrigin(this.env.APPLE_ALLOWED_ORIGINS);
+  }
+
+  private isProviderEnabledForOrigin(rawAllowedOrigins: string | undefined): boolean {
+    const currentOrigin = window.location.origin;
+    const isLocalhost =
+      currentOrigin.includes('://localhost') ||
+      currentOrigin.includes('://127.0.0.1');
+
+    const allowed = (rawAllowedOrigins ?? '')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter((origin) => origin.length > 0);
+
+    // Safer default in local/dev: hide OAuth buttons unless explicitly allowlisted.
+    if (allowed.length === 0) {
+      return !isLocalhost;
+    }
+
+    return allowed.includes('*') || allowed.includes(currentOrigin);
   }
 }

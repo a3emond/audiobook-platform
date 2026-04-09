@@ -3,4 +3,6 @@
 window.__env__ = {
   GOOGLE_CLIENT_ID: '',
   APPLE_CLIENT_ID: '',
+  GOOGLE_ALLOWED_ORIGINS: '',
+  APPLE_ALLOWED_ORIGINS: '',
 };

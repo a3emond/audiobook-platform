@@ -51,6 +51,8 @@ services:
     environment:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
+      GOOGLE_ALLOWED_ORIGINS: ${GOOGLE_ALLOWED_ORIGINS:-}
+      APPLE_ALLOWED_ORIGINS: ${APPLE_ALLOWED_ORIGINS:-}
     networks:
       - app_net
 

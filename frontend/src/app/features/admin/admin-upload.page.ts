@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 
+import { AdminJob } from '../../core/services/admin.service';
 import { AdminUploadQueueService } from '../../core/services/admin-upload-queue.service';
 import { prepareCoverImageFile } from '../../core/utils/image-upload';
 
@@ -133,13 +134,13 @@ import { prepareCoverImageFile } from '../../core/utils/image-upload';
 	],
 })
 export class AdminUploadPage {
+	private readonly uploadQueue = inject(AdminUploadQueueService);
+
 	readonly queue = this.uploadQueue.queue;
 	readonly loading = this.uploadQueue.loading;
 	readonly lastQueuedJobId = this.uploadQueue.lastQueuedJobId;
 	readonly error = this.uploadQueue.error;
 	readonly trackedJobIds = this.uploadQueue.trackedJobIds;
-
-	constructor(private readonly uploadQueue: AdminUploadQueueService) {}
 
 	onFilesPicked(event: Event): void {
 		const target = event.target as HTMLInputElement | null;
