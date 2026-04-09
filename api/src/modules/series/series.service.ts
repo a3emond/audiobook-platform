@@ -57,6 +57,7 @@ function toBookDTO(book: BookDocument) {
 		},
 		version: book.version,
 		lastScannedAt: new Date(book.lastScannedAt).toISOString(),
+		processingState: book.processingState ?? "ready",
 		createdAt: book.createdAt ? new Date(book.createdAt).toISOString() : undefined,
 		updatedAt: book.updatedAt ? new Date(book.updatedAt).toISOString() : undefined,
 	};

@@ -196,46 +196,7 @@
   font-weight: 600;
 }
 
-/* === Admin dropdown =========================================== */
-.dropdown { position: relative; }
-
-.caret {
-  display: inline-block;
-  font-size: 0.65rem;
-  margin-left: 0.25rem;
-  transition: transform 0.2s;
-  vertical-align: middle;
-}
-.caret.open { transform: rotate(180deg); }
-
-.dropdown-panel {
-  display: none;
-  position: absolute;
-  top: calc(100% + 0.35rem);
-  left: 0;
-  min-width: 11rem;
-  background: #171717;
-  border: 1px solid rgb(255 138 0 / 0.22);
-  border-radius: 0.4rem;
-  padding: 0.3rem;
-  flex-direction: column;
-  gap: 0.1rem;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
-  z-index: 200;
-}
-.dropdown-panel.open { display: flex; }
-
-.dropdown-panel a {
-  display: block;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.25rem;
-  color: var(--color-text-muted);
-  font-size: 0.85rem;
-  text-decoration: none;
-  transition: background 0.12s, color 0.12s;
-}
-.dropdown-panel a:hover { background: rgb(255 138 0 / 0.12); color: var(--color-text); }
-.dropdown-panel a.active { background: rgb(255 138 0 / 0.18); color: #ffe6be; font-weight: 600; }
+/* === Admin link (single topbar entry) ========================= */
 
 /* === Topbar end =============================================== */
 .topbar-end {

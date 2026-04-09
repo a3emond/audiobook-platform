@@ -4,6 +4,7 @@ import multer from "multer";
 import { idempotencyMiddleware } from "../../middlewares/idempotency.middleware.js";
 import { BookController } from "../books/book.controller.js";
 import { JobController } from "../jobs/job.controller.js";
+import { WorkerSettingsController } from "../jobs/worker-settings.controller.js";
 import { UserController } from "../users/user.controller.js";
 import { AdminController } from "./admin.controller.js";
 import { adminAuditMiddleware } from "./admin-audit.middleware.js";
@@ -45,7 +46,13 @@ router.get("/jobs/stats", JobController.getStats);
 router.get("/jobs", JobController.listJobs);
 router.get("/jobs/events", JobController.streamJobEvents);
 router.get("/jobs/:jobId", JobController.getJob);
+router.get("/jobs/:jobId/logs", JobController.getJobLogs);
 router.delete("/jobs/:jobId", JobController.cancelJob);
+
+router.get("/logs", JobController.searchLogs);
+
+router.get("/worker-settings", WorkerSettingsController.get);
+router.patch("/worker-settings", WorkerSettingsController.update);
 
 router.get("/users", UserController.listUsers);
 router.get("/users/:userId", UserController.getUser);

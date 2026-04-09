@@ -10,7 +10,7 @@ import { AdminService } from '../../core/services/admin.service';
 	standalone: true,
 	imports: [CommonModule, RouterLink],
 	template: `
-		<section class="admin-page page-shell">
+		<div class="admin-page">
 			<h1>Admin Books</h1>
 			<p *ngIf="loading()">Loading books...</p>
 			<p *ngIf="error()" class="error">{{ error() }}</p>
@@ -29,7 +29,7 @@ import { AdminService } from '../../core/services/admin.service';
 					</tr>
 				</tbody>
 			</table>
-		</section>
+		</div>
 	`,
 	styles: [
 		`

@@ -50,6 +50,7 @@ export interface BookDTO extends IdDTO, TimestampDTO {
 
   version: number;
   lastScannedAt: string;
+  processingState: "ready" | "pending_sanitize" | "sanitizing" | "sanitize_failed";
 }
 
 export interface UpdateBookMetadataDTO {

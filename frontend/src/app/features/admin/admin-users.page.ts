@@ -13,7 +13,7 @@ import {
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <section class="admin-page page-shell">
+    <div class="admin-page">
       <h1>Admin Users</h1>
 
       <form class="filters" (ngSubmit)="reload()">
@@ -67,7 +67,7 @@ import {
           </tbody>
         </table>
       </section>
-    </section>
+    </div>
   `,
   styles: [
     `

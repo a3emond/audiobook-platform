@@ -2,10 +2,12 @@ import { handleDeleteBookJob } from "../jobs/delete-book.job.js";
 import { handleExtractCoverJob } from "../jobs/extract-cover.job.js";
 import { handleIngestJob } from "../jobs/ingest.job.js";
 import { handleIngestMp3AsM4BJob } from "../jobs/ingest-mp3-as-m4b.job.js";
+import { handleSanitizeMp3Job } from "../jobs/sanitize-mp3.job.js";
 import { handleReplaceFileJob } from "../jobs/replace-file.job.js";
 import { handleReplaceCoverJob } from "../jobs/replace-cover.job.js";
 import { handleRescanJob } from "../jobs/rescan.job.js";
 import { handleWriteMetadataJob } from "../jobs/write-metadata.job.js";
+import { WorkerSettingsService, isInWindow } from "../services/worker-settings.service.js";
 
 import {
 	JobModel,
@@ -20,6 +22,7 @@ type JobHandler = (job: JobDocument) => Promise<JobHandlerOutput>;
 const handlers: Record<JobType, JobHandler> = {
 	INGEST: handleIngestJob,
 	INGEST_MP3_AS_M4B: handleIngestMp3AsM4BJob,
+	SANITIZE_MP3_TO_M4B: handleSanitizeMp3Job,
 	RESCAN: handleRescanJob,
 	WRITE_METADATA: handleWriteMetadataJob,
 	EXTRACT_COVER: handleExtractCoverJob,
@@ -192,12 +195,22 @@ export class JobProcessor {
 
 	private async claimNextJob(): Promise<JobDocument | null> {
 		const now = new Date();
+		const queueSettings = await WorkerSettingsService.getQueueSettings();
+		const heavyWindowOpen =
+			!queueSettings.heavyWindowEnabled ||
+			isInWindow(now, queueSettings.heavyWindowStart, queueSettings.heavyWindowEnd);
+
+		const query: Record<string, unknown> = {
+			status: { $in: ["queued", "retrying"] },
+			runAfter: { $lte: now },
+		};
+
+		if (!heavyWindowOpen && queueSettings.heavyJobTypes.length > 0) {
+			query.type = { $nin: queueSettings.heavyJobTypes };
+		}
 
 		return JobModel.findOneAndUpdate(
-			{
-				status: { $in: ["queued", "retrying"] },
-				runAfter: { $lte: now },
-			},
+			query,
 			{
 				$set: {
 					status: "running",
@@ -207,7 +220,7 @@ export class JobProcessor {
 				},
 			},
 			{
-				sort: { createdAt: 1 },
+				sort: { priority: -1, runAfter: 1, createdAt: 1 },
 				returnDocument: "after",
 			},
 		);

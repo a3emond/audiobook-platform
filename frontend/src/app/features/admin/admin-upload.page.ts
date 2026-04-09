@@ -6,11 +6,6 @@ import { AdminJob, AdminService } from '../../core/services/admin.service';
 import { prepareCoverImageFile } from '../../core/utils/image-upload';
 
 interface Mp3QueueMetadata {
-	title: string;
-	author: string;
-	series: string;
-	genre: string;
-	language: 'fr' | 'en';
 	coverFile: File | null;
 }
 
@@ -30,7 +25,7 @@ interface UploadQueueItem {
 	standalone: true,
 	imports: [CommonModule],
 	template: `
-		<section class="admin-page page-shell">
+		<div class="admin-page">
 			<h1>Admin Upload</h1>
 			<input type="file" multiple accept=".m4b,.m4a,.mp3,.ogg,.wav" (change)="onFilesPicked($event)" />
 
@@ -49,8 +44,7 @@ interface UploadQueueItem {
 						<th>File</th>
 						<th>Type</th>
 						<th>Lang</th>
-						<th>MP3 Metadata</th>
-						<th>Cover</th>
+						<th>Cover override</th>
 						<th>Status</th>
 						<th>Job</th>
 						<th>Error</th>
@@ -87,36 +81,6 @@ interface UploadQueueItem {
 							</div>
 						</td>
 						<td>
-							<div *ngIf="item.type === 'mp3'" class="mp3-inline-grid">
-								<input
-									[disabled]="loading()"
-									placeholder="Title"
-									[value]="item.mp3?.title || ''"
-									(input)="updateMp3Field(item.id, 'title', $any($event.target).value)"
-								/>
-								<input
-									[disabled]="loading()"
-									placeholder="Author (required)"
-									[value]="item.mp3?.author || ''"
-									(input)="updateMp3Field(item.id, 'author', $any($event.target).value)"
-								/>
-								<input
-									[disabled]="loading()"
-									placeholder="Series"
-									[value]="item.mp3?.series || ''"
-									(input)="updateMp3Field(item.id, 'series', $any($event.target).value)"
-								/>
-								<input
-									[disabled]="loading()"
-									placeholder="Genre"
-									[value]="item.mp3?.genre || ''"
-									(input)="updateMp3Field(item.id, 'genre', $any($event.target).value)"
-								/>
-								<p class="hint">Language is required for every uploaded book.</p>
-							</div>
-							<span *ngIf="item.type !== 'mp3'">-</span>
-						</td>
-						<td>
 							<div *ngIf="item.type === 'mp3'" class="cover-cell">
 								<input
 									type="file"
@@ -124,7 +88,7 @@ interface UploadQueueItem {
 									[disabled]="loading()"
 									(change)="onQueueCoverPicked(item.id, $event)"
 								/>
-								<span>{{ item.mp3?.coverFile?.name || 'No cover' }}</span>
+								<span>{{ item.mp3?.coverFile?.name || 'Auto-extracted' }}</span>
 							</div>
 							<span *ngIf="item.type !== 'mp3'">-</span>
 						</td>
@@ -159,7 +123,7 @@ interface UploadQueueItem {
 
 			<p *ngIf="lastQueuedJobId()">Last queued job: {{ lastQueuedJobId() }}</p>
 			<p *ngIf="error()" class="error">{{ error() }}</p>
-		</section>
+		</div>
 	`,
 	styles: [
 		`
@@ -176,9 +140,7 @@ interface UploadQueueItem {
 			.queue-table { width: 100%; border-collapse: collapse; background: var(--color-surface); }
 			.queue-table th, .queue-table td { border: 1px solid var(--color-border); padding: 0.4rem; text-align: left; }
 			.queue-table th { background: #1a1a1a; color: var(--color-text-muted); }
-			.mp3-inline-grid { display: grid; gap: 0.35rem; min-width: 16rem; }
 			.lang-radio { display: flex; gap: 0.5rem; font-size: 0.82rem; }
-			.hint { margin: 0; color: var(--color-text-muted); font-size: 0.75rem; }
 			.cover-cell { display: grid; gap: 0.35rem; }
 			.jobs-panel { display: grid; gap: 0.5rem; }
 			.jobs-panel h2 { margin: 0; font-size: 1rem; }
@@ -230,12 +192,6 @@ export class AdminUploadPage implements OnDestroy {
 		} catch (error: unknown) {
 			this.error.set(error instanceof Error ? error.message : 'Invalid cover image');
 		}
-	}
-
-	updateMp3Field(itemId: string, field: 'title' | 'author' | 'series' | 'genre', value: string): void {
-		this.patchMp3QueueItem(itemId, {
-			[field]: value,
-		} as Partial<Mp3QueueMetadata>);
 	}
 
 	updateItemLanguage(itemId: string, language: 'fr' | 'en'): void {
@@ -307,25 +263,8 @@ export class AdminUploadPage implements OnDestroy {
 		this.updateQueueItem(index, { status: 'uploading', error: undefined });
 		const isMp3 = item.type === 'mp3';
 
-		if (isMp3 && !item.mp3?.author.trim()) {
-			this.updateQueueItem(index, { status: 'failed', error: 'MP3 author is required' });
-			this.error.set(`Author is required for ${item.file.name}`);
-			this.uploadQueueItem(index + 1);
-			return;
-		}
-
 		const request = isMp3
-			? this.admin.uploadMp3AsM4b(
-					item.file,
-					{
-						title: item.mp3?.title.trim() || undefined,
-						author: item.mp3?.author.trim() || undefined,
-						series: item.mp3?.series.trim() || undefined,
-						genre: item.mp3?.genre.trim() || undefined,
-						language: item.language,
-					},
-					item.mp3?.coverFile ?? null,
-				)
+			? this.admin.uploadMp3AsM4b(item.file, item.language, item.mp3?.coverFile ?? null)
 			: this.admin.uploadBook(item.file, item.language);
 
 		request.subscribe({
@@ -377,20 +316,12 @@ export class AdminUploadPage implements OnDestroy {
 		const id = `${Date.now()}-${index}-${file.name}`;
 
 		if (type === 'mp3') {
-			const inferredTitle = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
 			return {
 				id,
 				file,
 				type,
 				status: 'queued',
-				mp3: {
-					title: inferredTitle,
-					author: '',
-					series: '',
-					genre: 'Audiobook',
-					language: 'en',
-					coverFile: null,
-				},
+				mp3: { coverFile: null },
 				language: 'en',
 			};
 		}

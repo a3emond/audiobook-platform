@@ -19,7 +19,7 @@ interface EditableChapter {
 	standalone: true,
 	imports: [CommonModule, FormsModule],
 	template: `
-		<section class="admin-page page-shell">
+		<div class="admin-page">
 			<h1>Admin Book Edit</h1>
 
 			<p *ngIf="loading()">Loading book...</p>
@@ -123,7 +123,7 @@ interface EditableChapter {
 				<button type="button" class="btn-action" (click)="extractCover()">Extract Cover</button>
 				<button type="button" class="danger" (click)="deleteBook()">Delete Book</button>
 			</div>
-		</section>
+		</div>
 	`,
 	styles: [
 		`

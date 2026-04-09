@@ -1,17 +1,19 @@
-# Worker Service — Technical Documentation
+# Worker Service — Technical Reference
 
 ## Overview
 
-The **Worker Service** is a job queue system designed to handle long-running, computationally intensive tasks for the audiobook platform. It processes jobs asynchronously using MongoDB as a persistent job store, enabling distributed processing, automatic retries, and graceful failure handling.
+The **Worker Service** is a job queue system for long-running, computationally intensive tasks. It uses MongoDB as a persistent job store, enabling distributed processing, automatic retries, graceful failure handling, and a DB-backed scheduling policy for heavy jobs.
 
 ### Key Responsibilities
 
-- **Job Processing**: Dequeue and execute jobs with configurable concurrency
-- **Audio Ingestion**: Probe M4B files, extract metadata/chapters, compute checksums, create book records
+- **Job Processing**: Poll the MongoDB queue, claim and execute jobs with configurable concurrency
+- **Audio Ingestion**: Probe files, extract metadata/chapters, compute checksums, create book records
+- **MP3 Fast-Publish**: Ingest an MP3 immediately as-is, then schedule a deferred M4B conversion
 - **File Operations**: Safe atomic writes, file moving, deletion with error recovery
-- **FFmpeg Integration**: Wraps FFmpeg for audio probing, metadata extraction, remuxing, cover extraction
+- **FFmpeg Integration**: Wraps FFmpeg for audio probing, metadata extraction, M4B encoding, cover extraction
 - **Metadata Handling**: Parse and generate ffmetadata format for chapter information
-- **Reliability**: Exponential backoff retries, distributed locking, graceful shutdown
+- **Queue Scheduling**: Per-type job priority, configurable delay for heavy jobs, optional time-window gating
+- **Reliability**: Exponential backoff retries, distributed locking via `lockedBy`/`lockedAt`, graceful shutdown
 
 ---
 
@@ -95,28 +97,14 @@ CREATED
 - Uses MongoDB one-atomic operation to prevent two workers claiming same job
 - Returns true if claim succeeded, false if already claimed by another worker
 
-**JobProcessor.execute()**:
-- Calls appropriate handler function for job type
-- Times out after 5 minutes per handler (configurable)
 - Captures stdout/stderr and handler exceptions
 
-**JobProcessor.retry()**:
-- Increments attempt counter
-- Calculates backoff: `min(WORKER_RETRY_BASE_MS * 2^(attempt-1), WORKER_RETRY_MAX_MS)`
 - Sets `runAfter` timestamp to current time + backoff
 - Updates `status="retrying"`
-- Job re-enters `queued` status when runAfter timestamp passes
-
-**JobProcessor.fail()**:
-- Sets `status="failed"`, `completedAt=now`
-- Records final error and attempt count in document
 - No further attempts
 
+
 ---
-
-## Core Services
-
-### FFmpegService
 
 Wraps FFmpeg binary with spawned child processes. All FFmpeg operations are isolated and can timeout.
 
@@ -187,23 +175,11 @@ Check if file or directory exists.
 Recursively create directory (equivalent to `mkdir -p`).
 
 #### `copyFile(source: string, target: string): Promise<void>`
-Copy file from source to target location.
-
-#### `moveFile(source: string, target: string): Promise<void>`
-Move/rename file from source to target.
 
 #### `deleteFile(filePath: string): Promise<void>`
-Delete single file. Throws if not found.
-
-#### `deleteDir(dirPath: string): Promise<void>`
 Recursively delete directory and all contents.
 
-#### `getFileSize(filePath: string): Promise<number>`
-Get file size in bytes.
-
 ---
-
-### MetadataService
 
 Parse and generate FFmpeg metadata format (required for chapter information).
 
@@ -225,7 +201,6 @@ END=300000
 title=Chapter 2
 ```
 
-**Methods**:
 
 #### `parseFFmetadata(filePath: string): Promise<FFmetadata>`
 Parse FFmetadata text file and return structured object.
@@ -402,6 +377,7 @@ interface JobDocument {
 ```typescript
 {
   bookId: string;
+### `EXTRACT_COVER` — Extract Embedded Cover
   force?: boolean;
 }
 ```
@@ -428,6 +404,7 @@ interface JobDocument {
 ```typescript
 {
   bookId: string;
+### `WRITE_METADATA` — Embed Metadata & Chapters
   title?: string;
   author?: string;
   series?: string | null;
@@ -465,10 +442,8 @@ interface JobDocument {
 **Payload**:
 ```typescript
 {
-  bookId: string;
-  sourcePath: string;
-}
 ```
+### `REPLACE_FILE` — Swap Audio File
 
 **Behavior**:
 - Validates replacement source file
@@ -488,6 +463,7 @@ interface JobDocument {
   coverPath: string | null;
 }
 ```
+## Job Types and Handlers
 
 ### Rescan Job
 
@@ -495,6 +471,7 @@ interface JobDocument {
 ```typescript
 {
   force?: boolean;
+### `RESCAN` — Library Rescan
 }
 ```
 
@@ -522,6 +499,7 @@ interface JobDocument {
 ```typescript
 {
   bookId: string;
+### `DELETE_BOOK` — Delete Book
   deleteFiles?: boolean;
 }
 ```
@@ -532,7 +510,6 @@ interface JobDocument {
 
 **Output**:
 ```typescript
-{
   bookId: string;
   deleted: boolean;
   filesDeleted: boolean;
@@ -558,7 +535,7 @@ WORKER_RETRY_BASE_MS=2000           # Initial retry backoff (exponential: 2s, 4s
 WORKER_RETRY_MAX_MS=60000           # Max retry backoff (1 minute cap)
 
 # File System
-AUDIOBOOKS_PATH=/data/audiobooks    # Host mount point for book files
+### `REPLACE_COVER` — Replace Cover Image
 ```
 
 ### Optional Configuration
@@ -570,7 +547,6 @@ FFMPEG_TIMEOUT_MS=300000            # 5 minutes default
 
 ---
 
-## Running the Worker
 
 ### Development
 
@@ -585,6 +561,7 @@ npm run build
 npm run dev
 
 # Output:
+## Configuration & Environment
 # > worker@1.0.0 dev
 # > nodemon --exec ts-node src/worker.ts
 # [worker] connecting to mongodb://localhost:27017/audiobook
@@ -633,7 +610,6 @@ services:
 ### Step-by-Step Execution
 
 **1. Bootstrap (worker.ts)**
-```typescript
 // 1. Connect to MongoDB
 await mongoose.connect(MONGO_URL);
 
@@ -668,7 +644,6 @@ Every WORKER_POLL_MS:
      a. Try to claim: status='queued' → 'running' (atomic)
      b. If claimed successfully:
         - Get handler function
-        - Execute with timeout
         - On success: mark as 'done'
         - On error: check retry logic
           - If attempt < maxAttempts: mark 'retrying', calculate backoff, schedule runAfter

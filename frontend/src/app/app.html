@@ -25,18 +25,12 @@
       <a [routerLink]="discussionsLink()" routerLinkActive="active" (click)="closeMobileNav()">{{ t('nav.discussions') }}</a>
       <a routerLink="/profile"  routerLinkActive="active" (click)="closeMobileNav()">{{ t('nav.profile') }}</a>
 
-      <div class="dropdown" *ngIf="auth.isAdmin()">
-        <button type="button" class="dropdown-trigger" [class.has-active]="isAdminRouteActive()" (click)="toggleAdminMenu($event)">
-          {{ t('nav.admin') }} <span class="caret" [class.open]="adminMenuOpen()">▾</span>
-        </button>
-        <div class="dropdown-panel" [class.open]="adminMenuOpen()">
-          <a routerLink="/admin/overview" routerLinkActive="active" (click)="closeAdminMenu(); closeMobileNav()">{{ t('admin.overview.title') }}</a>
-          <a routerLink="/admin/books"    routerLinkActive="active" (click)="closeAdminMenu(); closeMobileNav()">{{ t('admin.books.title') }}</a>
-          <a routerLink="/admin/users"    routerLinkActive="active" (click)="closeAdminMenu(); closeMobileNav()">{{ t('admin.users.title') }}</a>
-          <a routerLink="/admin/upload"   routerLinkActive="active" (click)="closeAdminMenu(); closeMobileNav()">{{ t('admin.upload.title') }}</a>
-          <a routerLink="/admin/jobs"     routerLinkActive="active" (click)="closeAdminMenu(); closeMobileNav()">{{ t('admin.jobs.title') }}</a>
-        </div>
-      </div>
+      <a
+        *ngIf="auth.isAdmin()"
+        routerLink="/admin"
+        routerLinkActive="active"
+        (click)="closeMobileNav()"
+      >{{ t('nav.admin') }}</a>
     </nav>
 
     <div class="topbar-end">

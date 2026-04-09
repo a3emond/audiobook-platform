@@ -14,7 +14,13 @@ export interface FFmpegExecutionResult {
   stderr: string;
 }
 
-const DEFAULT_TIMEOUT_MS = 300000; // 5 minutes
+const DEFAULT_TIMEOUT_MS = Number(process.env.FFMPEG_TIMEOUT_MS ?? 300000); // 5 minutes
+const LONG_RUNNING_TIMEOUT_MS = Number(
+  process.env.FFMPEG_LONG_TIMEOUT_MS ?? 3600000,
+); // 60 minutes
+const DEFAULT_MAX_BUFFER_BYTES = Number(
+  process.env.FFMPEG_MAX_BUFFER_BYTES ?? 50 * 1024 * 1024,
+); // 50 MB
 
 function parseFFprobeJson(jsonStr: string): ProbeInfo {
   const data = JSON.parse(jsonStr);
@@ -60,11 +66,13 @@ export class FFmpegService {
     args: string[],
     timeoutMs: number = DEFAULT_TIMEOUT_MS,
   ): Promise<FFmpegExecutionResult> {
-    const cmd = `ffmpeg ${args.join(" ")}`;
+    // Hide banner and disable periodic progress stats to keep stderr compact.
+    const cmd = `ffmpeg -hide_banner -nostats ${args.join(" ")}`;
 
     try {
       const { stdout, stderr } = await execAsync(cmd, {
         timeout: timeoutMs,
+        maxBuffer: DEFAULT_MAX_BUFFER_BYTES,
       });
 
       return {
@@ -220,7 +228,7 @@ export class FFmpegService {
 
     args.push("-movflags", "+faststart", `"${outputPath}"`);
 
-    const result = await this.execute(args);
+    const result = await this.execute(args, LONG_RUNNING_TIMEOUT_MS);
     if (result.exitCode !== 0) {
       throw new Error(`build_m4b_failed: ${result.stderr}`);
     }

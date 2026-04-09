@@ -8,6 +8,7 @@ import mongoose, {
 export const JOB_TYPES = [
   "INGEST",
   "INGEST_MP3_AS_M4B",
+  "SANITIZE_MP3_TO_M4B",
   "RESCAN",
   "WRITE_METADATA",
   "EXTRACT_COVER",
@@ -26,6 +27,10 @@ export const JOB_STATUSES = [
 
 export type JobType = (typeof JOB_TYPES)[number];
 export type JobStatus = (typeof JOB_STATUSES)[number];
+
+export const JOB_PRIORITY_MIN = 1;
+export const JOB_PRIORITY_MAX = 100;
+export const JOB_PRIORITY_DEFAULT = 50;
 
 const jobSchema = new Schema(
   {
@@ -63,6 +68,13 @@ const jobSchema = new Schema(
       default: 3,
       min: 1,
     },
+    priority: {
+      type: Number,
+      default: JOB_PRIORITY_DEFAULT,
+      min: JOB_PRIORITY_MIN,
+      max: JOB_PRIORITY_MAX,
+      index: true,
+    },
     runAfter: {
       type: Date,
       default: Date.now,
@@ -95,7 +107,7 @@ const jobSchema = new Schema(
   },
 );
 
-jobSchema.index({ status: 1, runAfter: 1, createdAt: 1 });
+jobSchema.index({ status: 1, runAfter: 1, priority: -1, createdAt: 1 });
 jobSchema.index({ type: 1, createdAt: -1 });
 
 export type Job = InferSchemaType<typeof jobSchema>;

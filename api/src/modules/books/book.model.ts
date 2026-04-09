@@ -15,6 +15,14 @@ export const FILE_SYNC_STATUSES = [
 ] as const;
 export type FileSyncStatus = (typeof FILE_SYNC_STATUSES)[number];
 
+export const PROCESSING_STATES = [
+  "ready",
+  "pending_sanitize",
+  "sanitizing",
+  "sanitize_failed",
+] as const;
+export type ProcessingState = (typeof PROCESSING_STATES)[number];
+
 const localizedTextSchema = new Schema(
   {
     default: { type: String, trim: true, default: null },
@@ -204,6 +212,12 @@ const bookSchema = new Schema(
     lastScannedAt: {
       type: Date,
       default: Date.now,
+      index: true,
+    },
+    processingState: {
+      type: String,
+      enum: PROCESSING_STATES,
+      default: "ready",
       index: true,
     },
   },

@@ -19,7 +19,14 @@ export interface IngestMp3AsM4BJobOutputDTO {
   duration: number;
   title: string;
   author: string;
-  chapters: number;
+  processingState: "pending_sanitize";
+}
+
+export interface SanitizeMp3ToM4BJobOutputDTO {
+  bookId: string;
+  filePath: string;
+  checksum: string;
+  duration: number;
 }
 
 export interface RescanJobOutputDTO {
@@ -73,6 +80,7 @@ export interface ReplaceFileJobOutputDTO {
 export type JobOutputDTO =
   | IngestJobOutputDTO
   | IngestMp3AsM4BJobOutputDTO
+  | SanitizeMp3ToM4BJobOutputDTO
   | RescanJobOutputDTO
   | WriteMetadataJobOutputDTO
   | ExtractCoverJobOutputDTO
@@ -83,6 +91,7 @@ export type JobOutputDTO =
 export type JobTypeDTO =
   | "INGEST"
   | "INGEST_MP3_AS_M4B"
+  | "SANITIZE_MP3_TO_M4B"
   | "RESCAN"
   | "WRITE_METADATA"
   | "EXTRACT_COVER"
@@ -100,6 +109,7 @@ export type JobStatusDTO =
 export interface JobOutputByTypeDTO {
   INGEST: IngestJobOutputDTO;
   INGEST_MP3_AS_M4B: IngestMp3AsM4BJobOutputDTO;
+  SANITIZE_MP3_TO_M4B: SanitizeMp3ToM4BJobOutputDTO;
   RESCAN: RescanJobOutputDTO;
   WRITE_METADATA: WriteMetadataJobOutputDTO;
   EXTRACT_COVER: ExtractCoverJobOutputDTO;
@@ -126,6 +136,7 @@ export interface JobDTO extends IdDTO {
   error?: unknown;
   attempt: number;
   maxAttempts: number;
+  priority: number;
   runAfter?: string | null;
 
   createdAt: string;

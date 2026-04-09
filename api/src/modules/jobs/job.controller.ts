@@ -16,11 +16,13 @@ export class JobController {
         type: string;
         payload: unknown;
         maxAttempts?: number;
+        priority?: number;
+        runAfter?: string;
       }
     >,
     res: Response,
   ) {
-    const { type, payload, maxAttempts } = req.body;
+    const { type, payload, maxAttempts, priority, runAfter } = req.body;
 
     // Validate type
     const validTypes = [
@@ -45,7 +47,11 @@ export class JobController {
     const result = await JobService.enqueueJob(
       type as JobType,
       payload,
-      maxAttempts,
+      {
+        maxAttempts,
+        priority,
+        runAfter: runAfter ? new Date(runAfter) : undefined,
+      },
     );
 
     res.status(201).json(result);
@@ -213,6 +219,140 @@ export class JobController {
     }
 
     const result = await JobService.cancelJob(jobId);
+
+    res.status(200).json(result);
+  }
+
+  /**
+    * GET /api/admin/jobs/:jobId/logs
+   * Get logs for a specific job with pagination
+   */
+  static async getJobLogs(
+    req: Request<
+      { jobId?: string },
+      unknown,
+      unknown,
+      { limit?: string; offset?: string; level?: string }
+    >,
+    res: Response,
+  ) {
+    const { jobId } = req.params;
+    const { limit, offset, level } = req.query;
+
+    if (!jobId) {
+      throw new ApiError(400, "job_id_required");
+    }
+
+    const filters: {
+      limit?: number;
+      offset?: number;
+      level?: "debug" | "info" | "warn" | "error";
+    } = {};
+
+    if (limit) {
+      const parsed = parseInt(limit, 10);
+      if (isNaN(parsed) || parsed < 1 || parsed > 1000) {
+        throw new ApiError(400, "logs_invalid_limit");
+      }
+      filters.limit = parsed;
+    }
+
+    if (offset) {
+      const parsed = parseInt(offset, 10);
+      if (isNaN(parsed) || parsed < 0) {
+        throw new ApiError(400, "logs_invalid_offset");
+      }
+      filters.offset = parsed;
+    }
+
+    if (level) {
+      const validLevels = ["debug", "info", "warn", "error"];
+      if (!validLevels.includes(level)) {
+        throw new ApiError(400, "logs_invalid_level");
+      }
+      filters.level = level as "debug" | "info" | "warn" | "error";
+    }
+
+    const result = await JobService.getJobLogs(jobId, filters);
+
+    res.status(200).json(result);
+  }
+
+  /**
+    * GET /api/admin/logs
+   * Get logs across all jobs with search and filtering
+   */
+  static async searchLogs(
+    req: Request<
+      unknown,
+      unknown,
+      unknown,
+      {
+        jobType?: string;
+        level?: string;
+        search?: string;
+        limit?: string;
+        offset?: string;
+      }
+    >,
+    res: Response,
+  ) {
+    const { jobType, level, search, limit, offset } = req.query;
+
+    const filters: {
+      jobType?: string;
+      level?: "debug" | "info" | "warn" | "error";
+      search?: string;
+      limit?: number;
+      offset?: number;
+    } = {};
+
+    if (jobType) {
+      const validTypes = [
+        "INGEST",
+        "INGEST_MP3_AS_M4B",
+        "RESCAN",
+        "WRITE_METADATA",
+        "EXTRACT_COVER",
+        "REPLACE_COVER",
+        "DELETE_BOOK",
+        "REPLACE_FILE",
+      ];
+      if (!validTypes.includes(jobType)) {
+        throw new ApiError(400, "logs_invalid_job_type");
+      }
+      filters.jobType = jobType;
+    }
+
+    if (level) {
+      const validLevels = ["debug", "info", "warn", "error"];
+      if (!validLevels.includes(level)) {
+        throw new ApiError(400, "logs_invalid_level");
+      }
+      filters.level = level as "debug" | "info" | "warn" | "error";
+    }
+
+    if (search && typeof search === "string") {
+      filters.search = search.slice(0, 200); // Limit search length
+    }
+
+    if (limit) {
+      const parsed = parseInt(limit, 10);
+      if (isNaN(parsed) || parsed < 1 || parsed > 500) {
+        throw new ApiError(400, "logs_invalid_limit");
+      }
+      filters.limit = parsed;
+    }
+
+    if (offset) {
+      const parsed = parseInt(offset, 10);
+      if (isNaN(parsed) || parsed < 0) {
+        throw new ApiError(400, "logs_invalid_offset");
+      }
+      filters.offset = parsed;
+    }
+
+    const result = await JobService.searchLogs(filters);
 
     res.status(200).json(result);
   }

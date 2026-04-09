@@ -2,563 +2,344 @@
 
 ## Overview
 
-This document describes the complete integration between the API server and the Background Worker service for processing audiobooks asynchronously.
+This document describes the complete integration between the API server and the background worker service for processing audiobooks asynchronously. It covers the shared job queue, scheduling policy, and all job type flows.
+
+---
 
 ## Architecture
 
-### Services
+```mermaid
+graph LR
+    Client["Client\n(Web/Mobile)"]
+    API["API Server\n/api/admin"]
+    DB[("MongoDB")]
+    Worker["Worker Service"]
+    Settings[("worker_settings")]
+    Uploads["/uploads\n(shared volume)"]
+    Library["/data/audiobooks\n(shared volume)"]
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│ Client (Web/Mobile)                                                 │
-└────────────────┬────────────────────────────────────────────────────┘
-                 │
-                 │ HTTP REST
-                 │
-┌────────────────▼────────────────────────────────────────────────────┐
-│ API Server (api/)                                                   │
-├─────────────────────────────────────────────────────────────────────┤
-│ POST   /api/admin/jobs/enqueue          ─→ Validates payload              │
-│ GET    /api/admin/jobs                  ─→ List/filter jobs               │
-│ GET    /api/admin/jobs/:jobId           ─→ Get job status                 │
-│ GET    /api/admin/jobs/stats            ─→ Queue statistics               │
-│ DELETE /api/admin/jobs/:jobId           ─→ Cancel job                     │
-│                                                                      │
-│ JobService ──────────┐                                              │
-│                      │                                              │
-└──────────────────────┼──────────────────────────────────────────────┘
-                       │
-                       │ MongoDB
-                       │
-┌──────────────────────▼──────────────────────────────────────────────┐
-│ MongoDB (books.jobs)                                                │
-├─────────────────────────────────────────────────────────────────────┤
-│ Collection: jobs                                                    │
-│ ├─ _id: ObjectId                                                   │
-│ ├─ type: "INGEST" | "WRITE_METADATA" | ...                        │
-│ ├─ status: "queued" | "running" | "done" | "failed" | "retrying"  │
-│ ├─ payload: { ... }                                                │
-│ ├─ attempt: number                                                 │
-│ ├─ maxAttempts: number                                             │
-│ ├─ runAfter: Date                                                  │
-│ ├─ lockedBy: workerId | null                                       │
-│ ├─ error: { ... } | null                                           │
-│ └─ timestamps: createdAt, updatedAt, startedAt, finishedAt        │
-└──────────────────┬───────────────────────────────────────────────────┘
-                   │
-                   │ Polls every WORKER_POLL_MS
-                   │
-┌──────────────────▼───────────────────────────────────────────────────┐
-│ Background Worker (worker/)                                         │
-├─────────────────────────────────────────────────────────────────────┤
-│ JobRunner                                                            │
-│ ├─ Concurrency: WORKER_CONCURRENCY (default 2)                     │
-│ ├─ Poll Interval: WORKER_POLL_MS (default 5000ms)                 │
-│ ├─ Retry Base: WORKER_RETRY_BASE_MS (default 2000ms)              │
-│ └─ Retry Max: WORKER_RETRY_MAX_MS (default 60000ms)               │
-│                                                                      │
-│ JobProcessor (state machine)                                        │
-│ ├─ claim() - Atomic status update                                  │
-│ ├─ execute() - Run handler function                                │
-│ ├─ retry() - Exponential backoff scheduling                        │
-│ └─ fail() - Mark as failed                                         │
-│                                                                      │
-│ Job Handlers                                                         │
-│ ├─ handleIngestJob() - Full implementation                         │
-│ ├─ handleExtractCoverJob() - Placeholder                           │
-│ ├─ handleWriteMetadataJob() - Placeholder                          │
-│ └─ ... others                                                       │
-│                                                                      │
-│ Services                                                             │
-│ ├─ FFmpegService                                                   │
-│ ├─ FileService                                                     │
-│ ├─ MetadataService                                                 │
-│ ├─ ChecksumService                                                 │
-│ └─ MongooseConnection (shared with API)                            │
-└─────────────────────────────────────────────────────────────────────┘
+    Client -->|"REST"| API
+    API -->|"insert job"| DB
+    Worker -->|"claim / complete job"| DB
+    Worker -->|"read scheduling policy"| Settings
+    API -->|"GET/PATCH\n/admin/worker-settings"| Settings
+    API -->|"write uploaded file"| Uploads
+    Worker -->|"read source"| Uploads
+    Worker -->|"write final files"| Library
+    Client -->|"stream"| Library
 ```
 
-## Data Flow
+---
 
-### 1. Enqueuing a Job
+## Data Model
+
+### Job Document
+
+```typescript
+{
+  _id: ObjectId;
+  type: JobType;               // See job types below
+  status: "queued" | "running" | "retrying" | "done" | "failed";
+  priority: number;            // 1–100; worker sorts by priority DESC
+  payload: Record<string, unknown>;
+  output: Record<string, unknown> | null;   // Populated on done
+  error: { code: string; message: string; stack?: string; at: string } | null;
+  attempt: number;
+  maxAttempts: number;
+  runAfter: Date;              // Earliest claim time (deferred or retry)
+  lockedBy: string | null;     // workerId currently processing
+  lockedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  startedAt: Date | null;
+  finishedAt: Date | null;
+}
+```
+
+### Worker Settings Document (singleton)
+
+Stored in `worker_settings` collection with `key: "worker"`. Read by the worker on each poll cycle (cached 15 s).
+
+```typescript
+{
+  key: "worker";
+  queue: {
+    heavyJobTypes: JobType[];     // default: ["SANITIZE_MP3_TO_M4B", "REPLACE_FILE"]
+    heavyJobDelayMs: number;      // extra ms added to runAfter for heavy jobs
+    heavyWindowEnabled: boolean;  // restrict heavy jobs to a time window
+    heavyWindowStart: string;     // "HH:MM"
+    heavyWindowEnd: string;       // "HH:MM" — midnight crossover supported
+  }
+}
+```
+
+### Book `processingState` Field
+
+Added to the `books` collection to track the MP3 fast-publish lifecycle:
+
+| Value | Meaning |
+|---|---|
+| `ready` | Fully processed M4B, normal library state |
+| `pending_sanitize` | MP3 live, M4B conversion queued |
+| `sanitizing` | M4B encoding currently in progress |
+| `sanitize_failed` | Encoding failed; MP3 remains playable |
+
+---
+
+## Job Claim Flow
+
+```mermaid
+flowchart TD
+    Poll["Worker polls DB\n(every WORKER_POLL_MS)"]
+    Settings["Load worker_settings\n(cached 15s)"]
+    Window{"Window enabled\n& outside window?"}
+    Query["Find: status=queued, runAfter≤now\nSort: priority DESC, runAfter ASC"]
+    ExcludeHeavy["Exclude heavyJobTypes\nfrom query"]
+    Claim["Atomic findOneAndUpdate\nstatus: running\nlockedBy: workerId"]
+    Execute["Execute handler"]
+    Done["Update: status=done\noutput=result"]
+    Retry["Increment attempt\nSet runAfter=now+backoff\nstatus: retrying"]
+    Fail["status: failed\nerror: {...}"]
+
+    Poll --> Settings
+    Settings --> Window
+    Window -->|Yes| ExcludeHeavy
+    Window -->|No| Query
+    ExcludeHeavy --> Query
+    Query --> Claim
+    Claim -->|claimed| Execute
+    Execute -->|success| Done
+    Execute -->|throws, attempt < max| Retry
+    Execute -->|throws, attempt >= max| Fail
+    Retry -->|"after backoff"| Poll
+```
+
+**Backoff formula**: `min(WORKER_RETRY_BASE_MS × 2^(attempt-1), WORKER_RETRY_MAX_MS)`  
+Example (defaults): 2 s → 4 s → 8 s → 16 s → … → 60 s cap
+
+---
+
+## Job Types Reference
+
+| Type | Priority | Heavy? | Auto-created? | Description |
+|---|---|---|---|---|
+| `INGEST` | 80 | No | No | Native M4B/M4A ingestion |
+| `INGEST_MP3_AS_M4B` | 80 | No | No | Fast-publish MP3, enqueues sanitize |
+| `SANITIZE_MP3_TO_M4B` | 20 | Yes | By `INGEST_MP3_AS_M4B` | Deferred MP3→M4B encode & swap |
+| `WRITE_METADATA` | 35 | No | No | Embed metadata/chapters |
+| `EXTRACT_COVER` | 50 | No | No | Extract embedded cover art |
+| `REPLACE_COVER` | 50 | No | No | Replace cover and remux |
+| `REPLACE_FILE` | 20 | Yes | No | Swap audio file for a book |
+| `RESCAN` | 50 | No | No | Verify library files, sync DB |
+| `DELETE_BOOK` | 50 | No | No | Remove book record and files |
+
+---
+
+## MP3 Upload Flow (Fast-Publish)
+
+This is the primary upload path for MP3 files. It decouples availability from the long FFmpeg encode.
+
+```mermaid
+sequenceDiagram
+    participant Admin
+    participant API
+    participant DB
+    participant Worker
+
+    Admin->>API: POST /admin/books/upload/mp3\n(multipart: file, cover, language, title…)
+    API->>API: Save to /uploads/
+    API->>DB: INSERT job {type: INGEST_MP3_AS_M4B, priority: 80}
+    API-->>Admin: { jobId }
+
+    Worker->>DB: Claim INGEST_MP3_AS_M4B
+    Worker->>Worker: Extract ID3 metadata, probe duration
+    Worker->>Worker: Compute checksum
+    Worker->>DB: INSERT book {processingState: pending_sanitize}
+    Worker->>Worker: atomic copy → audio.mp3
+    Worker->>DB: UPDATE book {filePath: audio.mp3, fileSync: in_sync}
+    Worker->>DB: INSERT job {type: SANITIZE_MP3_TO_M4B, priority: 20}
+    Worker->>DB: UPDATE job {status: done}
+
+    Note over Admin,Worker: Book is now streamable as MP3
+
+    Worker->>DB: Claim SANITIZE_MP3_TO_M4B\n(subject to heavy-job window)
+    Worker->>DB: UPDATE book {processingState: sanitizing}
+    Worker->>Worker: Write ffmetadata with chapters
+    Worker->>Worker: FFmpeg encode MP3 → M4B (up to 60 min)
+    Worker->>Worker: atomic copy → audio.m4b
+    Worker->>DB: UPDATE book {filePath: audio.m4b, processingState: ready}
+    Worker->>Worker: Delete audio.mp3
+    Worker->>DB: UPDATE job {status: done}
+
+    Note over Admin,Worker: Book is now a proper M4B
+```
+
+---
+
+## M4B / M4A Upload Flow
+
+Standard path for native M4B/M4A files. Synchronous encode is not required.
+
+1. Admin uploads via `POST /admin/books/upload`
+2. API enqueues `INGEST` (priority 80)
+3. Worker: probe → checksum → extract metadata → copy → extract cover → update book
+4. Book published with `processingState: "ready"`
+
+---
+
+## Worker Settings Flow
+
+```mermaid
+sequenceDiagram
+    participant Admin
+    participant API
+    participant DB
+    participant Worker
+
+    Admin->>API: PATCH /admin/worker-settings\n{heavyWindowEnabled: true, heavyWindowStart: "03:00"}
+    API->>DB: findOneAndUpdate worker_settings
+    API-->>Admin: updated settings
+
+    Note over Worker: Within WORKER_SETTINGS_REFRESH_MS (15s)
+
+    Worker->>DB: re-read worker_settings
+    Worker->>Worker: Update in-memory policy
+    Note over Worker: Heavy jobs now gated to 03:00–05:00
+```
+
+---
+
+## API Routes Summary
 
 ```
-Client
-  │
-  └─→ POST /api/admin/jobs/enqueue { type: "INGEST", payload: {...} }
-       │
-       └─→ JobController.enqueueJob()
-            │
-            └─→ JobService.enqueueJob()
-                 │
-                 └─→ JobModel.create()
-                      │
-                      └─→ MongoDB (books.jobs)
-                           { type: "INGEST", status: "queued", ... }
-                           │
-                           └─→ Return JobDTO to client
+# Job queue
+POST   /api/admin/jobs/enqueue          Create job
+GET    /api/admin/jobs                  List (filterable)
+GET    /api/admin/jobs/stats            Queue counters
+GET    /api/admin/jobs/:jobId           Get one job
+DELETE /api/admin/jobs/:jobId           Cancel queued job
+GET    /api/admin/jobs/:jobId/logs      Structured execution logs
+GET    /api/admin/logs                  Recent logs across all jobs
+
+# Worker settings
+GET    /api/admin/worker-settings       Read scheduling policy
+PATCH  /api/admin/worker-settings       Update scheduling policy
+
+# Books
+POST   /api/admin/books/upload          Upload M4B/M4A
+POST   /api/admin/books/upload/mp3      Upload MP3 (fast-publish)
+GET    /api/admin/books                 List books
+GET    /api/admin/books/:bookId
+PATCH  /api/admin/books/:bookId/metadata
+PATCH  /api/admin/books/:bookId/chapters
+POST   /api/admin/books/:bookId/extract-cover
+DELETE /api/admin/books/:bookId
+
+# Users / sessions
+GET    /api/admin/users
+GET    /api/admin/users/:userId
+PATCH  /api/admin/users/:userId/role
+GET    /api/admin/users/:userId/sessions
+DELETE /api/admin/users/:userId/sessions
 ```
 
-**Example Request:**
+---
+
+## Environment Variables
+
+### Shared (both API and worker read the same `.env`)
+
 ```bash
-curl -X POST http://localhost:3000/api/admin/jobs/enqueue \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "INGEST",
-    "payload": { "sourcePath": "/uploads/book.m4b" },
-    "maxAttempts": 3
-  }'
+MONGO_URI=mongodb://user:pass@db:27017/audiobook?authSource=admin
+AUDIOBOOKS_PATH=/data/audiobooks
 ```
 
-**Response:**
-```json
-{
-  "id": "507f...",
-  "type": "INGEST",
-  "status": "queued",
-  "attempt": 0,
-  "maxAttempts": 3,
-  "createdAt": "2026-04-06T10:30:00Z"
-}
-```
-
-### 2. Processing in Worker
-
-```
-Worker Service (every WORKER_POLL_MS)
-  │
-  ├─→ Query: Find jobs where status="queued" AND runAfter <= now
-  │    Limit to WORKER_CONCURRENCY available slots
-  │
-  └─→ For each job:
-       │
-       ├─→ JobProcessor.claim()
-       │    │
-       │    └─→ Atomic update: { $set: { status: "running", lockedBy: workerId } }
-       │        ├─ Success: Continue
-       │        └─ Failure: Another worker claimed it (skip)
-       │
-       ├─→ JobProcessor.execute()
-       │    │
-       │    └─→ Get handler function for job.type
-       │         │
-       │         └─→ await handler(job)
-       │              ├─ Write handler logs
-       │              ├─ Process the job
-       │              └─ Return or throw
-       │
-       ├─ If success:
-       │    └─→ Update: { $set: { status: "done", finishedAt: now } }
-       │
-       └─ If error:
-            └─→ Check: attempt < maxAttempts?
-                ├─ YES: Retry
-                │        Calculate backoff: 2000 * 2^(attempt-1), capped at 60000ms
-                │        Update: { $set: { status: "retrying", runAfter: now+backoff } }
-                │
-                └─ NO: Final failure
-                       Update: { $set: { status: "failed", finishedAt: now, error: {...} } }
-```
-
-### 3. Polling Job Status
-
-```
-Client (polls every N seconds)
-  │
-  └─→ GET /api/admin/jobs/{jobId}
-       │
-       └─→ JobController.getJob()
-            │
-            └─→ JobService.getJobById()
-                 │
-                 └─→ JobModel.findById()
-                      │
-                      └─→ MongoDB (fetch document)
-                           │
-                           └─→ Return JobDTO to client
-                                With updated status, attempt count, etc.
-```
-
-**Response Examples:**
-
-Still running:
-```json
-{
-  "id": "507f...",
-  "status": "running",
-  "attempt": 1,
-  "startedAt": "2026-04-06T10:30:10Z",
-  "finishedAt": null
-}
-```
-
-Completed:
-```json
-{
-  "id": "507f...",
-  "status": "done",
-  "attempt": 1,
-  "finishedAt": "2026-04-06T10:31:20Z"
-}
-```
-
-Failed with retry:
-```json
-{
-  "id": "507f...",
-  "status": "retrying",
-  "attempt": 1,
-  "runAfter": "2026-04-06T10:31:05Z",
-  "error": { "code": "timeout", "message": "FFmpeg operation exceeded 5m" }
-}
-```
-
-Permanently failed:
-```json
-{
-  "id": "507f...",
-  "status": "failed",
-  "attempt": 3,
-  "maxAttempts": 3,
-  "finishedAt": "2026-04-06T10:36:45Z",
-  "error": { "code": "timeout", "message": "FFmpeg operation exceeded 5m" }
-}
-```
-
-## Environment Configuration
-
-### API Server (api/.env)
+### API
 
 ```bash
-# Server
 NODE_ENV=production
-PORT=3000
+API_PORT=3000
+JWT_SECRET=...
+JWT_EXPIRES_IN=12h
+REFRESH_TOKEN_DAYS=60
+BCRYPT_ROUNDS=12
+CORS_ALLOWED_ORIGINS=https://audiobook.example.com
+UPLOAD_MAX_FILE_SIZE_BYTES=2147483648   # 2 GB
 
-# Database
-MONGO_URL=mongodb://mongo:27017/audiobook
-
-# CORS
-CORS_ORIGINS=http://localhost:3001,https://app.example.com
-
-# OAuth (optional)
-GOOGLE_CLIENT_IDS=client1.apps.googleusercontent.com,client2.apps.googleusercontent.com
-APPLE_CLIENT_ID=com.example.audiobook
+# Worker settings cache TTL (API side)
+WORKER_SETTINGS_CACHE_TTL_MS=15000
 ```
 
-### Worker Service (worker/.env)
+### Worker
 
 ```bash
-# Database
-MONGO_URL=mongodb://mongo:27017/audiobook
+WORKER_POLL_MS=1500
+WORKER_CONCURRENCY=1
+WORKER_RETRY_BASE_MS=2000
+WORKER_RETRY_MAX_MS=60000
+JOB_LOG_RETENTION_DAYS=15
 
-# Job Processing
-WORKER_POLL_MS=5000                 # Poll interval (milliseconds)
-WORKER_CONCURRENCY=2                # Max concurrent jobs
-WORKER_RETRY_BASE_MS=2000           # Initial retry backoff (milliseconds)
-WORKER_RETRY_MAX_MS=60000           # Max retry backoff (milliseconds)
+# FFmpeg
+FFMPEG_TIMEOUT_MS=300000        # 5 min (standard jobs)
+FFMPEG_LONG_TIMEOUT_MS=3600000  # 60 min (SANITIZE_MP3_TO_M4B)
+FFMPEG_MAX_BUFFER_BYTES=52428800
 
-# File System
-AUDIOBOOKS_PATH=/data/audiobooks    # Host mount point
-
-# FFmpeg (optional)
-FFMPEG_TIMEOUT_MS=300000            # 5 minutes
+# Heavy-job scheduling (seeds worker_settings on first run)
+HEAVY_JOB_TYPES=SANITIZE_MP3_TO_M4B,REPLACE_FILE
+HEAVY_JOB_DELAY_MS=0
+HEAVY_JOB_WINDOW_ENABLED=false
+HEAVY_JOB_WINDOW_START=03:00
+HEAVY_JOB_WINDOW_END=05:00
+WORKER_SETTINGS_REFRESH_MS=15000
 ```
 
-### Docker Compose
+---
 
-```yaml
-version: "3.9"
-services:
-  mongo:
-    image: mongo:9.3
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
+## Operational Notes
 
-  api:
-    build: ./api
-    ports:
-      - "3000:3000"
-    environment:
-      MONGO_URL: mongodb://mongo:27017/audiobook
-      CORS_ORIGINS: http://localhost:3001
-    depends_on:
-      - mongo
+### Stale Lock Reclaim
 
-  worker:
-    build: ./worker
-    environment:
-      MONGO_URL: mongodb://mongo:27017/audiobook
-      WORKER_POLL_MS: 5000
-      WORKER_CONCURRENCY: 2
-      WORKER_RETRY_BASE_MS: 2000
-      WORKER_RETRY_MAX_MS: 60000
-      AUDIOBOOKS_PATH: /data/audiobooks
-    volumes:
-      - audiobooks:/data/audiobooks
-    depends_on:
-      - mongo
+Every `WORKER_LOCK_RECLAIM_INTERVAL_MS` (default 5 min), worker slot 0 resets jobs that have been `running` longer than the lock interval back to `queued`. This handles cases where the worker crashed mid-job.
 
-volumes:
-  mongo_data:
-  audiobooks:
-```
+To manually reset a stuck job in MongoDB:
 
-## API Endpoints Reference
-
-### Quick Reference
-
-```
-POST   /api/admin/jobs/enqueue              Create and queue a job
-GET    /api/admin/jobs                      List jobs (filterable)
-GET    /api/admin/jobs/stats                Get queue statistics
-GET    /api/admin/jobs/:jobId               Get job status
-DELETE /api/admin/jobs/:jobId               Cancel a queued job
-```
-
-See [Job API Endpoints](../api/jobs-endpoints.md) for complete endpoint documentation.
-
-## Job Types
-
-| Type | Purpose | Status |
-|------|---------|--------|
-| INGEST | Upload and process audiobook | ✅ Implemented |
-| WRITE_METADATA | Update chapter info | ⏳ Placeholder |
-| EXTRACT_COVER | Save cover image | ⏳ Placeholder |
-| DELETE_BOOK | Remove book and files | ⏳ Placeholder |
-| REPLACE_FILE | Swap audio file | ⏳ Placeholder |
-| RESCAN | Find and ingest new books | ⏳ Placeholder |
-
-## INGEST Job Details
-
-The fully implemented INGEST job handles end-to-end audiobook processing:
-
-**Process:**
-1. Probe M4B file for duration, format, bitrate
-2. Compute SHA256 checksum for integrity
-3. Extract FFmetadata (title, artist, album, chapters)
-4. Create Book document in MongoDB
-5. Create audiobooks directory
-6. Atomically copy audio file to final location
-7. Extract and save cover image (if present)
-8. Update Book document with file paths
-
-**Payload:**
-```json
-{ "sourcePath": "/path/to/audiobook.m4b" }
-```
-
-**Success Output (stored in book document):**
-- filePath: `/data/audiobooks/{bookId}/audio.m4b`
-- coverPath: `/data/audiobooks/{bookId}/cover.jpg`
-- checksum: `sha256:a1b2c3d4...`
-- title, author, series (from metadata)
-- duration (in seconds)
-- chapters (array with timestamps)
-
-## Error Handling
-
-### API Level
-
-The API validates:
-- Job type is valid
-- Payload is provided and is an object
-- maxAttempts >= 1
-- Query parameters are correct types and ranges
-
-**Error Response:**
-```json
-{
-  "message": "job_invalid_type"
-}
-```
-
-See [Job API Endpoints](../api/jobs-endpoints.md) for complete error codes.
-
-### Worker Level
-
-The Worker handles:
-- File not found
-- FFmpeg timeout (5 minutes)
-- Corrupted audio files
-- Metadata parsing errors
-- Disk space issues
-
-**Retry Logic:**
-- Attempt 1 fails → Wait 2s, retry
-- Attempt 2 fails → Wait 4s, retry
-- Attempt 3 fails → Wait 8s, retry
-- Attempt 4 fails → Wait 16s, retry
-- Attempt 5 fails → Give up, mark as failed
-- (Exact count depends on maxAttempts)
-
-## Operational Procedures
-
-### Monitor Queue Health
-
-```bash
-# Check statistics
-curl http://localhost:3000/api/admin/jobs/stats
-
-# List failed jobs
-curl "http://localhost:3000/api/admin/jobs?status=failed&limit=20"
-
-# Check running jobs
-curl "http://localhost:3000/api/admin/jobs?status=running"
-```
-
-### Diagnose Stuck Jobs
-
-```bash
-# A job in "running" status for > 10 minutes is stuck
-curl "http://localhost:3000/api/admin/jobs?status=running" | jq '
-  .jobs[] | 
-  select(now - (.startedAt | fromdateiso8601) > 600)
-'
-
-# Check worker logs
-docker logs audiobook-worker
-
-# Force reset stuck job (in MongoDB directly)
+```js
 db.jobs.updateOne(
   { _id: ObjectId("...") },
   { $set: { status: "queued", lockedBy: null, lockedAt: null, runAfter: new Date() } }
 )
 ```
 
-### Scale Worker Processing
-
-To increase throughput:
+### Monitor the Queue
 
 ```bash
-# Increase concurrent jobs
-WORKER_CONCURRENCY=4 npm start
+# Queue stats
+curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/admin/jobs/stats
 
-# Reduce poll interval (more responsive but higher CPU)
-WORKER_POLL_MS=2000 npm start
+# Failed jobs
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:3000/api/admin/jobs?status=failed&limit=20"
 
-# Or update Docker Compose and redeploy
-docker-compose up --scale worker=2  # Multiple worker instances
+# Worker logs
+docker logs audiobook-worker --tail=100
+
+# Job execution logs (per-job)
+curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/admin/jobs/$JOB_ID/logs
 ```
 
-### View Job Execution Logs
-
-Worker logs to stdout. View with:
+### Scale Throughput
 
 ```bash
-# Docker
-docker logs audiobook-worker
+# More concurrent jobs per instance
+WORKER_CONCURRENCY=4
 
-# File (if redirected)
-tail -f logs/worker.log
+# Multiple worker instances (use different WORKER_IDs)
+docker compose up --scale worker=2
 ```
 
-Log entries include:
-- `ingest job started` - Initial job claim
-- `ingest: file probed` - Duration detected
-- `ingest: checksum computed` - SHA256 hash
-- `ingest: metadata extracted` - Title, artist, chapters
-- `ingest: book directory created` - Audiobooks dir ready
-- `ingest: audio file copied` - File in place
-- `ingest: cover extracted` - Cover art saved (optional)
-- `ingest job completed` - Success
+---
 
-## Development Workflow
+## Related Docs
 
-### Local Setup
-
-```bash
-# Install dependencies
-npm install
-
-# Build both packages
-npm run build  # From api/
-npm run build  # From worker/
-
-# Start in development
-npm run dev    # From api/ - watches for changes
-npm run dev    # From worker/ - watches for changes
-```
-
-### Testing End-to-End
-
-```bash
-# 1. Start services
-docker-compose up
-
-# 2. Create ingest job
-curl -X POST http://localhost:3000/api/admin/jobs/enqueue \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "INGEST",
-    "payload": { "sourcePath": "/uploads/test.m4b" },
-    "maxAttempts": 3
-  }'
-
-# 3. Monitor progress
-JOB_ID="507f..."
-while true; do
-  curl http://localhost:3000/api/admin/jobs/$JOB_ID | jq '.status' && sleep 2
-done
-
-# 4. Check results
-curl http://localhost:3000/api/admin/jobs/$JOB_ID | jq '.'
-docker logs audiobook-worker
-```
-
-## Files Modified/Created
-
-**API**:
-- ✅ `api/src/modules/jobs/job.service.ts` - Created
-- ✅ `api/src/modules/jobs/job.controller.ts` - Created
-- ✅ `api/src/modules/jobs/job.routes.ts` - Implemented
-- ✅ `api/src/modules/jobs/job.model.ts` - Already exists
-- ✅ `api/src/app.ts` - Updated (added job routes)
-- ✅ `docs/api/jobs-endpoints.md` - Endpoint reference
-
-**Worker**:
-- ✅ `worker/src/queue/job.types.ts` - Already implemented
-- ✅ `worker/src/queue/job.processor.ts` - Already implemented
-- ✅ `worker/src/queue/job.runner.ts` - Already implemented
-- ✅ `worker/src/jobs/ingest.job.ts` - Fully implemented
-- ✅ `worker/src/services/*` - All services implemented
-- ✅ `docs/worker/technical-reference.md` - Worker technical reference
-
-## Build Status
-
-```
-api/        ✅ npm run build - SUCCESS
-worker/     ✅ npm run build - SUCCESS
-```
-
-## Next Steps
-
-1. **Implement remaining job handlers**
-   - Extract Cover
-   - Write Metadata
-   - Delete Book
-   - Replace File
-   - Rescan
-
-2. **Add authentication** (optional)
-   - Protect job endpoints with auth middleware
-   - Per-user job isolation
-
-3. **Enhanced monitoring**
-   - Webhook callbacks on job completion
-   - Archive completed jobs to separate collection
-   - Job execution metrics/dashboards
-
-4. **Advanced features**
-   - Bulk job enqueue endpoint
-   - Job dependency chains
-   - Job priority levels
-   - Dead letter queue for permanent failures
-
-## References
-
-- [Worker Service Technical Documentation](./worker/technical-reference.md)
-- [API Jobs Endpoint Reference](../api/jobs-endpoints.md)
-- [Architecture & Build Specification](./architecture-build-specification.md)
-- [FFmpeg Metadata and Chapters Guide](./ffmpeg/metadata-chapters-guide.md)
+- [Jobs API Endpoints](../api/jobs-endpoints.md)
+- [Admin API Endpoints](../api/admin-endpoints.md)
+- [Worker Technical Reference](../worker/technical-reference.md)

@@ -84,12 +84,55 @@ export interface ListAdminUserSessionsResponse {
   hasMore: boolean;
 }
 
+export interface JobLog {
+  timestamp: string;
+  level: 'debug' | 'info' | 'warn' | 'error';
+  message: string;
+  context?: unknown;
+  duration?: number;
+}
+
+export interface GetJobLogsResponse {
+  jobId: string;
+  logs: JobLog[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface SearchLogsResponse {
+  logs: Array<{
+    jobId: string;
+    jobType: string;
+    timestamp: string;
+    level: 'debug' | 'info' | 'warn' | 'error';
+    message: string;
+    context?: unknown;
+  }>;
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface ListJobsResponse {
   jobs: AdminJob[];
   total: number;
   limit: number;
   offset: number;
   hasMore: boolean;
+}
+
+export interface WorkerQueueSettings {
+  heavyJobTypes: Array<'INGEST' | 'INGEST_MP3_AS_M4B' | 'RESCAN' | 'WRITE_METADATA' | 'EXTRACT_COVER' | 'REPLACE_COVER' | 'DELETE_BOOK' | 'REPLACE_FILE'>;
+  heavyJobDelayMs: number;
+  heavyWindowEnabled: boolean;
+  heavyWindowStart: string;
+  heavyWindowEnd: string;
+}
+
+export interface WorkerSettings {
+  queue: WorkerQueueSettings;
+  updatedAt?: string;
 }
 
 export interface JobEventStreamHandle {
@@ -120,14 +163,6 @@ interface UpdateBookChaptersPayload {
   }>;
 }
 
-interface Mp3ConversionMetadataPayload {
-  title?: string;
-  author?: string;
-  series?: string;
-  genre?: string;
-  language: 'fr' | 'en';
-}
-
 @Injectable({ providedIn: 'root' })
 export class AdminService {
   constructor(
@@ -156,35 +191,30 @@ export class AdminService {
 
   uploadMp3AsM4b(
     file: File,
-    metadata: Mp3ConversionMetadataPayload,
+    language: 'fr' | 'en',
     coverFile?: File | null,
   ): Observable<{ jobId: string }> {
     const form = new FormData();
     form.append('file', file);
+    form.append('language', language);
 
     if (coverFile) {
       form.append('cover', coverFile);
     }
-
-    if (metadata.title) {
-      form.append('title', metadata.title);
-    }
-    if (metadata.author) {
-      form.append('author', metadata.author);
-    }
-    if (metadata.series) {
-      form.append('series', metadata.series);
-    }
-    if (metadata.genre) {
-      form.append('genre', metadata.genre);
-    }
-    form.append('language', metadata.language);
 
     return this.api.postFormData<{ jobId: string }>('/admin/books/upload/mp3', form);
   }
 
   listJobs(limit = 25, offset = 0): Observable<ListJobsResponse> {
     return this.api.get<ListJobsResponse>('/admin/jobs', { params: { limit, offset } });
+  }
+
+  getWorkerSettings(): Observable<WorkerSettings> {
+    return this.api.get<WorkerSettings>('/admin/worker-settings');
+  }
+
+  updateWorkerSettings(patch: Partial<WorkerSettings>): Observable<WorkerSettings> {
+    return this.api.patch<WorkerSettings, Partial<WorkerSettings>>('/admin/worker-settings', patch);
   }
 
   getJob(jobId: string): Observable<AdminJob> {
@@ -283,5 +313,36 @@ export class AdminService {
 
   deleteBook(bookId: string): Observable<{ queued: boolean; jobId: string }> {
     return this.api.delete<{ queued: boolean; jobId: string }>(`/admin/books/${bookId}`);
+  }
+
+  getJobLogs(
+    jobId: string,
+    options?: { limit?: number; offset?: number; level?: 'debug' | 'info' | 'warn' | 'error' },
+  ): Observable<GetJobLogsResponse> {
+    return this.api.get<GetJobLogsResponse>(`/admin/jobs/${jobId}/logs`, {
+      params: {
+        limit: options?.limit ?? 100,
+        offset: options?.offset ?? 0,
+        level: options?.level,
+      },
+    });
+  }
+
+  searchLogs(options?: {
+    jobType?: string;
+    level?: 'debug' | 'info' | 'warn' | 'error';
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Observable<SearchLogsResponse> {
+    return this.api.get<SearchLogsResponse>('/admin/logs', {
+      params: {
+        jobType: options?.jobType,
+        level: options?.level,
+        search: options?.search,
+        limit: options?.limit ?? 50,
+        offset: options?.offset ?? 0,
+      },
+    });
   }
 }

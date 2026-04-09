@@ -59,34 +59,12 @@ export const routes: Routes = [
 		loadComponent: () => import('./features/discussions/discussions.page').then((m) => m.DiscussionsPage),
 	},
 	{
-		path: 'admin/overview',
+		path: 'admin',
 		canActivate: [adminGuard],
-		loadComponent: () => import('./features/admin/admin-overview.page').then((m) => m.AdminOverviewPage),
-	},
-	{
-		path: 'admin/upload',
-		canActivate: [adminGuard],
-		loadComponent: () => import('./features/admin/admin-upload.page').then((m) => m.AdminUploadPage),
-	},
-	{
-		path: 'admin/books',
-		canActivate: [adminGuard],
-		loadComponent: () => import('./features/admin/admin-books.page').then((m) => m.AdminBooksPage),
-	},
-	{
-		path: 'admin/users',
-		canActivate: [adminGuard],
-		loadComponent: () => import('./features/admin/admin-users.page').then((m) => m.AdminUsersPage),
-	},
-	{
-		path: 'admin/books/:bookId',
-		canActivate: [adminGuard],
-		loadComponent: () => import('./features/admin/admin-edit.page').then((m) => m.AdminEditPage),
-	},
-	{
-		path: 'admin/jobs',
-		canActivate: [adminGuard],
-		loadComponent: () => import('./features/admin/admin-jobs.page').then((m) => m.AdminJobsPage),
+		loadComponent: () =>
+			import('./features/admin/admin-shell.component').then((m) => m.AdminShellComponent),
+		loadChildren: () =>
+			import('./features/admin/admin.routes').then((m) => m.adminRoutes),
 	},
 	{
 		path: '**',

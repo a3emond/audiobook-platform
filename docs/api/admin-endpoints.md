@@ -22,6 +22,7 @@ The admin API centralizes management actions for:
 Consumer-facing APIs remain separate under:
 - `/api/books` (read/list)
 - `/api/series`
+## Worker Settings Endpoints
 - `/api/progress`
 - `/api/settings`
 - `/api/collections`
@@ -71,7 +72,6 @@ Request:
 Response:
 
 ```json
-{
   "jobId": "507f1f77bcf86cd799439011"
 }
 ```
@@ -97,20 +97,11 @@ Request:
 
 Admin list/read surface for books dashboard screens.
 
-Supports the same query filters as consumer books list:
-- `q`, `title`, `author`, `series`, `genre`, `language`, `limit`, `offset`
-
-### GET /books/:bookId
-
+### POST /books/upload/mp3
 Get one book for admin editing.
 
 ### PATCH /books/:bookId/metadata
 
-Update managed metadata fields.
-
-### PATCH /books/:bookId/chapters
-
-Replace chapter definitions and enqueue metadata write.
 
 ### POST /books/:bookId/extract-cover
 
@@ -121,12 +112,6 @@ Enqueue cover extraction for the book.
 Enqueue full deletion of the book and files.
 
 ## Job Management Endpoints
-
-### POST /jobs/enqueue
-
-Enqueue any supported background job type.
-
-### GET /jobs/stats
 
 Get queue counters by status.
 

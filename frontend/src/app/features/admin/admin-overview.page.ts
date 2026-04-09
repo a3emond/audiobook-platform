@@ -8,7 +8,7 @@ import { AdminCoverage, AdminOverview, AdminService } from '../../core/services/
   standalone: true,
   imports: [CommonModule],
   template: `
-    <section class="admin-page page-shell">
+    <div class="admin-page">
       <h1>Admin Overview</h1>
 
       <p *ngIf="loading()">Loading overview...</p>
@@ -50,7 +50,7 @@ import { AdminCoverage, AdminOverview, AdminService } from '../../core/services/
           <li *ngFor="let note of c.notes">{{ note }}</li>
         </ul>
       </section>
-    </section>
+    </div>
   `,
   styles: [
     `

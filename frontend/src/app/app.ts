@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, OnDestroy, effect, signal } from '@angular/core';
+import { Component, OnDestroy, effect, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { Subscription } from 'rxjs';
@@ -31,7 +31,6 @@ interface ToastItem {
   styleUrl: './app.css'
 })
 export class App implements OnDestroy {
-  readonly adminMenuOpen  = signal(false);
   readonly mobileNavOpen  = signal(false);
   readonly inProgressBooks = signal<InProgressBookItem[]>([]);
   readonly notifications = signal<ToastItem[]>([]);
@@ -84,31 +83,12 @@ export class App implements OnDestroy {
     this.realtimeSub?.unsubscribe();
   }
 
-  isAdminRouteActive(): boolean {
-    return this.router.url.startsWith('/admin');
-  }
-
-  toggleAdminMenu(event: MouseEvent): void {
-    event.stopPropagation();
-    this.adminMenuOpen.update(open => !open);
-  }
-
-  closeAdminMenu(): void {
-    this.adminMenuOpen.set(false);
-  }
-
   toggleMobileNav(): void {
     this.mobileNavOpen.update(open => !open);
   }
 
   closeMobileNav(): void {
     this.mobileNavOpen.set(false);
-    this.adminMenuOpen.set(false);
-  }
-
-  @HostListener('document:click')
-  onDocumentClick(): void {
-    this.adminMenuOpen.set(false);
   }
 
   async logout(): Promise<void> {
