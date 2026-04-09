@@ -12,14 +12,29 @@ export interface WorkerQueueSettings {
   fastConcurrency: number;
 }
 
+export interface WorkerParitySettings {
+  enabled: boolean;
+  intervalMs: number;
+}
+
+export interface WorkerRuntimeSettings {
+  queue: WorkerQueueSettings;
+  parity: WorkerParitySettings;
+}
+
 const DEFAULT_SETTINGS: WorkerQueueSettings = {
-  heavyJobTypes: ["INGEST_MP3_AS_M4B", "REPLACE_FILE"],
+  heavyJobTypes: ["SANITIZE_MP3_TO_M4B", "REPLACE_FILE"],
   heavyJobDelayMs: 0,
   heavyWindowEnabled: false,
   heavyWindowStart: "03:00",
   heavyWindowEnd: "05:00",
   heavyConcurrency: 1,
   fastConcurrency: 0,
+};
+
+const DEFAULT_PARITY_SETTINGS: WorkerParitySettings = {
+  enabled: true,
+  intervalMs: 3_600_000,
 };
 
 function parseNumberEnv(name: string, fallback: number): number {
@@ -65,9 +80,19 @@ export function isInWindow(now: Date, start: string, end: string): boolean {
 }
 
 export class WorkerSettingsService {
-  private static cache: { value: WorkerQueueSettings; expiresAt: number } | null = null;
+  private static cache: { value: WorkerRuntimeSettings; expiresAt: number } | null = null;
 
   static async getQueueSettings(forceRefresh = false): Promise<WorkerQueueSettings> {
+    const settings = await this.getRuntimeSettings(forceRefresh);
+    return settings.queue;
+  }
+
+  static async getParitySettings(forceRefresh = false): Promise<WorkerParitySettings> {
+    const settings = await this.getRuntimeSettings(forceRefresh);
+    return settings.parity;
+  }
+
+  static async getRuntimeSettings(forceRefresh = false): Promise<WorkerRuntimeSettings> {
     const ttlMs = Math.max(1000, parseNumberEnv("WORKER_SETTINGS_REFRESH_MS", 15_000));
     const now = Date.now();
 
@@ -84,49 +109,68 @@ export class WorkerSettingsService {
     return loaded;
   }
 
-  private static async fetchFromDb(): Promise<WorkerQueueSettings> {
+  private static async fetchFromDb(): Promise<WorkerRuntimeSettings> {
     const db = mongoose.connection.db;
     if (!db) {
-      return { ...DEFAULT_SETTINGS };
+      return {
+        queue: { ...DEFAULT_SETTINGS },
+        parity: { ...DEFAULT_PARITY_SETTINGS },
+      };
     }
 
     const doc = await db.collection("worker_settings").findOne({ key: "worker" });
     if (!doc || typeof doc !== "object") {
-      return { ...DEFAULT_SETTINGS };
+      return {
+        queue: { ...DEFAULT_SETTINGS },
+        parity: { ...DEFAULT_PARITY_SETTINGS },
+      };
     }
 
     const queue = (doc as { queue?: Record<string, unknown> }).queue || {};
+    const parity = (doc as { parity?: Record<string, unknown> }).parity || {};
 
     const heavyJobTypes = Array.isArray(queue.heavyJobTypes)
       ? queue.heavyJobTypes.filter((item): item is JobType => typeof item === "string")
       : DEFAULT_SETTINGS.heavyJobTypes;
 
     return {
-      heavyJobTypes: heavyJobTypes.length > 0 ? heavyJobTypes : DEFAULT_SETTINGS.heavyJobTypes,
-      heavyJobDelayMs:
-        typeof queue.heavyJobDelayMs === "number" && queue.heavyJobDelayMs >= 0
-          ? Math.round(queue.heavyJobDelayMs)
-          : DEFAULT_SETTINGS.heavyJobDelayMs,
-      heavyWindowEnabled:
-        typeof queue.heavyWindowEnabled === "boolean"
-          ? queue.heavyWindowEnabled
-          : DEFAULT_SETTINGS.heavyWindowEnabled,
-      heavyWindowStart:
-        typeof queue.heavyWindowStart === "string"
-          ? queue.heavyWindowStart
-          : DEFAULT_SETTINGS.heavyWindowStart,
-      heavyWindowEnd:
-        typeof queue.heavyWindowEnd === "string"
-          ? queue.heavyWindowEnd
-          : DEFAULT_SETTINGS.heavyWindowEnd,
-      heavyConcurrency:
-        typeof queue.heavyConcurrency === "number" && queue.heavyConcurrency >= 1
-          ? Math.round(queue.heavyConcurrency)
-          : DEFAULT_SETTINGS.heavyConcurrency,
-      fastConcurrency:
-        typeof queue.fastConcurrency === "number" && queue.fastConcurrency >= 0
-          ? Math.round(queue.fastConcurrency)
-          : DEFAULT_SETTINGS.fastConcurrency,
+      queue: {
+        heavyJobTypes: heavyJobTypes.length > 0 ? heavyJobTypes : DEFAULT_SETTINGS.heavyJobTypes,
+        heavyJobDelayMs:
+          typeof queue.heavyJobDelayMs === "number" && queue.heavyJobDelayMs >= 0
+            ? Math.round(queue.heavyJobDelayMs)
+            : DEFAULT_SETTINGS.heavyJobDelayMs,
+        heavyWindowEnabled:
+          typeof queue.heavyWindowEnabled === "boolean"
+            ? queue.heavyWindowEnabled
+            : DEFAULT_SETTINGS.heavyWindowEnabled,
+        heavyWindowStart:
+          typeof queue.heavyWindowStart === "string"
+            ? queue.heavyWindowStart
+            : DEFAULT_SETTINGS.heavyWindowStart,
+        heavyWindowEnd:
+          typeof queue.heavyWindowEnd === "string"
+            ? queue.heavyWindowEnd
+            : DEFAULT_SETTINGS.heavyWindowEnd,
+        heavyConcurrency:
+          typeof queue.heavyConcurrency === "number" && queue.heavyConcurrency >= 1
+            ? Math.round(queue.heavyConcurrency)
+            : DEFAULT_SETTINGS.heavyConcurrency,
+        fastConcurrency:
+          typeof queue.fastConcurrency === "number" && queue.fastConcurrency >= 0
+            ? Math.round(queue.fastConcurrency)
+            : DEFAULT_SETTINGS.fastConcurrency,
+      },
+      parity: {
+        enabled:
+          typeof parity.enabled === "boolean"
+            ? parity.enabled
+            : DEFAULT_PARITY_SETTINGS.enabled,
+        intervalMs:
+          typeof parity.intervalMs === "number" && parity.intervalMs >= 60_000
+            ? Math.round(parity.intervalMs)
+            : DEFAULT_PARITY_SETTINGS.intervalMs,
+      },
     };
   }
 }

@@ -31,11 +31,17 @@ export interface SanitizeMp3ToM4BJobOutputDTO {
 
 export interface RescanJobOutputDTO {
   force: boolean;
+  trigger: string;
   targetCount: number;
   scanned: number;
   updated: number;
   missing: number;
   errors: number;
+  drifted: number;
+  remediated: number;
+  writeMetadataQueued: number;
+  sanitizeQueued: number;
+  skippedExistingRemediation: number;
 }
 
 export interface WriteMetadataJobOutputDTO {

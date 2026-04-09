@@ -23,6 +23,10 @@ export class WorkerSettingsController {
           heavyConcurrency?: number;
           fastConcurrency?: number;
         };
+        parity?: {
+          enabled?: boolean;
+          intervalMs?: number;
+        };
       }
     >,
     res: Response,

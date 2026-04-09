@@ -12,11 +12,16 @@ export interface WorkerSettingsDTO {
     heavyConcurrency: number;
     fastConcurrency: number;
   };
+  parity: {
+    enabled: boolean;
+    intervalMs: number;
+  };
   updatedAt?: string;
 }
 
 interface WorkerSettingsPatchDTO {
   queue?: Partial<WorkerSettingsDTO["queue"]>;
+  parity?: Partial<WorkerSettingsDTO["parity"]>;
 }
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -56,6 +61,10 @@ function toDto(doc: WorkerSettingsDocument): WorkerSettingsDTO {
       heavyWindowEnd: doc.queue.heavyWindowEnd,
       heavyConcurrency: doc.queue.heavyConcurrency,
       fastConcurrency: doc.queue.fastConcurrency,
+    },
+    parity: {
+      enabled: doc.parity.enabled,
+      intervalMs: doc.parity.intervalMs,
     },
     updatedAt: doc.updatedAt?.toISOString(),
   };
@@ -106,6 +115,14 @@ export class WorkerSettingsService {
         doc.queue.fastConcurrency = patch.queue.fastConcurrency;
       }
     }
+    if (patch.parity) {
+      if (patch.parity.enabled !== undefined) {
+        doc.parity.enabled = patch.parity.enabled;
+      }
+      if (patch.parity.intervalMs !== undefined) {
+        doc.parity.intervalMs = patch.parity.intervalMs;
+      }
+    }
 
     await doc.save();
     const value = toDto(doc);
@@ -115,11 +132,11 @@ export class WorkerSettingsService {
   }
 
   private static validatePatch(patch: WorkerSettingsPatchDTO): void {
-    if (!patch.queue) {
+    if (!patch.queue && !patch.parity) {
       return;
     }
 
-    if (patch.queue.heavyJobTypes !== undefined) {
+    if (patch.queue?.heavyJobTypes !== undefined) {
       const allowed = new Set<JobType>(JOB_TYPES);
       const invalid = patch.queue.heavyJobTypes.some((item) => !allowed.has(item));
       if (invalid) {
@@ -127,24 +144,30 @@ export class WorkerSettingsService {
       }
     }
 
-    if (patch.queue.heavyJobDelayMs !== undefined && patch.queue.heavyJobDelayMs < 0) {
+    if (patch.queue?.heavyJobDelayMs !== undefined && patch.queue.heavyJobDelayMs < 0) {
       throw new ApiError(400, "worker_settings_invalid_delay");
     }
 
-    if (patch.queue.heavyWindowStart !== undefined && !TIME_PATTERN.test(patch.queue.heavyWindowStart)) {
+    if (patch.queue?.heavyWindowStart !== undefined && !TIME_PATTERN.test(patch.queue.heavyWindowStart)) {
       throw new ApiError(400, "worker_settings_invalid_start_time");
     }
 
-    if (patch.queue.heavyWindowEnd !== undefined && !TIME_PATTERN.test(patch.queue.heavyWindowEnd)) {
+    if (patch.queue?.heavyWindowEnd !== undefined && !TIME_PATTERN.test(patch.queue.heavyWindowEnd)) {
       throw new ApiError(400, "worker_settings_invalid_end_time");
     }
 
-    if (patch.queue.heavyConcurrency !== undefined && (patch.queue.heavyConcurrency < 1 || !Number.isInteger(patch.queue.heavyConcurrency))) {
+    if (patch.queue?.heavyConcurrency !== undefined && (patch.queue.heavyConcurrency < 1 || !Number.isInteger(patch.queue.heavyConcurrency))) {
       throw new ApiError(400, "worker_settings_invalid_heavy_concurrency");
     }
 
-    if (patch.queue.fastConcurrency !== undefined && (patch.queue.fastConcurrency < 0 || !Number.isInteger(patch.queue.fastConcurrency))) {
+    if (patch.queue?.fastConcurrency !== undefined && (patch.queue.fastConcurrency < 0 || !Number.isInteger(patch.queue.fastConcurrency))) {
       throw new ApiError(400, "worker_settings_invalid_fast_concurrency");
+    }
+
+    if (patch.parity?.intervalMs !== undefined) {
+      if (patch.parity.intervalMs < 60_000 || !Number.isInteger(patch.parity.intervalMs)) {
+        throw new ApiError(400, "worker_settings_invalid_parity_interval");
+      }
     }
   }
 
@@ -164,6 +187,10 @@ export class WorkerSettingsService {
         heavyWindowEnd: process.env.HEAVY_JOB_WINDOW_END || "05:00",
         heavyConcurrency: Math.max(1, parseNumberEnv("WORKER_CONCURRENCY_HEAVY", parseNumberEnv("WORKER_CONCURRENCY", 1))),
         fastConcurrency: Math.max(0, parseNumberEnv("WORKER_CONCURRENCY_FAST", 0)),
+      },
+      parity: {
+        enabled: String(process.env.PARITY_SCAN_ENABLED || "true") === "true",
+        intervalMs: Math.max(60_000, parseNumberEnv("PARITY_SCAN_INTERVAL_MS", 3_600_000)),
       },
     });
   }

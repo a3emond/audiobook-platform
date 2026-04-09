@@ -8,6 +8,7 @@ import { MetadataService } from "../services/metadata.service.js";
 import { computeFileSha256, formatSha256 } from "../services/checksum.service.js";
 import { atomicWriteFile } from "../utils/atomic-write.js";
 import { normalizeOptionalText } from "../utils/normalize.js";
+import { JobLogger } from "../utils/job-logger.js";
 
 const ffmpeg = new FFmpegService();
 const fileService = new FileService();
@@ -38,6 +39,7 @@ interface BookRecord {
 export async function handleReplaceFileJob(
 	job: JobDocument,
 ): Promise<Record<string, unknown>> {
+	const logger = new JobLogger(String(job._id));
 	const payload = job.payload as ReplaceFileJobPayload;
 
 	if (!payload.bookId || !mongoose.Types.ObjectId.isValid(payload.bookId)) {
@@ -70,8 +72,7 @@ export async function handleReplaceFileJob(
 		throw new Error(`replace_file_missing_file_path:${payload.bookId}`);
 	}
 
-	console.info("replace-file job started", {
-		jobId: String(job._id),
+	logger.info("Replace file job started", {
 		bookId: payload.bookId,
 		sourcePath: payload.sourcePath,
 		targetPath: book.filePath,
@@ -93,6 +94,10 @@ export async function handleReplaceFileJob(
 	try {
 		const probeInfo = await ffmpeg.probeFile(payload.sourcePath);
 		const checksum = formatSha256(await computeFileSha256(payload.sourcePath));
+		logger.info("Source file analyzed", {
+			duration: Math.round(probeInfo.duration),
+			checksum,
+		});
 
 		await ffmpeg.extractMetadata(payload.sourcePath, metadataPath);
 		const extractedMetadata = await metadataService.parseFFmetadata(metadataPath);
@@ -107,10 +112,10 @@ export async function handleReplaceFileJob(
 				const finalCoverPath = path.join(path.dirname(book.filePath), "cover.jpg");
 				await fileService.moveFile(coverTmpPath, finalCoverPath);
 				coverPath = finalCoverPath;
+				logger.info("Cover refreshed from replacement file", { coverPath });
 			}
 		} catch (error) {
-			console.warn("replace-file cover extraction failed (non-fatal)", {
-				jobId: String(job._id),
+			logger.warn("Cover extraction failed (non-fatal)", {
 				bookId: payload.bookId,
 				error: error instanceof Error ? error.message : String(error),
 			});
@@ -148,8 +153,7 @@ export async function handleReplaceFileJob(
 			{ $set: metadataUpdate },
 		);
 
-		console.info("replace-file job completed", {
-			jobId: String(job._id),
+		logger.info("Replace file job completed", {
 			bookId: payload.bookId,
 			checksum,
 			duration: Math.round(probeInfo.duration),
@@ -165,6 +169,11 @@ export async function handleReplaceFileJob(
 			coverPath,
 		};
 	} catch (error) {
+		logger.error("Replace file job failed", {
+			bookId: payload.bookId,
+			error: error instanceof Error ? error.message : String(error),
+		});
+
 		await booksCollection.updateOne(
 			{ _id: bookId },
 			{
@@ -179,5 +188,6 @@ export async function handleReplaceFileJob(
 	} finally {
 		await fileService.deleteFile(metadataPath);
 		await fileService.deleteFile(coverTmpPath);
+		await logger.persist();
 	}
 }

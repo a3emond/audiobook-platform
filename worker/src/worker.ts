@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import mongoose from "mongoose";
 
 import { JobRunner } from "./queue/job.runner.js";
+import { ParitySchedulerService } from "./services/parity-scheduler.service.js";
 
 dotenv.config();
 
@@ -17,6 +18,7 @@ function requireEnv(name: string): string {
 const mongoUri = requireEnv("MONGO_URI");
 
 let runner: JobRunner | null = null;
+let parityScheduler: ParitySchedulerService | null = null;
 
 async function startWorker(): Promise<void> {
 	await mongoose.connect(mongoUri);
@@ -24,6 +26,9 @@ async function startWorker(): Promise<void> {
 
 	runner = new JobRunner();
 	await runner.start();
+
+	parityScheduler = new ParitySchedulerService();
+	parityScheduler.start();
 
 	console.info("Worker started");
 }
@@ -34,6 +39,11 @@ async function shutdown(signal: string): Promise<void> {
 	if (runner) {
 		await runner.stop();
 		runner = null;
+	}
+
+	if (parityScheduler) {
+		await parityScheduler.stop();
+		parityScheduler = null;
 	}
 
 	await mongoose.connection.close();

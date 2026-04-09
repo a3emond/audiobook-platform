@@ -123,7 +123,7 @@ export interface ListJobsResponse {
 }
 
 export interface WorkerQueueSettings {
-  heavyJobTypes: Array<'INGEST' | 'INGEST_MP3_AS_M4B' | 'RESCAN' | 'WRITE_METADATA' | 'EXTRACT_COVER' | 'REPLACE_COVER' | 'DELETE_BOOK' | 'REPLACE_FILE'>;
+  heavyJobTypes: Array<'INGEST' | 'INGEST_MP3_AS_M4B' | 'SANITIZE_MP3_TO_M4B' | 'RESCAN' | 'WRITE_METADATA' | 'EXTRACT_COVER' | 'REPLACE_COVER' | 'DELETE_BOOK' | 'REPLACE_FILE'>;
   heavyJobDelayMs: number;
   heavyWindowEnabled: boolean;
   heavyWindowStart: string;
@@ -132,8 +132,14 @@ export interface WorkerQueueSettings {
   fastConcurrency: number;
 }
 
+export interface WorkerParitySettings {
+  enabled: boolean;
+  intervalMs: number;
+}
+
 export interface WorkerSettings {
   queue: WorkerQueueSettings;
+  parity: WorkerParitySettings;
   updatedAt?: string;
 }
 

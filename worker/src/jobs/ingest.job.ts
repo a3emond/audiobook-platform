@@ -8,6 +8,7 @@ import { MetadataService } from "../services/metadata.service.js";
 import { computeFileSha256, formatSha256 } from "../services/checksum.service.js";
 import { atomicWriteFile } from "../utils/atomic-write.js";
 import { normalizeOptionalText } from "../utils/normalize.js";
+import { JobLogger } from "../utils/job-logger.js";
 
 const ffmpeg = new FFmpegService();
 const fileService = new FileService();
@@ -41,62 +42,52 @@ export interface IngestJobPayload {
 export async function handleIngestJob(
   job: JobDocument,
 ): Promise<Record<string, unknown>> {
+  const logger = new JobLogger(String(job._id));
   const payload = job.payload as IngestJobPayload;
+  const metadataPath = `/tmp/metadata-${job._id}.txt`;
 
-  if (!payload.sourcePath) {
-    throw new Error("ingest_payload_invalid: missing sourcePath");
-  }
+  try {
+    if (!payload.sourcePath) {
+      throw new Error("ingest_payload_invalid: missing sourcePath");
+    }
 
-  const sourcePath = payload.sourcePath;
-  const cleanupSource = payload.cleanupSource === true;
-  const language = payload.language === "fr" || payload.language === "en" ? payload.language : "en";
-  const sourceExists = await fileService.exists(sourcePath);
+    const sourcePath = payload.sourcePath;
+    const cleanupSource = payload.cleanupSource === true;
+    const language = payload.language === "fr" || payload.language === "en" ? payload.language : "en";
+    const sourceExists = await fileService.exists(sourcePath);
 
-  if (!sourceExists) {
-    throw new Error(`ingest_source_not_found: ${sourcePath}`);
-  }
+    if (!sourceExists) {
+      throw new Error(`ingest_source_not_found: ${sourcePath}`);
+    }
 
-  console.info("ingest job started", {
-    jobId: String(job._id),
-    sourcePath,
-  });
+    logger.info("Ingest job started", { sourcePath });
 
   // -----------------------------------------------
   // 1. Probe file and extract basic metadata
   // -----------------------------------------------
-  const probeInfo = await ffmpeg.probeFile(sourcePath);
+    const probeInfo = await ffmpeg.probeFile(sourcePath);
 
-  console.info("ingest: file probed", {
-    jobId: String(job._id),
-    duration: probeInfo.duration,
-    format: probeInfo.format,
-  });
+    logger.info("Source file probed", { duration: probeInfo.duration, format: probeInfo.format });
 
   // -----------------------------------------------
   // 2. Compute checksum
   // -----------------------------------------------
-  const checksumHex = await computeFileSha256(sourcePath);
-  const checksum = formatSha256(checksumHex);
+    const checksumHex = await computeFileSha256(sourcePath);
+    const checksum = formatSha256(checksumHex);
 
-  console.info("ingest: checksum computed", {
-    jobId: String(job._id),
-    checksum,
-  });
+    logger.info("Checksum computed", { checksum });
 
   // -----------------------------------------------
   // 3. Extract and parse metadata from M4B
   // -----------------------------------------------
-  const metadataPath = `/tmp/metadata-${job._id}.txt`;
 
-  try {
     await ffmpeg.extractMetadata(sourcePath, metadataPath);
 
     const extractedMetadata = await metadataService.parseFFmetadata(
       metadataPath,
     );
 
-    console.info("ingest: metadata extracted", {
-      jobId: String(job._id),
+    logger.info("Metadata extracted", {
       title: extractedMetadata.title,
       artist: extractedMetadata.artist,
       chapters: extractedMetadata.chapters.length,
@@ -141,8 +132,7 @@ export async function handleIngestJob(
 
     await fileService.createDirIfNeeded(bookDir);
 
-    console.info("ingest: book directory created", {
-      jobId: String(job._id),
+    logger.info("Book directory created", {
       bookId: String(bookId),
       bookDir,
     });
@@ -153,10 +143,7 @@ export async function handleIngestJob(
     const audioPath = path.join(bookDir, "audio.m4b");
     await atomicWriteFile(audioPath, sourcePath);
 
-    console.info("ingest: audio file copied", {
-      jobId: String(job._id),
-      audioPath,
-    });
+    logger.info("Audio file copied", { audioPath });
 
     // -----------------------------------------------
     // 6. Extract and save cover (if present)
@@ -173,14 +160,10 @@ export async function handleIngestJob(
         coverPath = path.join(bookDir, "cover.jpg");
         await fileService.moveFile(tmpCoverPath, coverPath);
 
-        console.info("ingest: cover extracted", {
-          jobId: String(job._id),
-          coverPath,
-        });
+        logger.info("Cover extracted", { coverPath });
       }
     } catch (error) {
-      console.warn("ingest: cover extraction failed (non-fatal)", {
-        jobId: String(job._id),
+      logger.warn("Cover extraction failed (non-fatal)", {
         error: error instanceof Error ? error.message : String(error),
       });
     }
@@ -208,8 +191,7 @@ export async function handleIngestJob(
       );
     }
 
-    console.info("ingest job completed", {
-      jobId: String(job._id),
+    logger.info("Ingest job completed", {
       bookId: String(bookId),
       title: extractedMetadata.title || "Unknown Title",
       author: extractedMetadata.artist || "Unknown Author",
@@ -235,12 +217,14 @@ export async function handleIngestJob(
       author: extractedMetadata.artist || "Unknown Author",
       chapters: extractedMetadata.chapters.length,
     };
+  } catch (error) {
+    logger.error("Ingest job failed", {
+      error: error instanceof Error ? error.message : String(error),
+      sourcePath: payload.sourcePath,
+    });
+    throw error;
   } finally {
-    // Clean up temporary metadata file
-    try {
-      await fileService.deleteFile(metadataPath);
-    } catch {
-      /* ignore cleanup errors */
-    }
+    await fileService.deleteFile(metadataPath).catch(() => undefined);
+    await logger.persist();
   }
 }

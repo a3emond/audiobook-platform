@@ -59,6 +59,17 @@ const workerSettingsSchema = new Schema(
         default: 0,
       },
     },
+    parity: {
+      enabled: {
+        type: Boolean,
+        default: true,
+      },
+      intervalMs: {
+        type: Number,
+        min: 60_000,
+        default: 3_600_000,
+      },
+    },
   },
   {
     timestamps: { createdAt: true, updatedAt: true },
@@ -76,6 +87,10 @@ export type WorkerSettings = InferSchemaType<typeof workerSettingsSchema> & {
     heavyWindowEnd: string;
     heavyConcurrency: number;
     fastConcurrency: number;
+  };
+  parity: {
+    enabled: boolean;
+    intervalMs: number;
   };
 };
 

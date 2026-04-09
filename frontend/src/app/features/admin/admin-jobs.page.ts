@@ -2,8 +2,13 @@ import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-import { AdminJob, AdminService, JobEventStreamHandle, WorkerQueueSettings } from '../../core/services/admin.service';
+import { AdminJob, AdminService, JobEventStreamHandle, WorkerQueueSettings, WorkerSettings } from '../../core/services/admin.service';
 import { AdminJobLogsComponent } from './admin-job-logs.component';
+
+interface WorkerSettingsDraft extends WorkerQueueSettings {
+	parityEnabled: boolean;
+	parityIntervalMinutes: number;
+}
 
 @Component({
 selector: 'app-admin-jobs-page',
@@ -26,7 +31,7 @@ template: `
 		<section class="settings-panel" *ngIf="settingsDraft() as s">
 			<div class="settings-header">
 				<h2 class="settings-title">Worker Queue Settings</h2>
-				<p class="settings-help">Configure scheduling behaviour for heavy background jobs.</p>
+				<p class="settings-help">Configure queue lanes and the automated parity scan loop.</p>
 			</div>
 
 			<!-- Scheduling controls -->
@@ -67,6 +72,27 @@ template: `
 					<span class="field-label">End</span>
 					<input type="time" class="field-input" [(ngModel)]="s.heavyWindowEnd" [disabled]="!s.heavyWindowEnabled" />
 				</label>
+			</div>
+
+			<div class="parity-row">
+				<div class="toggle-field">
+					<span class="field-label">Parity scan</span>
+					<div class="toggle-row">
+						<button type="button" class="toggle-switch" [class.on]="s.parityEnabled"
+							[attr.aria-checked]="s.parityEnabled" role="switch"
+							(click)="s.parityEnabled = !s.parityEnabled">
+							<span class="toggle-thumb"></span>
+						</button>
+						<span class="toggle-hint">{{ s.parityEnabled ? 'Enabled' : 'Disabled' }}</span>
+					</div>
+				</div>
+
+				<label class="field" [class.faded]="!s.parityEnabled">
+					<span class="field-label">Every (min)</span>
+					<input type="number" min="1" class="field-input narrow" [(ngModel)]="s.parityIntervalMinutes" [disabled]="!s.parityEnabled" />
+				</label>
+
+				<p class="parity-help">Queues a full rescan on a timer and skips duplicate parity jobs automatically.</p>
 			</div>
 
 			<!-- Heavy job type chips -->
@@ -189,6 +215,18 @@ styles: [
 	.settings-header { display: flex; flex-direction: column; gap: 0.15rem; }
 	.settings-title { margin: 0; font-size: 0.9rem; font-weight: 600; }
 	.settings-help { margin: 0; font-size: 0.8rem; color: var(--color-text-muted); }
+	.parity-row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		gap: 1rem;
+	}
+	.parity-help {
+		margin: 0;
+		font-size: 0.78rem;
+		color: var(--color-text-muted);
+		max-width: 34rem;
+	}
 
 	.field-label {
 		display: block;
@@ -423,12 +461,13 @@ export class AdminJobsPage implements OnInit, OnDestroy {
 	readonly mode = signal<'stream' | 'poll'>('stream');
 	readonly error = signal<string | null>(null);
 	readonly selectedJobId = signal<string | null>(null);
-	readonly settingsDraft = signal<WorkerQueueSettings | null>(null);
+	readonly settingsDraft = signal<WorkerSettingsDraft | null>(null);
 	readonly savingSettings = signal(false);
 	readonly settingsMessage = signal<string | null>(null);
 	readonly allJobTypes: WorkerQueueSettings['heavyJobTypes'] = [
 		'INGEST',
 		'INGEST_MP3_AS_M4B',
+		'SANITIZE_MP3_TO_M4B',
 		'RESCAN',
 		'WRITE_METADATA',
 		'EXTRACT_COVER',
@@ -480,7 +519,7 @@ Array.from(merged.values()).sort((a, b) =>
 		this.selectedJobId.set(job.id);
 	}
 
-	toggleHeavyType(draft: WorkerQueueSettings, type: WorkerQueueSettings['heavyJobTypes'][number], checked: boolean): void {
+	toggleHeavyType(draft: WorkerSettingsDraft, type: WorkerQueueSettings['heavyJobTypes'][number], checked: boolean): void {
 		if (checked) {
 			if (!draft.heavyJobTypes.includes(type)) draft.heavyJobTypes = [...draft.heavyJobTypes, type];
 		} else {
@@ -492,15 +531,7 @@ Array.from(merged.values()).sort((a, b) =>
 		this.settingsMessage.set(null);
 		this.admin.getWorkerSettings().subscribe({
 next: (settings) => {
-				this.settingsDraft.set({
-heavyJobTypes: [...settings.queue.heavyJobTypes],
-heavyJobDelayMs: settings.queue.heavyJobDelayMs,
-heavyWindowEnabled: settings.queue.heavyWindowEnabled,
-heavyWindowStart: settings.queue.heavyWindowStart,
-heavyWindowEnd: settings.queue.heavyWindowEnd,
-heavyConcurrency: settings.queue.heavyConcurrency,
-fastConcurrency: settings.queue.fastConcurrency,
-});
+				this.settingsDraft.set(this.toDraft(settings));
 			},
 			error: () => this.settingsMessage.set('Could not load worker settings'),
 		});
@@ -514,18 +545,10 @@ fastConcurrency: settings.queue.fastConcurrency,
 
 		this.savingSettings.set(true);
 		this.settingsMessage.set(null);
-		this.admin.updateWorkerSettings({ queue: draft }).subscribe({
+		this.admin.updateWorkerSettings(this.fromDraft(draft)).subscribe({
 next: (saved) => {
 				this.savingSettings.set(false);
-				this.settingsDraft.set({
-heavyJobTypes: [...saved.queue.heavyJobTypes],
-heavyJobDelayMs: saved.queue.heavyJobDelayMs,
-heavyWindowEnabled: saved.queue.heavyWindowEnabled,
-heavyWindowStart: saved.queue.heavyWindowStart,
-heavyWindowEnd: saved.queue.heavyWindowEnd,
-heavyConcurrency: saved.queue.heavyConcurrency,
-fastConcurrency: saved.queue.fastConcurrency,
-});
+				this.settingsDraft.set(this.toDraft(saved));
 				this.settingsMessage.set('Worker settings saved');
 			},
 			error: () => {
@@ -537,5 +560,37 @@ fastConcurrency: saved.queue.fastConcurrency,
 
 	ngOnDestroy(): void {
 		this.streamHandle?.stop();
+	}
+
+	private toDraft(settings: WorkerSettings): WorkerSettingsDraft {
+		return {
+			heavyJobTypes: [...settings.queue.heavyJobTypes],
+			heavyJobDelayMs: settings.queue.heavyJobDelayMs,
+			heavyWindowEnabled: settings.queue.heavyWindowEnabled,
+			heavyWindowStart: settings.queue.heavyWindowStart,
+			heavyWindowEnd: settings.queue.heavyWindowEnd,
+			heavyConcurrency: settings.queue.heavyConcurrency,
+			fastConcurrency: settings.queue.fastConcurrency,
+			parityEnabled: settings.parity.enabled,
+			parityIntervalMinutes: Math.max(1, Math.round(settings.parity.intervalMs / 60_000)),
+		};
+	}
+
+	private fromDraft(draft: WorkerSettingsDraft): Partial<WorkerSettings> {
+		return {
+			queue: {
+				heavyJobTypes: [...draft.heavyJobTypes],
+				heavyJobDelayMs: draft.heavyJobDelayMs,
+				heavyWindowEnabled: draft.heavyWindowEnabled,
+				heavyWindowStart: draft.heavyWindowStart,
+				heavyWindowEnd: draft.heavyWindowEnd,
+				heavyConcurrency: draft.heavyConcurrency,
+				fastConcurrency: draft.fastConcurrency,
+			},
+			parity: {
+				enabled: draft.parityEnabled,
+				intervalMs: Math.max(60_000, Math.round(draft.parityIntervalMinutes) * 60_000),
+			},
+		};
 	}
 }
