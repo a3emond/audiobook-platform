@@ -30,6 +30,7 @@ interface RailState {
 }
 
 const AUTO_ACTIVITY_COLLECTION_ID = 'auto:listened';
+const LATEST_BOOKS_LIMIT = 20;
 
 @Component({
   selector: 'app-library-page',
@@ -132,7 +133,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
         const filterBooks = (books: Book[]): Book[] =>
           showCompleted ? books : books.filter((b) => !completedIds.has(b.id));
 
-        this.latestBooks.set(filterBooks(booksResponse.books));
+        this.latestBooks.set(filterBooks(booksResponse.books).slice(0, LATEST_BOOKS_LIMIT));
 
         this.library.listSeries({ q: this.q || undefined, limit: 10, offset: 0 }).subscribe({
           next: (seriesResponse) => {

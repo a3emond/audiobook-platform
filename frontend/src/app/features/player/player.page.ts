@@ -10,12 +10,13 @@ import { LibraryService } from '../../core/services/library.service';
 import { PlayerService } from '../../core/services/player.service';
 import { ProgressService } from '../../core/services/progress.service';
 import { StatsService } from '../../core/services/stats.service';
+import { ReadMoreComponent } from '../../shared/ui/read-more/read-more.component';
 import { PlayerControlsComponent } from './controls';
 
 @Component({
 	selector: 'app-player-page',
 	standalone: true,
-	imports: [CommonModule, RouterLink, PlayerControlsComponent],
+	imports: [CommonModule, RouterLink, PlayerControlsComponent, ReadMoreComponent],
 	template: `
 		<section class="page page-shell player-page">
 			<header class="hero" *ngIf="book() as currentBook">
@@ -143,7 +144,7 @@ import { PlayerControlsComponent } from './controls';
 
 					<article class="detail-card" *ngIf="currentBook.tags?.length">
 						<h3>Tags</h3>
-						<p>{{ currentBook.tags?.join(' • ') }}</p>
+						<app-read-more [text]="currentBook.tags?.join(' • ') ?? ''" [limit]="120" />
 					</article>
 
 					<article class="detail-card">
@@ -154,7 +155,7 @@ import { PlayerControlsComponent } from './controls';
 
 				<div class="description" *ngIf="resolvedDescription() as description; else noDescription">
 					<h3>Description</h3>
-					<p>{{ description }}</p>
+					<app-read-more [text]="description" [limit]="280" />
 				</div>
 
 				<ng-template #noDescription>

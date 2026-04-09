@@ -5,12 +5,13 @@ import type { Book } from '../../../core/models/api.models';
 import { AuthService } from '../../../core/services/auth.service';
 import { CompletedBooksService } from '../../../core/services/completed-books.service';
 import { I18nService } from '../../../core/services/i18n.service';
+import { ReadMoreComponent } from '../../../shared/ui/read-more/read-more.component';
 import { CoverTileComponent } from '../../../shared/ui/cover-tile/cover-tile.component';
 
 @Component({
   selector: 'app-book-card',
   standalone: true,
-  imports: [RouterLink, CoverTileComponent],
+  imports: [RouterLink, CoverTileComponent, ReadMoreComponent],
   templateUrl: './book-card.component.html',
   styleUrl: './book-card.component.css',
 })

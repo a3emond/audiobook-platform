@@ -33,11 +33,11 @@
               <p><strong>{{ i18n.t('book.genre') }}</strong> {{ book.genre }}</p>
             }
             @if (book.tags && book.tags.length > 0) {
-              <p><strong>{{ i18n.t('book.tags') }}</strong> {{ book.tags.join(', ') }}</p>
+              <p><strong>{{ i18n.t('book.tags') }}</strong> <app-read-more [text]="book.tags.join(', ')" [limit]="80" /></p>
             }
           </div>
 
-          <p class="description">{{ descriptionText() }}</p>
+          <app-read-more class="description" [text]="descriptionText()" [limit]="220" />
 
           <div class="actions">
             <a class="play" [routerLink]="['/player', book.id]" (click)="closeDetails()">{{ i18n.t('common.play') }}</a>
