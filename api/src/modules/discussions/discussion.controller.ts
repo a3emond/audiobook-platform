@@ -17,12 +17,7 @@ function parseLang(value: string | undefined): DiscussionLang {
 }
 
 function parseChannel(value: string | undefined): DiscussionChannelKey {
-  if (
-    value === "general" ||
-    value === "book-requests" ||
-    value === "series-talk" ||
-    value === "recommendations"
-  ) {
+  if (value && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value)) {
     return value;
   }
 
@@ -33,9 +28,11 @@ export class DiscussionController {
   static listChannels(
     req: Request<unknown, unknown, unknown, { lang?: string }>,
     res: Response,
-  ): void {
+  ): Promise<void> {
     const lang = parseLang(req.query.lang ?? "en");
-    res.status(200).json({ channels: DiscussionService.listChannels(lang) });
+    return DiscussionService.listChannels(lang).then((channels) => {
+      res.status(200).json({ channels });
+    });
   }
 
   static async listMessages(
@@ -63,7 +60,11 @@ export class DiscussionController {
   }
 
   static async postMessage(
-    req: Request<{ lang?: string; channelKey?: string }, unknown, { body?: string }>,
+    req: Request<
+      { lang?: string; channelKey?: string },
+      unknown,
+      { body?: string; replyToMessageId?: string }
+    >,
     res: Response,
   ): Promise<void> {
     const userId = (req as AuthenticatedRequest).user?.id as string;
@@ -75,8 +76,64 @@ export class DiscussionController {
       lang,
       channelKey,
       req.body.body ?? "",
+      req.body.replyToMessageId,
     );
 
     res.status(201).json(message);
+  }
+
+  static async deleteMessageByAdmin(
+    req: Request<{ lang?: string; channelKey?: string; messageId?: string }>,
+    res: Response,
+  ): Promise<void> {
+    const authReq = req as AuthenticatedRequest;
+    if (authReq.user?.role !== "admin") {
+      throw new ApiError(403, "forbidden");
+    }
+
+    const lang = parseLang(req.params.lang);
+    const channelKey = parseChannel(req.params.channelKey);
+    const messageId = String(req.params.messageId ?? "");
+
+    await DiscussionService.deleteMessageByAdmin(lang, channelKey, messageId);
+    res.status(204).end();
+  }
+
+  static async createChannelByAdmin(
+    req: Request<unknown, unknown, { lang?: string; title?: string; description?: string; key?: string }>,
+    res: Response,
+  ): Promise<void> {
+    const authReq = req as AuthenticatedRequest;
+    if (authReq.user?.role !== "admin") {
+      throw new ApiError(403, "forbidden");
+    }
+
+    const lang = parseLang(req.body.lang);
+    const title = req.body.title ?? "";
+    const description = req.body.description ?? "";
+
+    const channel = await DiscussionService.createChannelByAdmin(
+      lang,
+      title,
+      description,
+      req.body.key,
+    );
+    res.status(201).json(channel);
+  }
+
+  static async deleteChannelByAdmin(
+    req: Request<{ lang?: string; channelKey?: string }>,
+    res: Response,
+  ): Promise<void> {
+    const authReq = req as AuthenticatedRequest;
+    if (authReq.user?.role !== "admin") {
+      throw new ApiError(403, "forbidden");
+    }
+
+    const lang = parseLang(req.params.lang);
+    const channelKey = parseChannel(req.params.channelKey);
+
+    await DiscussionService.deleteChannelByAdmin(lang, channelKey);
+    res.status(204).end();
   }
 }

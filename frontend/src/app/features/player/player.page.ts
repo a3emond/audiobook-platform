@@ -49,6 +49,15 @@ const SLEEP_TIMER_PAUSE_RESET_MS = 30_000;
 				<div class="meta">
 					<h1>{{ currentBook.title }}</h1>
 					<p>by {{ currentBook.author }}</p>
+					<a
+						*ngIf="auth.isAdmin()"
+						class="btn-admin-edit"
+						[routerLink]="['/admin/books', currentBook.id]"
+						target="_blank"
+						rel="noopener noreferrer"
+					>
+						Edit metadata
+					</a>
 
 					@if (!isCompleted()) {
 						<div class="progress-head">
@@ -278,6 +287,24 @@ const SLEEP_TIMER_PAUSE_RESET_MS = 30_000;
 			.meta p {
 				margin: 0.35rem 0 0;
 				color: var(--color-text-muted);
+			}
+			.btn-admin-edit {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				margin-top: 0.6rem;
+				padding: 0.32rem 0.72rem;
+				border-radius: 999px;
+				border: 1px solid rgb(255 138 0 / 0.45);
+				background: rgb(255 138 0 / 0.14);
+				color: #ffd08a;
+				font-size: 0.78rem;
+				font-weight: 700;
+				text-decoration: none;
+			}
+			.btn-admin-edit:hover {
+				background: rgb(255 138 0 / 0.24);
+				color: #fff0d6;
 			}
 			.progress-head {
 				margin-top: 0.85rem;
@@ -614,7 +641,7 @@ export class PlayerPage implements OnInit, OnDestroy {
 		private readonly progress: ProgressService,
 		private readonly stats: StatsService,
 		private readonly settings: SettingsService,
-		private readonly auth: AuthService,
+		protected readonly auth: AuthService,
 	) {
 		this.bookId = route.snapshot.paramMap.get('bookId') ?? '';
 	}

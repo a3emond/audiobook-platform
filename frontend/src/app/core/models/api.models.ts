@@ -178,13 +178,14 @@ export interface ListCollectionsResponse extends PaginationMeta {
 }
 
 export type DiscussionLanguage = 'fr' | 'en';
-export type DiscussionChannelKey = 'general' | 'book-requests' | 'series-talk' | 'recommendations';
+export type DiscussionChannelKey = string;
 
 export interface DiscussionChannel {
   key: DiscussionChannelKey;
   lang: DiscussionLanguage;
   title: string;
   description: string;
+  isDefault?: boolean;
 }
 
 export interface DiscussionMessage {
@@ -195,6 +196,13 @@ export interface DiscussionMessage {
   author: {
     id: string;
     displayName: string;
+    isAdmin: boolean;
+  };
+  replyToMessageId?: string;
+  replyTo?: {
+    id: string;
+    authorDisplayName: string;
+    bodyPreview: string;
   };
   createdAt?: string;
   updatedAt?: string;

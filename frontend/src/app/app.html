@@ -67,17 +67,31 @@
         <div class="strip-title">{{ t('app.continueListening') }}</div>
         <div class="progress-rail" role="list">
           @for (item of inProgressBooks(); track item.book.id) {
-            <a class="progress-item" [routerLink]="['/player', item.book.id]" [attr.aria-label]="progressTooltip(item.book)" [attr.title]="progressTooltip(item.book)" role="listitem">
-              <app-cover-tile
-                class="progress-cover"
-                [imageUrl]="coverUrl(item.book)"
-                [fallback]="coverInitials(item.book)"
-                [alt]="item.book.title + ' ' + t('common.cover')"
-                [completed]="isBookCompleted(item.book.id)"
-                [progressPercent]="bookProgressPercent(item.book)"
-              />
-              <div class="progress-title">{{ item.book.title }}</div>
-            </a>
+            <div class="progress-item-wrap" role="listitem">
+              <a class="progress-item" [routerLink]="['/player', item.book.id]" [attr.aria-label]="progressTooltip(item.book)" [attr.title]="progressTooltip(item.book)">
+                <app-cover-tile
+                  class="progress-cover"
+                  [imageUrl]="coverUrl(item.book)"
+                  [fallback]="coverInitials(item.book)"
+                  [alt]="item.book.title + ' ' + t('common.cover')"
+                  [completed]="isBookCompleted(item.book.id)"
+                  [progressPercent]="bookProgressPercent(item.book)"
+                />
+                <div class="progress-title">{{ item.book.title }}</div>
+              </a>
+              @if (auth.isAdmin()) {
+                <a
+                  class="progress-edit"
+                  [routerLink]="['/admin/books', item.book.id]"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  [attr.aria-label]="'Edit metadata for ' + item.book.title"
+                  title="Edit metadata"
+                >
+                  Edit
+                </a>
+              }
+            </div>
           }
         </div>
       </div>

@@ -44,6 +44,16 @@
             @if (book.series) {
               <a class="open-series" [routerLink]="['/series', book.series]" (click)="closeDetails()">{{ i18n.t('series.open') }}</a>
             }
+            @if (auth.isAdmin()) {
+              <a
+                class="admin-edit"
+                [routerLink]="['/admin/books', book.id]"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Edit Metadata
+              </a>
+            }
           </div>
         </div>
       </div>

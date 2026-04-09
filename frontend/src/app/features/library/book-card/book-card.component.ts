@@ -18,7 +18,7 @@ import { CoverTileComponent } from '../../../shared/ui/cover-tile/cover-tile.com
 export class BookCardComponent {
   @Input({ required: true }) book!: Book;
 
-  private readonly auth = inject(AuthService);
+  protected readonly auth = inject(AuthService);
   private readonly libraryProgress = inject(LibraryProgressService);
   protected readonly i18n = inject(I18nService);
   readonly detailOpen = signal(false);

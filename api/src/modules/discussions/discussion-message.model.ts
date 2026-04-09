@@ -9,7 +9,6 @@ const discussionMessageSchema = new Schema(
   {
     channelKey: {
       type: String,
-      enum: ["general", "book-requests", "series-talk", "recommendations"],
       required: true,
       index: true,
     },
@@ -31,6 +30,12 @@ const discussionMessageSchema = new Schema(
       trim: true,
       minlength: 1,
       maxlength: 2000,
+    },
+    replyToMessageId: {
+      type: Schema.Types.ObjectId,
+      required: false,
+      index: true,
+      ref: "DiscussionMessage",
     },
   },
   {

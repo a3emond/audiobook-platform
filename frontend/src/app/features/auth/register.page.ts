@@ -103,12 +103,12 @@ import { OAuthButtonsComponent } from './oauth-buttons.js';
   `,
   styles: [`
     .auth-shell {
-      min-height: 100vh;
+      min-height: calc(100vh - var(--topbar-h, 3.5rem));
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 1.5rem;
-      background: var(--color-bg, #f7f8fa);
+      padding: 2rem 1rem;
+      background: transparent;
     }
 
     .auth-card {

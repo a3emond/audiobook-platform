@@ -33,9 +33,43 @@ export class DiscussionService {
     });
   }
 
-  postMessage(lang: DiscussionLanguage, channelKey: string, body: string): Observable<DiscussionMessage> {
-    return this.api.post<DiscussionMessage, { body: string }>(`/discussions/${lang}/${channelKey}/messages`, {
-      body,
-    });
+  postMessage(
+    lang: DiscussionLanguage,
+    channelKey: string,
+    body: string,
+    replyToMessageId?: string,
+  ): Observable<DiscussionMessage> {
+    return this.api.post<DiscussionMessage, { body: string; replyToMessageId?: string }>(
+      `/discussions/${lang}/${channelKey}/messages`,
+      {
+        body,
+        replyToMessageId,
+      },
+    );
+  }
+
+  deleteMessage(lang: DiscussionLanguage, channelKey: string, messageId: string): Observable<void> {
+    return this.api.delete<void>(`/discussions/${lang}/${channelKey}/messages/${messageId}`);
+  }
+
+  createChannel(
+    lang: DiscussionLanguage,
+    title: string,
+    description: string,
+    key?: string,
+  ): Observable<DiscussionChannel> {
+    return this.api.post<DiscussionChannel, { lang: DiscussionLanguage; title: string; description: string; key?: string }>(
+      '/discussions/channels',
+      {
+        lang,
+        title,
+        description,
+        key,
+      },
+    );
+  }
+
+  deleteChannel(lang: DiscussionLanguage, channelKey: string): Observable<void> {
+    return this.api.delete<void>(`/discussions/${lang}/${channelKey}`);
   }
 }

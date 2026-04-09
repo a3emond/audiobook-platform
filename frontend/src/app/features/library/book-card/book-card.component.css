@@ -98,7 +98,8 @@
 }
 
 .play,
-.open-series {
+.open-series,
+.admin-edit {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -115,6 +116,12 @@
   background: #1a1a1a;
   color: #ffe6be;
   border: 1px solid #3a3a3a;
+}
+
+.admin-edit {
+  background: rgb(255 138 0 / 0.14);
+  color: #ffd08a;
+  border: 1px solid rgb(255 138 0 / 0.38);
 }
 
 @media (max-width: 780px) {
