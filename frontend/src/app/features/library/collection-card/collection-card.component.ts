@@ -3,8 +3,9 @@ import { Component, Input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import type { Collection } from '../../../core/models/api.models';
-import { CompletedBooksService } from '../../../core/services/completed-books.service';
 import { I18nService } from '../../../core/services/i18n.service';
+import { LibraryProgressService } from '../../../core/services/library-progress.service';
+import { CoverTileComponent } from '../../../shared/ui/cover-tile/cover-tile.component';
 
 interface PreviewImage {
   bookId: string;
@@ -14,7 +15,7 @@ interface PreviewImage {
 @Component({
   selector: 'app-collection-card',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, CoverTileComponent],
   templateUrl: './collection-card.component.html',
   styleUrl: './collection-card.component.css',
 })
@@ -24,7 +25,7 @@ export class CollectionCardComponent {
   @Input() previewImages: PreviewImage[] = [];
 
   constructor(
-    private readonly completedBooks: CompletedBooksService,
+    private readonly libraryProgress: LibraryProgressService,
     protected readonly i18n: I18nService,
   ) {}
 
@@ -40,6 +41,10 @@ export class CollectionCardComponent {
   }
 
   isCompleted(bookId: string): boolean {
-    return this.completedBooks.isCompleted(bookId);
+    return this.libraryProgress.isCompleted(bookId);
+  }
+
+  progressPercent(bookId: string): number | null {
+    return this.libraryProgress.progressPercentByBookId(bookId);
   }
 }

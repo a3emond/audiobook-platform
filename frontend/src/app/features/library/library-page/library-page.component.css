@@ -99,6 +99,24 @@
   letter-spacing: -0.01em;
 }
 
+.row-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.series-progress-pill {
+  border: 1px solid rgb(255 138 0 / 0.32);
+  background: rgb(255 138 0 / 0.14);
+  color: #ffe6be;
+  border-radius: 999px;
+  padding: 0.18rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .row-head a {
   font-size: 0.84rem;
   white-space: nowrap;

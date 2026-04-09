@@ -6,12 +6,13 @@ import { Subscription } from 'rxjs';
 
 import type { Book, Progress } from './core/models/api.models';
 import { AuthService } from './core/services/auth.service';
-import { CompletedBooksService } from './core/services/completed-books.service';
+import { LibraryProgressService } from './core/services/library-progress.service';
 import { LibraryService } from './core/services/library.service';
 import { ProgressService } from './core/services/progress.service';
 import { SettingsService } from './core/services/settings.service';
 import { I18nService } from './core/services/i18n.service';
 import { RealtimeService } from './core/services/realtime.service';
+import { CoverTileComponent } from './shared/ui/cover-tile/cover-tile.component';
 
 interface InProgressBookItem {
   book: Book;
@@ -25,7 +26,7 @@ interface ToastItem {
 
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet, CoverTileComponent],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
@@ -42,7 +43,7 @@ export class App implements OnDestroy {
     private readonly router: Router,
     private readonly progressService: ProgressService,
     private readonly libraryService: LibraryService,
-    private readonly completedBooks: CompletedBooksService,
+    private readonly libraryProgress: LibraryProgressService,
     private readonly settingsService: SettingsService,
     protected readonly i18n: I18nService,
     private readonly realtime: RealtimeService,
@@ -177,7 +178,24 @@ export class App implements OnDestroy {
   }
 
   isBookCompleted(bookId: string): boolean {
-    return this.completedBooks.isCompleted(bookId);
+    return this.libraryProgress.isCompleted(bookId);
+  }
+
+  bookProgressPercent(book: Book): number | null {
+    return this.libraryProgress.progressPercentForBook(book);
+  }
+
+  progressTooltip(book: Book): string {
+    if (this.isBookCompleted(book.id)) {
+      return `${book.title} - ${this.t('common.completed')}`;
+    }
+
+    const percent = this.bookProgressPercent(book);
+    if (typeof percent === 'number' && percent > 0) {
+      return `${book.title} - ${this.t('common.inProgress')} (${percent}%)`;
+    }
+
+    return book.title;
   }
 
   private loadInProgressBooks(): void {

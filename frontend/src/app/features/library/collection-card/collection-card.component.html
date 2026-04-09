@@ -2,13 +2,15 @@
   <a class="cover-fan" [routerLink]="['/collections', collection.id]">
     @for (preview of previewImages.slice(0, 3); track preview.url; let i = $index) {
       <div class="fan-image-wrap" [class.i0]="i === 0" [class.i1]="i === 1" [class.i2]="i === 2">
-        <img class="fan-image" [src]="preview.url" [alt]="collection.name + ' cover ' + (i + 1)" />
-        @if (isCompleted(preview.bookId)) {
-          <div class="cover-completed-overlay">
-            <span class="check">✓</span>
-            <span>{{ i18n.t('common.completed') }}</span>
-          </div>
-        }
+        <app-cover-tile
+          class="fan-image"
+          [imageUrl]="preview.url"
+          [fallback]="fallbackLabel()"
+          [alt]="collection.name + ' cover ' + (i + 1)"
+          [aspectRatio]="'78 / 98'"
+          [completed]="isCompleted(preview.bookId)"
+          [progressPercent]="progressPercent(preview.bookId)"
+        />
       </div>
     }
 

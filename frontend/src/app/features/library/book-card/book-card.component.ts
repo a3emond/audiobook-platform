@@ -3,8 +3,8 @@ import { RouterLink } from '@angular/router';
 
 import type { Book } from '../../../core/models/api.models';
 import { AuthService } from '../../../core/services/auth.service';
-import { CompletedBooksService } from '../../../core/services/completed-books.service';
 import { I18nService } from '../../../core/services/i18n.service';
+import { LibraryProgressService } from '../../../core/services/library-progress.service';
 import { ReadMoreComponent } from '../../../shared/ui/read-more/read-more.component';
 import { CoverTileComponent } from '../../../shared/ui/cover-tile/cover-tile.component';
 
@@ -19,7 +19,7 @@ export class BookCardComponent {
   @Input({ required: true }) book!: Book;
 
   private readonly auth = inject(AuthService);
-  private readonly completedBooks = inject(CompletedBooksService);
+  private readonly libraryProgress = inject(LibraryProgressService);
   protected readonly i18n = inject(I18nService);
   readonly detailOpen = signal(false);
 
@@ -63,7 +63,11 @@ export class BookCardComponent {
   }
 
   isCompleted(): boolean {
-    return this.completedBooks.isCompleted(this.book.id);
+    return this.libraryProgress.isCompleted(this.book.id);
+  }
+
+  progressPercent(): number | null {
+    return this.libraryProgress.progressPercentForBook(this.book);
   }
 
   openDetails(): void {

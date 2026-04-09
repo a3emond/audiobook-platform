@@ -1,20 +1,34 @@
 @if (imageUrl && !imageFailed) {
-  <div class="cover" [attr.aria-label]="alt">
+  <div class="cover" [attr.aria-label]="alt" [style.--cover-aspect]="aspectRatio">
     <img [src]="imageUrl" [attr.alt]="alt" (error)="onError()" />
     @if (completed) {
-      <div class="completed-overlay">
+      <div class="status-overlay completed-overlay">
         <span class="check">✓</span>
         <span>{{ 'common.completed' | t }}</span>
+      </div>
+    } @else if (showProgressOverlay()) {
+      <div class="status-overlay progress-overlay">
+        <span class="percent">{{ normalizedProgressPercent() }}%</span>
+      </div>
+      <div class="progress-bar-shell" aria-hidden="true">
+        <span class="progress-bar-fill" [style.width.%]="normalizedProgressPercent()"></span>
       </div>
     }
   </div>
 } @else {
-  <div class="cover fallback" [attr.aria-label]="alt">
+  <div class="cover fallback" [attr.aria-label]="alt" [style.--cover-aspect]="aspectRatio">
     <span>{{ fallback }}</span>
     @if (completed) {
-      <div class="completed-overlay">
+      <div class="status-overlay completed-overlay">
         <span class="check">✓</span>
         <span>{{ 'common.completed' | t }}</span>
+      </div>
+    } @else if (showProgressOverlay()) {
+      <div class="status-overlay progress-overlay">
+        <span class="percent">{{ normalizedProgressPercent() }}%</span>
+      </div>
+      <div class="progress-bar-shell" aria-hidden="true">
+        <span class="progress-bar-fill" [style.width.%]="normalizedProgressPercent()"></span>
       </div>
     }
   </div>

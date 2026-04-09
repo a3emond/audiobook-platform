@@ -5,6 +5,20 @@
     <header class="hero">
       <h1>{{ s.name }}</h1>
       <p>{{ 'series.summary' | t:{ count: s.bookCount, authors: (s.authors.join(', ') || ('series.unknownAuthor' | t)) } }}</p>
+      @if (aggregateProgress(); as progress) {
+        <section class="series-progress" [attr.aria-label]="'series.progress' | t">
+          <div class="series-progress-head">
+            <span class="series-progress-label">{{ 'series.progress' | t }}</span>
+            <strong>{{ progress.percent }}%</strong>
+          </div>
+          <div class="series-progress-bar" aria-hidden="true">
+            <span [style.width.%]="progress.percent"></span>
+          </div>
+          <p>
+            {{ 'series.progressSummary' | t:{ percent: progress.percent, listened: formatDuration(progress.listenedSeconds), total: formatDuration(progress.totalSeconds) } }}
+          </p>
+        </section>
+      }
     </header>
   }
 

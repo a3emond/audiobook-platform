@@ -1,6 +1,6 @@
 <article class="book-card card">
   <button type="button" class="cover-trigger" (click)="openDetails()" [attr.aria-label]="i18n.t('book.openDetails', { title: book.title })">
-    <app-cover-tile [imageUrl]="coverUrl()" [fallback]="coverInitials()" [alt]="book.title + ' cover'" [completed]="isCompleted()" />
+    <app-cover-tile [imageUrl]="coverUrl()" [fallback]="coverInitials()" [alt]="book.title + ' cover'" [completed]="isCompleted()" [progressPercent]="progressPercent()" />
   </button>
 </article>
 
@@ -11,7 +11,7 @@
 
       <div class="modal-hero">
         <div class="modal-cover">
-          <app-cover-tile [imageUrl]="coverUrl()" [fallback]="coverInitials()" [alt]="book.title + ' cover'" [completed]="isCompleted()" />
+          <app-cover-tile [imageUrl]="coverUrl()" [fallback]="coverInitials()" [alt]="book.title + ' cover'" [completed]="isCompleted()" [progressPercent]="progressPercent()" />
         </div>
 
         <div class="modal-main">

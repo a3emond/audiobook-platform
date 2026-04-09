@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, effect, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import type { SeriesDetail } from '../../../core/models/api.models';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 import { I18nService } from '../../../core/services/i18n.service';
+import { LibraryProgressService } from '../../../core/services/library-progress.service';
 import { LibraryService } from '../../../core/services/library.service';
 import { BookCardComponent } from '../book-card/book-card.component';
 
@@ -18,12 +19,21 @@ import { BookCardComponent } from '../book-card/book-card.component';
 export class SeriesDetailPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly library = inject(LibraryService);
+  private readonly libraryProgress = inject(LibraryProgressService);
   protected readonly i18n = inject(I18nService);
   private seriesName = '';
 
   readonly series = signal<SeriesDetail | null>(null);
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
+  readonly aggregateProgress = computed(() => {
+    const currentSeries = this.series();
+    if (!currentSeries) {
+      return null;
+    }
+
+    return this.libraryProgress.aggregateProgressForBooks(currentSeries.books);
+  });
 
   constructor() {
     effect(() => {
@@ -59,5 +69,24 @@ export class SeriesDetailPageComponent implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  formatDuration(totalSeconds: number): string {
+    if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
+      return this.i18n.t('book.duration.unknown');
+    }
+
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+    if (hours > 0 && minutes > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+
+    if (hours > 0) {
+      return `${hours}h`;
+    }
+
+    return `${Math.max(1, minutes)}m`;
   }
 }

@@ -73,18 +73,15 @@
         <div class="strip-title">{{ t('app.continueListening') }}</div>
         <div class="progress-rail" role="list">
           @for (item of inProgressBooks(); track item.book.id) {
-            <a class="progress-item" [routerLink]="['/player', item.book.id]" [attr.aria-label]="item.book.title" role="listitem">
-              @if (coverUrl(item.book)) {
-                <img [src]="coverUrl(item.book)" [alt]="item.book.title + ' ' + t('common.cover')" />
-              } @else {
-                <div class="progress-fallback">{{ coverInitials(item.book) }}</div>
-              }
-              @if (isBookCompleted(item.book.id)) {
-                <div class="progress-completed-overlay">
-                  <span class="check">✓</span>
-                  <span>{{ t('common.completed') }}</span>
-                </div>
-              }
+            <a class="progress-item" [routerLink]="['/player', item.book.id]" [attr.aria-label]="progressTooltip(item.book)" [attr.title]="progressTooltip(item.book)" role="listitem">
+              <app-cover-tile
+                class="progress-cover"
+                [imageUrl]="coverUrl(item.book)"
+                [fallback]="coverInitials(item.book)"
+                [alt]="item.book.title + ' ' + t('common.cover')"
+                [completed]="isBookCompleted(item.book.id)"
+                [progressPercent]="bookProgressPercent(item.book)"
+              />
               <div class="progress-title">{{ item.book.title }}</div>
             </a>
           }

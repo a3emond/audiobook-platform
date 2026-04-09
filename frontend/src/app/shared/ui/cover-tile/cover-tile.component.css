@@ -5,7 +5,7 @@
 .cover {
   position: relative;
   width: 100%;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: var(--cover-aspect, 1 / 1);
   border-radius: 0.7rem;
   overflow: hidden;
   background: #0f172a;
@@ -28,6 +28,20 @@
   letter-spacing: 0.03em;
 }
 
+.status-overlay {
+  position: absolute;
+  inset: auto 0.45rem 0.45rem 0.45rem;
+  border-radius: 0.7rem;
+  display: grid;
+  place-content: center;
+  gap: 0.12rem;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  backdrop-filter: blur(6px);
+}
+
 .completed-overlay {
   position: absolute;
   inset: 0;
@@ -47,4 +61,35 @@
   color: #22c55e;
   font-size: 1.45rem;
   line-height: 1;
+}
+
+.progress-overlay {
+  inset: auto 0.45rem 0.7rem auto;
+  min-width: 3rem;
+  padding: 0.34rem 0.5rem;
+  background: rgb(15 23 42 / 0.72);
+  border: 1px solid rgb(255 255 255 / 0.12);
+  color: #fff4da;
+}
+
+.progress-overlay .percent {
+  font-size: 0.82rem;
+  line-height: 1;
+}
+
+.progress-bar-shell {
+  position: absolute;
+  inset: auto 0.45rem 0.45rem;
+  height: 0.38rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgb(15 23 42 / 0.58);
+  border: 1px solid rgb(255 255 255 / 0.08);
+}
+
+.progress-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ff9b28, #ffd166 72%);
 }

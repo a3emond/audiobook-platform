@@ -83,7 +83,10 @@
       @for (series of seriesRails(); track series.id) {
         <section class="row-block">
           <div class="row-head">
-            <h2>{{ series.name }}</h2>
+            <div class="row-title-wrap">
+              <h2>{{ series.name }}</h2>
+              <span class="series-progress-pill">{{ 'series.progressShort' | t:{ percent: seriesProgressPercent(series) } }}</span>
+            </div>
             <a class="open-series-btn" [routerLink]="['/series', series.name]">{{ 'series.open' | t }}</a>
           </div>
           <div class="rail-wrap" [class.fade-left]="canScrollLeft('series:' + series.id)" [class.fade-right]="canScrollRight('series:' + series.id)">

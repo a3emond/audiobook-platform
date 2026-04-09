@@ -12,6 +12,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 import { I18nService } from '../../../core/services/i18n.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { LibraryService } from '../../../core/services/library.service';
+import { LibraryProgressService } from '../../../core/services/library-progress.service';
 import { ProgressService } from '../../../core/services/progress.service';
 import { SettingsService } from '../../../core/services/settings.service';
 import { BookCardComponent } from '../book-card/book-card.component';
@@ -73,6 +74,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
     protected readonly i18n: I18nService,
     private readonly library: LibraryService,
     private readonly auth: AuthService,
+    private readonly libraryProgress: LibraryProgressService,
     private readonly settingsService: SettingsService,
     private readonly progressService: ProgressService,
   ) {
@@ -309,6 +311,10 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   hasSeriesRows(): boolean {
     return this.seriesRails().length > 0;
+  }
+
+  seriesProgressPercent(series: SeriesRail): number {
+    return this.libraryProgress.aggregateProgressForBooks(series.books).percent;
   }
 
   visibleCollections(): Collection[] {
