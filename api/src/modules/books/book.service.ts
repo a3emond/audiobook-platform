@@ -8,6 +8,7 @@ import type {
 	UpdateChaptersDTO,
 } from "../../dto/book.dto.js";
 import { ApiError } from "../../utils/api-error.js";
+import { normalizeOptionalText } from "../../utils/normalize.js";
 import { BookModel, type BookDocument } from "./book.model.js";
 import { JobModel } from "../jobs/job.model.js";
 import { buildBookQuery } from "./book.query.js";
@@ -125,7 +126,7 @@ export class BookService {
 		}
 
 		if (data.series !== undefined) {
-			updates.series = data.series;
+			updates.series = normalizeOptionalText(data.series);
 			updates["overrides.series"] = true;
 		}
 
@@ -195,7 +196,7 @@ export class BookService {
 		}
 
 		if (data.series !== undefined) {
-			writeMetadataPayload.series = data.series;
+			writeMetadataPayload.series = normalizeOptionalText(data.series);
 			shouldEnqueueWriteMetadata = true;
 		}
 

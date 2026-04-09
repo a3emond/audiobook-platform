@@ -7,6 +7,7 @@ import { FileService } from "../services/file.service.js";
 import { MetadataService } from "../services/metadata.service.js";
 import { computeFileSha256, formatSha256 } from "../services/checksum.service.js";
 import { atomicWriteFile } from "../utils/atomic-write.js";
+import { normalizeOptionalText } from "../utils/normalize.js";
 
 const ffmpeg = new FFmpegService();
 const fileService = new FileService();
@@ -136,7 +137,7 @@ export async function handleReplaceFileJob(
 			metadataUpdate.author = extractedMetadata.artist || "Unknown Author";
 		}
 		if (!overrides.series) {
-			metadataUpdate.series = extractedMetadata.album || null;
+			metadataUpdate.series = normalizeOptionalText(extractedMetadata.album);
 		}
 		if (!overrides.chapters) {
 			metadataUpdate.chapters = extractedMetadata.chapters;

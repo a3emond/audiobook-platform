@@ -7,6 +7,7 @@ import { FileService } from "../services/file.service.js";
 import { MetadataService } from "../services/metadata.service.js";
 import { computeFileSha256, formatSha256 } from "../services/checksum.service.js";
 import { atomicWriteFile } from "../utils/atomic-write.js";
+import { normalizeOptionalText } from "../utils/normalize.js";
 
 const ffmpeg = new FFmpegService();
 const fileService = new FileService();
@@ -108,7 +109,7 @@ export async function handleIngestJob(
       checksum,
       title: extractedMetadata.title || "Unknown Title",
       author: extractedMetadata.artist || "Unknown Author",
-      series: extractedMetadata.album || null,
+	      series: normalizeOptionalText(extractedMetadata.album),
       duration: Math.round(probeInfo.duration),
       chapters: extractedMetadata.chapters,
       genre: "Audiobook",

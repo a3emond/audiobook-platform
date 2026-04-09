@@ -9,6 +9,7 @@ import {
 } from "../services/metadata.service.js";
 import { FileService } from "../services/file.service.js";
 import { atomicWriteFile } from "../utils/atomic-write.js";
+import { normalizeOptionalText } from "../utils/normalize.js";
 
 const ffmpeg = new FFmpegService();
 const metadataService = new MetadataService();
@@ -153,8 +154,8 @@ export async function handleWriteMetadataJob(
 				optionalText(pickBookValue(book, "author", existing.artist)),
 			album:
 				payload.series !== undefined
-					? payload.series ?? undefined
-					: pickBookValue(book, "series", existing.album) ?? undefined,
+					? normalizeOptionalText(payload.series) ?? undefined
+					: normalizeOptionalText(pickBookValue(book, "series", existing.album)) ?? undefined,
 			genre:
 				payload.genre !== undefined
 					? payload.genre ?? undefined

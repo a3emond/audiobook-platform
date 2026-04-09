@@ -7,6 +7,7 @@ import { FileService } from "../services/file.service.js";
 import { MetadataService, type Metadata } from "../services/metadata.service.js";
 import { computeFileSha256, formatSha256 } from "../services/checksum.service.js";
 import { atomicWriteFile } from "../utils/atomic-write.js";
+import { normalizeOptionalText } from "../utils/normalize.js";
 
 const ffmpeg = new FFmpegService();
 const fileService = new FileService();
@@ -75,7 +76,7 @@ export async function handleIngestMp3AsM4BJob(
 	const fallbackTitle = path.basename(payload.sourcePath).replace(/\.[^.]+$/, "");
 	const title = payload.metadata?.title?.trim() || fallbackTitle || "Unknown Title";
 	const author = payload.metadata?.author?.trim() || "Unknown Author";
-	const series = payload.metadata?.series?.trim() || null;
+	const series = normalizeOptionalText(payload.metadata?.series);
 	const genre = payload.metadata?.genre?.trim() || "Audiobook";
 	const language = payload.metadata?.language === "fr" || payload.metadata?.language === "en"
 		? payload.metadata.language

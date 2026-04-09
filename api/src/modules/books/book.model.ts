@@ -5,6 +5,8 @@ import mongoose, {
   type Model,
 } from "mongoose";
 
+import { normalizeOptionalText } from "../../utils/normalize.js";
+
 export const FILE_SYNC_STATUSES = [
   "in_sync",
   "dirty",
@@ -135,6 +137,7 @@ const bookSchema = new Schema(
       type: String,
       trim: true,
       default: null,
+      set: (value: unknown) => normalizeOptionalText(value),
       index: true,
     },
     seriesIndex: {

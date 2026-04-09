@@ -32,6 +32,14 @@ interface RailState {
 const AUTO_ACTIVITY_COLLECTION_ID = 'auto:listened';
 const LATEST_BOOKS_LIMIT = 20;
 
+function normalizeSeriesName(seriesName: string): string {
+  return seriesName.trim().replace(/\s+/g, ' ');
+}
+
+function normalizeSeriesKey(seriesName: string): string {
+  return normalizeSeriesName(seriesName).toLocaleLowerCase();
+}
+
 @Component({
   selector: 'app-library-page',
   standalone: true,
@@ -137,7 +145,23 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
         this.library.listSeries({ q: this.q || undefined, limit: 10, offset: 0 }).subscribe({
           next: (seriesResponse) => {
-            const topSeries = seriesResponse.series.slice(0, 8);
+            const seenSeries = new Set<string>();
+            const topSeries = seriesResponse.series
+              .filter((series) => {
+                const normalizedName = normalizeSeriesName(series.name);
+                if (!normalizedName) {
+                  return false;
+                }
+
+                const key = normalizeSeriesKey(normalizedName);
+                if (seenSeries.has(key)) {
+                  return false;
+                }
+
+                seenSeries.add(key);
+                return true;
+              })
+              .slice(0, 8);
 
             if (topSeries.length === 0) {
               this.seriesRails.set([]);

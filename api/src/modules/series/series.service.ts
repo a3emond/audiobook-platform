@@ -70,6 +70,14 @@ function buildSeriesId(seriesName: string): string {
 		.replace(/^-+|-+$/g, "");
 }
 
+function normalizeSeriesName(seriesName: string): string {
+	return seriesName.trim().replace(/\s+/g, " ");
+}
+
+function normalizeSeriesKey(seriesName: string): string {
+	return normalizeSeriesName(seriesName).toLocaleLowerCase();
+}
+
 function sortSeriesBooks(books: BookDocument[]): BookDocument[] {
 	return [...books].sort((left, right) => {
 		const leftIndex = left.seriesIndex ?? Number.MAX_SAFE_INTEGER;
@@ -121,20 +129,26 @@ export class SeriesService {
 				: { series: { $exists: true, $nin: [null, ""] } };
 
 		const books = await BookModel.find(query).sort({ series: 1, seriesIndex: 1, title: 1 });
-		const groups = new Map<string, BookDocument[]>();
+		const groups = new Map<string, { name: string; books: BookDocument[] }>();
 
 		for (const book of books) {
 			if (!book.series) {
 				continue;
 			}
 
-			const current = groups.get(book.series) ?? [];
-			current.push(book);
-			groups.set(book.series, current);
+			const normalizedName = normalizeSeriesName(book.series);
+			if (!normalizedName) {
+				continue;
+			}
+
+			const key = normalizeSeriesKey(normalizedName);
+			const current = groups.get(key) ?? { name: normalizedName, books: [] };
+			current.books.push(book);
+			groups.set(key, current);
 		}
 
 		const allSeries = Array.from(groups.entries())
-			.map(([seriesName, seriesBooks]) => summarizeSeries(seriesName, sortSeriesBooks(seriesBooks)))
+			.map(([, group]) => summarizeSeries(group.name, sortSeriesBooks(group.books)))
 			.sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: "base" }));
 		const series = allSeries.slice(offset, offset + limit);
 
@@ -158,7 +172,7 @@ export class SeriesService {
 		const conditions = buildBookFilterConditions(filters);
 		const query = {
 			$and: [
-				{ series: new RegExp(`^${escapeRegex(seriesName.trim())}$`, "i") },
+				{ series: new RegExp(`^\\s*${escapeRegex(normalizeSeriesName(seriesName))}\\s*$`, "i") },
 				...conditions,
 			],
 		};

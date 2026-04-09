@@ -7,6 +7,7 @@ import { JobService } from "../jobs/job.service.js";
 import { AdminService } from "./admin.service.js";
 import { ApiError } from "../../utils/api-error.js";
 import type { UploadBookResponseDTO } from "../../dto/admin.dto.js";
+import { normalizeOptionalText } from "../../utils/normalize.js";
 import { BookService } from "../books/book.service.js";
 
 const AUDIOBOOKS_PATH = process.env.AUDIOBOOKS_PATH || "/data/audiobooks";
@@ -112,7 +113,7 @@ export class AdminController {
 
 		const title = req.body.title?.trim() || fallbackTitle || "Unknown Title";
 		const author = req.body.author?.trim() || "Unknown Author";
-		const series = req.body.series?.trim() || null;
+		const series = normalizeOptionalText(req.body.series);
 		const genre = req.body.genre?.trim() || null;
 		const language = req.body.language === "fr" || req.body.language === "en" ? req.body.language : null;
 
