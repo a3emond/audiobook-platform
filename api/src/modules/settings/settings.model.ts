@@ -75,6 +75,11 @@ const playerSettingsSchema = new Schema(
       min: 0,
       default: 20,
     },
+    sleepTimerMode: {
+      type: String,
+      enum: ["off", "15m", "30m", "45m", "60m", "chapter"],
+      default: "off",
+    },
   },
   {
     _id: false,

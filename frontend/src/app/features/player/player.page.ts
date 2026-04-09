@@ -9,9 +9,19 @@ import { AuthService } from '../../core/services/auth.service';
 import { LibraryService } from '../../core/services/library.service';
 import { PlayerService } from '../../core/services/player.service';
 import { ProgressService } from '../../core/services/progress.service';
+import { SettingsService } from '../../core/services/settings.service';
 import { StatsService } from '../../core/services/stats.service';
 import { ReadMoreComponent } from '../../shared/ui/read-more/read-more.component';
 import { PlayerControlsComponent } from './controls';
+
+type SleepTimerMode = 'off' | '15m' | '30m' | '45m' | '60m' | 'chapter';
+
+const SLEEP_TIMER_MINUTES: Record<Exclude<SleepTimerMode, 'off' | 'chapter'>, number> = {
+	'15m': 15,
+	'30m': 30,
+	'45m': 45,
+	'60m': 60,
+};
 
 @Component({
 	selector: 'app-player-page',
@@ -76,17 +86,38 @@ import { PlayerControlsComponent } from './controls';
 										type="button"
 										class="btn-menu btn-menu-compact"
 										(click)="toggleProgressMenu()"
-										aria-label="Playback options"
-										title="Playback options"
+										aria-label="Playback and sleep options"
+										title="Playback and sleep options"
 									>
-										...
+										☾⏱
 									</button>
 									<div class="menu" *ngIf="progressMenuOpen()">
+										<p class="menu-label">Progress tracking</p>
 										<button type="button" (click)="setProgressMode('chapter')">
 											Track chapter progress {{ progressMode() === 'chapter' ? '✓' : '' }}
 										</button>
 										<button type="button" (click)="setProgressMode('book')">
 											Track book progress {{ progressMode() === 'book' ? '✓' : '' }}
+										</button>
+										<div class="menu-divider" aria-hidden="true"></div>
+										<p class="menu-label">Night auto pause: {{ sleepTimerLabel() }}</p>
+										<button type="button" (click)="setSleepTimerMode('off')">
+											Disabled {{ sleepTimerMode() === 'off' ? '✓' : '' }}
+										</button>
+										<button type="button" (click)="setSleepTimerMode('15m')">
+											15 min {{ sleepTimerMode() === '15m' ? '✓' : '' }}
+										</button>
+										<button type="button" (click)="setSleepTimerMode('30m')">
+											30 min {{ sleepTimerMode() === '30m' ? '✓' : '' }}
+										</button>
+										<button type="button" (click)="setSleepTimerMode('45m')">
+											45 min {{ sleepTimerMode() === '45m' ? '✓' : '' }}
+										</button>
+										<button type="button" (click)="setSleepTimerMode('60m')">
+											1 h {{ sleepTimerMode() === '60m' ? '✓' : '' }}
+										</button>
+										<button type="button" (click)="setSleepTimerMode('chapter')">
+											End of current chapter {{ sleepTimerMode() === 'chapter' ? '✓' : '' }}
 										</button>
 									</div>
 								</div>
@@ -323,6 +354,19 @@ import { PlayerControlsComponent } from './controls';
 			.menu button:hover {
 				background: #252525;
 			}
+			.menu-label {
+				margin: 0;
+				padding: 0.45rem 0.7rem 0.3rem;
+				font-size: 0.72rem;
+				font-weight: 700;
+				letter-spacing: 0.02em;
+				color: var(--color-text-muted);
+			}
+			.menu-divider {
+				height: 1px;
+				margin: 0.2rem 0.55rem;
+				background: rgb(255 255 255 / 0.1);
+			}
 			.btn-complete {
 				border: 1px solid rgb(255 138 0 / 0.3);
 				border-radius: 999px;
@@ -509,6 +553,7 @@ export class PlayerPage implements OnInit, OnDestroy {
 	readonly activeChapterIndex = signal(0);
 	readonly progressMode = signal<'chapter' | 'book'>('chapter');
 	readonly progressMenuOpen = signal(false);
+	readonly sleepTimerMode = signal<SleepTimerMode>('off');
 	readonly isCompleted = signal(false);
 	readonly error = signal<string | null>(null);
 
@@ -517,6 +562,10 @@ export class PlayerPage implements OnInit, OnDestroy {
 	private resumeAt = 0;
 	private sessionStartedAt: Date | null = null;
 	private sessionStartPosition = 0;
+	private sleepTimerTimeout?: ReturnType<typeof setTimeout>;
+	private sleepRemainingMs: number | null = null;
+	private sleepStartedAtMs: number | null = null;
+	private sleepChapterTargetSeconds: number | null = null;
 
 	constructor(
 		route: ActivatedRoute,
@@ -524,6 +573,7 @@ export class PlayerPage implements OnInit, OnDestroy {
 		private readonly player: PlayerService,
 		private readonly progress: ProgressService,
 		private readonly stats: StatsService,
+		private readonly settings: SettingsService,
 		private readonly auth: AuthService,
 	) {
 		this.bookId = route.snapshot.paramMap.get('bookId') ?? '';
@@ -553,6 +603,20 @@ export class PlayerPage implements OnInit, OnDestroy {
 		});
 
 		this.progressTicker = interval(15000).subscribe(() => this.persistProgress());
+		this.loadPlayerSettings();
+	}
+
+	private loadPlayerSettings(): void {
+		this.settings.getMine().subscribe({
+			next: (settings) => {
+				this.sleepTimerMode.set(settings.player.sleepTimerMode ?? 'off');
+				this.resetSleepTimerForMode();
+			},
+			error: () => {
+				this.sleepTimerMode.set('off');
+				this.resetSleepTimerForMode();
+			},
+		});
 	}
 
 	private loadResumeInfo(): void {
@@ -582,6 +646,7 @@ export class PlayerPage implements OnInit, OnDestroy {
 	ngOnDestroy(): void {
 		this.flushListeningSession();
 		this.persistProgress();
+		this.pauseSleepTimerCountdown();
 		this.progressTicker?.unsubscribe();
 	}
 
@@ -613,6 +678,7 @@ export class PlayerPage implements OnInit, OnDestroy {
 			this.durationSeconds.set(Math.floor(audio.duration));
 		}
 		this.updateActiveChapterFromCurrentTime();
+		this.handleSleepTimerTick();
 	}
 
 	togglePlay(): void {
@@ -631,19 +697,23 @@ export class PlayerPage implements OnInit, OnDestroy {
 	onPlay(): void {
 		const audio = this.audioRef?.nativeElement;
 		if (!audio || this.sessionStartedAt) {
+			this.armSleepTimerForPlayback();
 			return;
 		}
 
 		this.sessionStartedAt = new Date();
 		this.sessionStartPosition = audio.currentTime;
+		this.armSleepTimerForPlayback();
 	}
 
 	onPause(): void {
 		this.flushListeningSession();
+		this.pauseSleepTimerCountdown();
 	}
 
 	onEnded(): void {
 		this.flushListeningSession();
+		this.pauseSleepTimerCountdown();
 	}
 
 	seek(deltaSeconds: number): void {
@@ -655,6 +725,7 @@ export class PlayerPage implements OnInit, OnDestroy {
 		audio.currentTime = Math.max(0, audio.currentTime + deltaSeconds);
 		this.currentSeconds.set(Math.floor(audio.currentTime));
 		this.updateActiveChapterFromCurrentTime();
+		this.refreshChapterSleepTargetIfNeeded();
 	}
 
 	onChapterSelected(event: Event): void {
@@ -672,6 +743,7 @@ export class PlayerPage implements OnInit, OnDestroy {
 		audio.currentTime = this.chapterStartSeconds(chapter);
 		this.currentSeconds.set(Math.floor(audio.currentTime));
 		this.activeChapterIndex.set(value);
+		this.refreshChapterSleepTargetIfNeeded();
 	}
 
 	toggleProgressMenu(): void {
@@ -764,6 +836,40 @@ export class PlayerPage implements OnInit, OnDestroy {
 		this.progressMenuOpen.set(false);
 	}
 
+	setSleepTimerMode(mode: SleepTimerMode): void {
+		if (this.sleepTimerMode() === mode) {
+			this.progressMenuOpen.set(false);
+			return;
+		}
+
+		this.sleepTimerMode.set(mode);
+		this.resetSleepTimerForMode();
+		this.progressMenuOpen.set(false);
+
+		this.settings.updateMine({ player: { sleepTimerMode: mode } }).subscribe({
+			error: () => {
+				this.error.set('Unable to save sleep timer preference');
+			},
+		});
+	}
+
+	sleepTimerLabel(): string {
+		switch (this.sleepTimerMode()) {
+			case '15m':
+				return '15 min';
+			case '30m':
+				return '30 min';
+			case '45m':
+				return '45 min';
+			case '60m':
+				return '1 h';
+			case 'chapter':
+				return 'End chapter';
+			default:
+				return 'Disabled';
+		}
+	}
+
 	onProgressInput(event: Event): void {
 		const value = Number((event.target as HTMLInputElement | null)?.value);
 		if (!Number.isFinite(value)) {
@@ -778,6 +884,7 @@ export class PlayerPage implements OnInit, OnDestroy {
 		audio.currentTime = value;
 		this.currentSeconds.set(Math.floor(audio.currentTime));
 		this.updateActiveChapterFromCurrentTime();
+		this.refreshChapterSleepTargetIfNeeded();
 	}
 
 	progressMin(): number {
@@ -947,6 +1054,127 @@ export class PlayerPage implements OnInit, OnDestroy {
 		});
 
 		this.activeChapterIndex.set(index >= 0 ? index : chapters.length - 1);
+	}
+
+	private handleSleepTimerTick(): void {
+		if (this.sleepTimerMode() !== 'chapter') {
+			return;
+		}
+
+		const target = this.sleepChapterTargetSeconds;
+		if (target === null) {
+			return;
+		}
+
+		const audio = this.audioRef?.nativeElement;
+		if (!audio || audio.paused) {
+			return;
+		}
+
+		if (audio.currentTime >= target) {
+			audio.pause();
+			this.currentSeconds.set(Math.floor(audio.currentTime));
+			this.sleepChapterTargetSeconds = null;
+		}
+	}
+
+	private refreshChapterSleepTargetIfNeeded(): void {
+		if (this.sleepTimerMode() !== 'chapter') {
+			return;
+		}
+
+		const audio = this.audioRef?.nativeElement;
+		if (!audio || audio.paused) {
+			return;
+		}
+
+		this.armChapterSleepTarget();
+	}
+
+	private armSleepTimerForPlayback(): void {
+		const mode = this.sleepTimerMode();
+		if (mode === 'off') {
+			return;
+		}
+
+		if (mode === 'chapter') {
+			this.armChapterSleepTarget();
+			return;
+		}
+
+		if (this.sleepRemainingMs === null || this.sleepRemainingMs <= 0) {
+			this.sleepRemainingMs = SLEEP_TIMER_MINUTES[mode] * 60_000;
+		}
+
+		this.clearSleepTimerTimeout();
+		this.sleepStartedAtMs = Date.now();
+		this.sleepTimerTimeout = setTimeout(() => {
+			this.triggerSleepPause();
+		}, this.sleepRemainingMs);
+	}
+
+	private pauseSleepTimerCountdown(): void {
+		if (this.sleepTimerMode() === 'chapter') {
+			return;
+		}
+
+		if (this.sleepStartedAtMs !== null && this.sleepRemainingMs !== null) {
+			const elapsed = Date.now() - this.sleepStartedAtMs;
+			this.sleepRemainingMs = Math.max(0, this.sleepRemainingMs - elapsed);
+		}
+
+		this.clearSleepTimerTimeout();
+		this.sleepStartedAtMs = null;
+	}
+
+	private triggerSleepPause(): void {
+		this.clearSleepTimerTimeout();
+		this.sleepStartedAtMs = null;
+		this.sleepRemainingMs = 0;
+
+		const audio = this.audioRef?.nativeElement;
+		if (!audio) {
+			return;
+		}
+
+		audio.pause();
+	}
+
+	private armChapterSleepTarget(): void {
+		const chapter = this.chapters()[this.activeChapterIndex()];
+		if (!chapter) {
+			this.sleepChapterTargetSeconds = null;
+			return;
+		}
+
+		this.sleepChapterTargetSeconds = this.chapterEndSeconds(chapter);
+	}
+
+	private resetSleepTimerForMode(): void {
+		this.clearSleepTimerTimeout();
+		this.sleepStartedAtMs = null;
+		this.sleepChapterTargetSeconds = null;
+
+		const mode = this.sleepTimerMode();
+		if (mode === 'off' || mode === 'chapter') {
+			this.sleepRemainingMs = null;
+		} else {
+			this.sleepRemainingMs = SLEEP_TIMER_MINUTES[mode] * 60_000;
+		}
+
+		const audio = this.audioRef?.nativeElement;
+		if (audio && !audio.paused) {
+			this.armSleepTimerForPlayback();
+		}
+	}
+
+	private clearSleepTimerTimeout(): void {
+		if (!this.sleepTimerTimeout) {
+			return;
+		}
+
+		clearTimeout(this.sleepTimerTimeout);
+		this.sleepTimerTimeout = undefined;
 	}
 
 	private chapterStartSeconds(chapter: Chapter): number {

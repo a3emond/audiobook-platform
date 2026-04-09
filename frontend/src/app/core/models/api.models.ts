@@ -106,6 +106,7 @@ export interface UserSettings {
     };
     playbackRate: number;
     autoMarkCompletedThresholdSeconds: number;
+    sleepTimerMode: 'off' | '15m' | '30m' | '45m' | '60m' | 'chapter';
   };
   library: {
     showCompleted: boolean;

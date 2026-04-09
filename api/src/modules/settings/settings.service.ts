@@ -23,12 +23,15 @@ function toSettingsDTO(settings: UserSettingsDocument): SettingsDTO {
 			playbackRate: settings.player.playbackRate,
 			autoMarkCompletedThresholdSeconds:
 				settings.player.autoMarkCompletedThresholdSeconds,
+			sleepTimerMode: settings.player.sleepTimerMode ?? "off",
 		},
 		library: {
 			showCompleted: settings.library.showCompleted,
 		},
 	};
 }
+
+const SLEEP_TIMER_MODES = ["off", "15m", "30m", "45m", "60m", "chapter"] as const;
 
 async function findOrCreateSettings(userId: string): Promise<UserSettingsDocument> {
 	const existing = await SettingsModel.findOne({ userId });
@@ -88,6 +91,13 @@ function validateUpdate(data: UpdateSettingsDTO): void {
 		throw new ApiError(400, "settings_invalid_resume_threshold");
 	}
 
+	if (
+		data.player?.sleepTimerMode !== undefined &&
+		!SLEEP_TIMER_MODES.includes(data.player.sleepTimerMode)
+	) {
+		throw new ApiError(400, "settings_invalid_sleep_timer_mode");
+	}
+
 }
 
 export class SettingsService {
@@ -137,6 +147,10 @@ export class SettingsService {
 		if (data.player?.autoMarkCompletedThresholdSeconds !== undefined) {
 			settings.player.autoMarkCompletedThresholdSeconds =
 				data.player.autoMarkCompletedThresholdSeconds;
+		}
+
+		if (data.player?.sleepTimerMode !== undefined) {
+			settings.player.sleepTimerMode = data.player.sleepTimerMode;
 		}
 
 		if (data.library?.showCompleted !== undefined) {
