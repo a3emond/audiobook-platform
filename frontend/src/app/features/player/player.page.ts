@@ -23,6 +23,8 @@ const SLEEP_TIMER_MINUTES: Record<Exclude<SleepTimerMode, 'off' | 'chapter'>, nu
 	'60m': 60,
 };
 
+const SLEEP_TIMER_PAUSE_RESET_MS = 30_000;
+
 @Component({
 	selector: 'app-player-page',
 	standalone: true,
@@ -85,12 +87,15 @@ const SLEEP_TIMER_MINUTES: Record<Exclude<SleepTimerMode, 'off' | 'chapter'>, nu
 									<button
 										type="button"
 										class="btn-menu btn-menu-compact"
+										[class.sleep-active]="sleepTimerMode() !== 'off'"
 										(click)="toggleProgressMenu()"
 										aria-label="Playback and sleep options"
 										title="Playback and sleep options"
 									>
 										☾⏱
+										<span class="sleep-dot" *ngIf="sleepTimerMode() !== 'off'" aria-hidden="true"></span>
 									</button>
+									<span class="sleep-countdown-pill" *ngIf="sleepTimerCountdownText() as countdown">{{ countdown }}</span>
 									<div class="menu" *ngIf="progressMenuOpen()">
 										<p class="menu-label">Progress tracking</p>
 										<button type="button" (click)="setProgressMode('chapter')">
@@ -319,7 +324,12 @@ const SLEEP_TIMER_MINUTES: Record<Exclude<SleepTimerMode, 'off' | 'chapter'>, nu
 				font-weight: 700;
 				cursor: pointer;
 			}
+			.btn-menu.sleep-active {
+				border-color: rgb(255 138 0 / 0.55);
+				box-shadow: 0 0 0 2px rgb(255 138 0 / 0.16);
+			}
 			.btn-menu-compact {
+				position: relative;
 				width: 2.2rem;
 				height: 2.2rem;
 				padding: 0;
@@ -327,6 +337,29 @@ const SLEEP_TIMER_MINUTES: Record<Exclude<SleepTimerMode, 'off' | 'chapter'>, nu
 				font-size: 1.1rem;
 				display: inline-grid;
 				place-items: center;
+			}
+			.sleep-dot {
+				position: absolute;
+				top: 0.2rem;
+				right: 0.16rem;
+				width: 0.38rem;
+				height: 0.38rem;
+				border-radius: 999px;
+				background: #ff8a00;
+				box-shadow: 0 0 0 2px rgb(10 10 10 / 0.95);
+			}
+			.sleep-countdown-pill {
+				display: inline-flex;
+				align-items: center;
+				height: 2.2rem;
+				margin-left: 0.35rem;
+				padding: 0 0.62rem;
+				border-radius: 999px;
+				border: 1px solid rgb(255 138 0 / 0.42);
+				background: rgb(255 138 0 / 0.12);
+				color: #ffe6be;
+				font-size: 0.76rem;
+				font-weight: 700;
 			}
 			.controls-menu-wrap .menu {
 				right: 0;
@@ -554,17 +587,20 @@ export class PlayerPage implements OnInit, OnDestroy {
 	readonly progressMode = signal<'chapter' | 'book'>('chapter');
 	readonly progressMenuOpen = signal(false);
 	readonly sleepTimerMode = signal<SleepTimerMode>('off');
+	readonly sleepUiNow = signal(Date.now());
 	readonly isCompleted = signal(false);
 	readonly error = signal<string | null>(null);
 
 	private readonly bookId: string;
 	private progressTicker?: Subscription;
+	private sleepUiTicker?: Subscription;
 	private resumeAt = 0;
 	private sessionStartedAt: Date | null = null;
 	private sessionStartPosition = 0;
 	private sleepTimerTimeout?: ReturnType<typeof setTimeout>;
 	private sleepRemainingMs: number | null = null;
 	private sleepStartedAtMs: number | null = null;
+	private sleepPausedAtMs: number | null = null;
 	private sleepChapterTargetSeconds: number | null = null;
 
 	constructor(
@@ -603,6 +639,9 @@ export class PlayerPage implements OnInit, OnDestroy {
 		});
 
 		this.progressTicker = interval(15000).subscribe(() => this.persistProgress());
+		this.sleepUiTicker = interval(1000).subscribe(() => {
+			this.sleepUiNow.set(Date.now());
+		});
 		this.loadPlayerSettings();
 	}
 
@@ -648,6 +687,7 @@ export class PlayerPage implements OnInit, OnDestroy {
 		this.persistProgress();
 		this.pauseSleepTimerCountdown();
 		this.progressTicker?.unsubscribe();
+		this.sleepUiTicker?.unsubscribe();
 	}
 
 	onLoadedMetadata(): void {
@@ -868,6 +908,34 @@ export class PlayerPage implements OnInit, OnDestroy {
 			default:
 				return 'Disabled';
 		}
+	}
+
+	sleepTimerCountdownText(): string | null {
+		this.sleepUiNow();
+
+		const mode = this.sleepTimerMode();
+		if (mode === 'off') {
+			return null;
+		}
+
+		if (mode === 'chapter') {
+			return 'Chapter end';
+		}
+
+		if (this.sleepRemainingMs === null) {
+			return null;
+		}
+
+		let remainingMs = this.sleepRemainingMs;
+		if (this.sleepStartedAtMs !== null) {
+			remainingMs = Math.max(0, remainingMs - (Date.now() - this.sleepStartedAtMs));
+		}
+
+		const totalSeconds = Math.ceil(remainingMs / 1000);
+		const minutes = Math.floor(totalSeconds / 60);
+		const seconds = totalSeconds % 60;
+
+		return `${minutes}:${String(seconds).padStart(2, '0')}`;
 	}
 
 	onProgressInput(event: Event): void {
@@ -1094,13 +1162,24 @@ export class PlayerPage implements OnInit, OnDestroy {
 	private armSleepTimerForPlayback(): void {
 		const mode = this.sleepTimerMode();
 		if (mode === 'off') {
+			this.sleepPausedAtMs = null;
 			return;
 		}
 
 		if (mode === 'chapter') {
+			this.sleepPausedAtMs = null;
 			this.armChapterSleepTarget();
 			return;
 		}
+
+		if (
+			this.sleepPausedAtMs !== null &&
+			Date.now() - this.sleepPausedAtMs > SLEEP_TIMER_PAUSE_RESET_MS
+		) {
+			this.sleepRemainingMs = SLEEP_TIMER_MINUTES[mode] * 60_000;
+		}
+
+		this.sleepPausedAtMs = null;
 
 		if (this.sleepRemainingMs === null || this.sleepRemainingMs <= 0) {
 			this.sleepRemainingMs = SLEEP_TIMER_MINUTES[mode] * 60_000;
@@ -1115,6 +1194,7 @@ export class PlayerPage implements OnInit, OnDestroy {
 
 	private pauseSleepTimerCountdown(): void {
 		if (this.sleepTimerMode() === 'chapter') {
+			this.sleepPausedAtMs = Date.now();
 			return;
 		}
 
@@ -1125,11 +1205,13 @@ export class PlayerPage implements OnInit, OnDestroy {
 
 		this.clearSleepTimerTimeout();
 		this.sleepStartedAtMs = null;
+		this.sleepPausedAtMs = Date.now();
 	}
 
 	private triggerSleepPause(): void {
 		this.clearSleepTimerTimeout();
 		this.sleepStartedAtMs = null;
+		this.sleepPausedAtMs = Date.now();
 		this.sleepRemainingMs = 0;
 
 		const audio = this.audioRef?.nativeElement;
@@ -1153,6 +1235,7 @@ export class PlayerPage implements OnInit, OnDestroy {
 	private resetSleepTimerForMode(): void {
 		this.clearSleepTimerTimeout();
 		this.sleepStartedAtMs = null;
+		this.sleepPausedAtMs = null;
 		this.sleepChapterTargetSeconds = null;
 
 		const mode = this.sleepTimerMode();
