@@ -602,6 +602,10 @@ export class PlayerPage implements OnInit, OnDestroy {
 	private sleepStartedAtMs: number | null = null;
 	private sleepPausedAtMs: number | null = null;
 	private sleepChapterTargetSeconds: number | null = null;
+	private metadataLoaded = false;
+	private resumeLoaded = false;
+	private initialPositionApplied = false;
+	private playbackStarted = false;
 
 	constructor(
 		route: ActivatedRoute,
@@ -662,24 +666,52 @@ export class PlayerPage implements OnInit, OnDestroy {
 		this.player.getResumeInfo(this.bookId).subscribe({
 			next: (resume) => {
 				this.resumeAt = resume.startSeconds;
+				this.resumeLoaded = true;
+				this.applyInitialPositionIfReady();
 			},
 			error: (error: unknown) => {
+				this.resumeLoaded = true;
 				if (error instanceof HttpErrorResponse && error.status === 404) {
+					this.applyInitialPositionIfReady();
 					return;
 				}
 				this.error.set('Unable to load resume information');
+				this.applyInitialPositionIfReady();
 			},
 		});
 
 		this.progress.getForBook(this.bookId).subscribe({
 			next: (prog) => {
 				this.isCompleted.set(prog.completed);
+				this.applyInitialPositionIfReady();
 			},
 			error: () => {
 				// no progress record yet — not completed
 				this.isCompleted.set(false);
+				this.applyInitialPositionIfReady();
 			},
 		});
+	}
+
+	private applyInitialPositionIfReady(): void {
+		if (this.initialPositionApplied || this.playbackStarted || !this.metadataLoaded || !this.resumeLoaded) {
+			return;
+		}
+
+		const audio = this.audioRef?.nativeElement;
+		if (!audio) {
+			return;
+		}
+
+		if (this.isCompleted() && Number.isFinite(audio.duration) && audio.duration > 0) {
+			audio.currentTime = audio.duration;
+		} else if (this.resumeAt > 0) {
+			audio.currentTime = this.resumeAt;
+		}
+
+		this.initialPositionApplied = true;
+		this.currentSeconds.set(Math.floor(audio.currentTime));
+		this.updateActiveChapterFromCurrentTime();
 	}
 
 	ngOnDestroy(): void {
@@ -696,11 +728,8 @@ export class PlayerPage implements OnInit, OnDestroy {
 			return;
 		}
 
-		if (this.isCompleted() && Number.isFinite(audio.duration) && audio.duration > 0) {
-			audio.currentTime = audio.duration;
-		} else if (this.resumeAt > 0) {
-			audio.currentTime = this.resumeAt;
-		}
+		this.metadataLoaded = true;
+		this.applyInitialPositionIfReady();
 
 		this.durationSeconds.set(Number.isFinite(audio.duration) ? Math.floor(audio.duration) : 0);
 		this.currentSeconds.set(Math.floor(audio.currentTime));
@@ -736,6 +765,7 @@ export class PlayerPage implements OnInit, OnDestroy {
 
 	onPlay(): void {
 		const audio = this.audioRef?.nativeElement;
+		this.playbackStarted = true;
 		if (!audio || this.sessionStartedAt) {
 			this.armSleepTimerForPlayback();
 			return;
