@@ -4,6 +4,7 @@ import { firstValueFrom, Observable } from 'rxjs';
 import type { Book, Chapter, ResumeInfo } from '../models/api.models';
 import { ApiService } from './api.service';
 import { AuthService } from './auth.service';
+import { RealtimeService } from './realtime.service';
 import {
 	configureMediaSessionActions,
 	getMediaSession,
@@ -39,15 +40,18 @@ export class PlayerService {
 	private progressSaveTimer?: ReturnType<typeof setInterval>;
 	private sessionStartedAt: Date | null = null;
 	private sessionStartPosition = 0;
+	private lastSyncedProgressTime = 0;
 
 	constructor(
 		private readonly api: ApiService,
 		private readonly auth: AuthService,
+		private readonly realtime: RealtimeService,
 		private readonly progress: ProgressService,
 		private readonly stats: StatsService,
 	) {
 		this.configureAudioEvents();
 		this.configureMediaSessionActions();
+		this.setupProgressSync();
 	}
 
 	getResumeInfo(bookId: string): Observable<ResumeInfo> {
@@ -56,6 +60,50 @@ export class PlayerService {
 
 	streamUrl(bookId: string): string {
 		return streamUrlForBook(bookId, this.auth.accessToken());
+	}
+
+	applyProgressSync(syncedData: {
+		bookId: string;
+		positionSeconds: number;
+		durationAtSave: number;
+		completed: boolean;
+		timestamp: string;
+	}): void {
+		// Only apply synced progress if:
+		// 1. It's for the currently playing book
+		// 2. Audio is not currently playing (avoid disruptive sync during playback)
+		// 3. The synced timestamp is newer than our last recorded sync time
+		const currentBook = this.currentBook();
+		if (!currentBook || currentBook.id !== syncedData.bookId) {
+			return;
+		}
+
+		const syncTime = new Date(syncedData.timestamp).getTime();
+		if (syncTime <= this.lastSyncedProgressTime) {
+			return;
+		}
+
+		// Only update position if not actively playing
+		if (!this.paused()) {
+			return;
+		}
+
+		this.lastSyncedProgressTime = syncTime;
+		this.setCurrentTime(syncedData.positionSeconds);
+	}
+
+	private setupProgressSync(): void {
+		// Listen for progress synced events from other devices/tabs
+		this.realtime.on<{
+			userId: string;
+			bookId: string;
+			positionSeconds: number;
+			durationAtSave: number;
+			completed: boolean;
+			timestamp: string;
+		}>('progress.synced').subscribe((progressData) => {
+			this.applyProgressSync(progressData);
+		});
 	}
 
 	loadBook(book: Book, options?: { startSeconds?: number; coverUrl?: string; forceReload?: boolean }): void {

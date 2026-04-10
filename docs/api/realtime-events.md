@@ -67,8 +67,22 @@ Payload:
 
 - message: discussion message DTO
 
+### progress.synced
+
+Emitted when a user's progress is saved from any device/tab.
+
+Payload:
+
+- userId: user ID
+- bookId: book ID
+- positionSeconds: current position in seconds
+- durationAtSave: total duration when saved
+- completed: whether book is marked completed
+- timestamp: ISO datetime of sync
+
 ## Frontend Usage
 
 - Admin jobs pages consume job.state.changed and stop polling.
 - Global shell displays a subtle toast for catalog.book.added.
 - Discussions page listens to discussion.message.created for live chat updates.
+- Player service listens to progress.synced for multi-tab/device progress parity.

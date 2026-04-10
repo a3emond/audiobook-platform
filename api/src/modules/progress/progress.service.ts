@@ -8,6 +8,7 @@ import type {
 	SaveProgressDTO,
 } from "../../dto/progress.dto.js";
 import { ApiError } from "../../utils/api-error.js";
+import { emitRealtimeEvent } from "../../realtime/realtime.events.js";
 import { BookModel } from "../books/book.model.js";
 import { ProgressModel, type ProgressDocument } from "./progress.model.js";
 
@@ -125,6 +126,16 @@ export class ProgressService {
 			},
 			{ returnDocument: "after", upsert: true },
 		);
+
+		// Broadcast progress update to all user's connected clients
+		emitRealtimeEvent("progress.synced", {
+			userId,
+			bookId,
+			positionSeconds: progress.positionSeconds,
+			durationAtSave: progress.durationAtSave,
+			completed: progress.completed,
+			timestamp: new Date().toISOString(),
+		});
 
 		return toProgressDTO(progress);
 	}
