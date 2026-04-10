@@ -31,7 +31,7 @@
 			.btn-toggle {
 				padding: 0.4rem 0.8rem;
 				border: 1px solid var(--color-border);
-				background: var(--color-background);
+				background: var(--color-bg);
 				color: var(--color-text);
 				border-radius: 0.25rem;
 				cursor: pointer;
@@ -46,7 +46,7 @@
 
 			.btn-toggle.active {
 				background: var(--color-primary);
-				color: white;
+				color: var(--color-on-primary);
 			}
 
 			.logs-content {
@@ -54,7 +54,7 @@
 				overflow-y: auto;
 				border: 1px solid var(--color-border);
 				border-radius: 0.25rem;
-				background: var(--color-background);
+				background: var(--color-bg);
 			}
 
 			.loading,
@@ -136,7 +136,7 @@
 			.btn-load-more {
 				padding: 0.5rem 1rem;
 				background: var(--color-primary);
-				color: white;
+				color: var(--color-on-primary);
 				border: none;
 				border-radius: 0.25rem;
 				cursor: pointer;
