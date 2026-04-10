@@ -29,6 +29,7 @@ export class AdminEditPage implements OnInit {
 	readonly success = signal<string | null>(null);
 	readonly chapterValidationError = signal<string | null>(null);
 	readonly selectedCoverFile = signal<File | null>(null);
+	readonly chaptersOpen = signal(false);
 
 	private bookId = '';
 	private currentBook: Book | null = null;

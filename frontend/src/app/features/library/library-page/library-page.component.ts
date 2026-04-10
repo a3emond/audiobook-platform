@@ -49,6 +49,9 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly filteredCollections = signal<Collection[]>([]);
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
+  readonly collectionsHasMore = signal(false);
+  readonly collectionsTotal = signal(0);
+  readonly collectionsLoadingMore = signal(false);
 
   readonly createCollectionOpen = signal(false);
   readonly collectionModalError = signal<string | null>(null);
@@ -155,12 +158,45 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
         this.collections.set(derived.collections);
         this.filteredCollections.set(derived.filteredCollections);
+        this.collectionsHasMore.set(response.hasMore);
+        this.collectionsTotal.set(response.total);
         this.loading.set(false);
         this.scheduleRailSync();
       },
       error: (error: unknown) => {
         this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.collections'));
         this.loading.set(false);
+      },
+    });
+  }
+
+  loadMoreCollections(): void {
+    if (!this.collectionsHasMore() || this.collectionsLoadingMore()) {
+      return;
+    }
+
+    this.collectionsLoadingMore.set(true);
+    const offset = this.collections().length;
+
+    this.library.listCollections(24, offset).subscribe({
+      next: (response) => {
+        const allCollections = [...this.collections(), ...response.collections];
+        const derived = deriveCollections(
+          allCollections,
+          this.listenedBookIds(),
+          this.q,
+          this.i18n.t('library.activityCollection'),
+        );
+
+        this.collections.set(derived.collections);
+        this.filteredCollections.set(derived.filteredCollections);
+        this.collectionsHasMore.set(response.hasMore);
+        this.collectionsTotal.set(response.total);
+        this.collectionsLoadingMore.set(false);
+        this.scheduleRailSync();
+      },
+      error: () => {
+        this.collectionsLoadingMore.set(false);
       },
     });
   }

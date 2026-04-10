@@ -5,47 +5,7 @@
 			<p *ngIf="error()" class="error">{{ error() }}</p>
 			<p *ngIf="success()" class="success">{{ success() }}</p>
 
-			<!-- Chapters section BEFORE metadata -->
-			<form *ngIf="!loading()" (ngSubmit)="saveChapters()" class="grid">
-				<h2>Chapters</h2>
-				<p>Manage chapters with explicit start/end boundaries (milliseconds).</p>
-
-				<div class="chapter-controls">
-					<button type="button" class="btn-action" (click)="addChapterRow()">Add Chapter</button>
-				</div>
-
-				<table class="chapters-table" *ngIf="chapterRows.length > 0">
-					<thead>
-						<tr><th>Title</th><th>Start</th><th>End</th><th>Actions</th></tr>
-					</thead>
-					<tbody>
-						<tr *ngFor="let chapter of chapterRows; let i = index">
-							<td>
-								<input [name]="'chapterTitle' + i" [(ngModel)]="chapter.title" />
-							</td>
-							<td>
-								<input [name]="'chapterStart' + i" type="number" min="0" [(ngModel)]="chapter.start" />
-							</td>
-							<td>
-								<input [name]="'chapterEnd' + i" type="number" min="0" [(ngModel)]="chapter.end" />
-							</td>
-							<td>
-								<button type="button" (click)="removeChapterRow(chapter.id)" [disabled]="chapterRows.length <= 1">
-									Remove
-								</button>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-
-				<p *ngIf="chapterValidationError()" class="error">{{ chapterValidationError() }}</p>
-
-				<button type="submit" class="btn-action" [disabled]="savingChapters()">
-					{{ savingChapters() ? 'Saving...' : 'Save Chapters' }}
-				</button>
-			</form>
-
-			<!-- Metadata section after chapters -->
+			<!-- Metadata section -->
 			<form *ngIf="!loading()" (ngSubmit)="saveMetadata()" class="grid">
 				<h2>Metadata</h2>
 				<label>
@@ -114,4 +74,55 @@
 				<button type="button" class="btn-action" (click)="extractCover()">Extract Cover</button>
 				<button type="button" class="danger" (click)="deleteBook()">Delete Book</button>
 			</div>
+
+				<!-- Chapters section at the bottom, collapsible -->
+				<section *ngIf="!loading()" class="collapsible-section">
+					<button
+						type="button"
+						class="collapsible-header"
+						(click)="chaptersOpen.set(!chaptersOpen())"
+						[attr.aria-expanded]="chaptersOpen()"
+					>
+						<span>Chapters</span>
+						<span class="chevron" [class.open]="chaptersOpen()">▶</span>
+					</button>
+
+					<form *ngIf="chaptersOpen()" (ngSubmit)="saveChapters()" class="grid collapsible-body">
+						<p>Manage chapters with explicit start/end boundaries (milliseconds).</p>
+
+						<table class="chapters-table" *ngIf="chapterRows.length > 0">
+							<thead>
+								<tr><th>Title</th><th>Start</th><th>End</th><th>Actions</th></tr>
+							</thead>
+							<tbody>
+								<tr *ngFor="let chapter of chapterRows; let i = index">
+									<td>
+										<input [name]="'chapterTitle' + i" [(ngModel)]="chapter.title" />
+									</td>
+									<td>
+										<input [name]="'chapterStart' + i" type="number" min="0" [(ngModel)]="chapter.start" />
+									</td>
+									<td>
+										<input [name]="'chapterEnd' + i" type="number" min="0" [(ngModel)]="chapter.end" />
+									</td>
+									<td>
+										<button type="button" (click)="removeChapterRow(chapter.id)" [disabled]="chapterRows.length <= 1">
+											Remove
+										</button>
+									</td>
+								</tr>
+							</tbody>
+						</table>
+
+						<p *ngIf="chapterValidationError()" class="error">{{ chapterValidationError() }}</p>
+
+						<div class="chapter-controls">
+							<button type="button" class="btn-action" (click)="addChapterRow()">Add Chapter</button>
+						</div>
+
+						<button type="submit" class="btn-action" [disabled]="savingChapters()">
+							{{ savingChapters() ? 'Saving...' : 'Save Chapters' }}
+						</button>
+					</form>
+				</section>
 		</div>

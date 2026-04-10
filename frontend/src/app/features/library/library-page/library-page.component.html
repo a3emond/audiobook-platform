@@ -170,6 +170,18 @@
           </button>
         }
       </div>
+      @if (collectionsHasMore()) {
+        <div class="load-more-row">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            [disabled]="collectionsLoadingMore()"
+            (click)="loadMoreCollections()"
+          >
+            {{ collectionsLoadingMore() ? 'Loading...' : 'Load more collections (' + visibleCollections().length + ' / ' + collectionsTotal() + ')' }}
+          </button>
+        </div>
+      }
     </section>
   }
 

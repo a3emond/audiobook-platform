@@ -17,4 +17,10 @@
 					</tr>
 				</tbody>
 			</table>
+
+			<div *ngIf="!loading() && total() > 0" class="pagination-bar">
+				<button type="button" class="btn-action" (click)="prevPage()" [disabled]="offset() === 0">← Prev</button>
+				<span>Page {{ currentPage() }} of {{ totalPages() }} ({{ total() }} total)</span>
+				<button type="button" class="btn-action" (click)="nextPage()" [disabled]="!hasMore()">Next →</button>
+			</div>
 		</div>

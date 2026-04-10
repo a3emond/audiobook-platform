@@ -23,6 +23,7 @@ import type { HistoryBookRow, ProfileSection } from './profile-page.types';
 import {
   filterHistoryRows,
   formatDuration,
+  groupSessionsByBook,
   historyAuthor,
   historyTitle,
 } from './profile-page.utils';
@@ -291,6 +292,46 @@ export class ProfilePage implements OnInit, AfterViewInit, OnDestroy {
 
   private applyFilter(): void {
     this.filteredRows.set(filterHistoryRows(this.rows(), this.query));
+  }
+
+  loadMoreHistory(): void {
+    const m = this.meta();
+    if (!m?.hasMore || this.historyLoading()) {
+      return;
+    }
+
+    const nextOffset = m.offset + m.limit;
+    this.historyLoading.set(true);
+
+    this.statsService
+      .listSessions({ limit: m.limit, offset: nextOffset })
+      .subscribe({
+        next: (response) => {
+          this.library.listBooks({ limit: 300, offset: 0 }).subscribe({
+            next: (booksResponse) => {
+              const byId = new Map(booksResponse.books.map((book) => [book.id, book]));
+              const newRows = groupSessionsByBook(response.sessions, byId);
+              this.rows.update((existing) => [...existing, ...newRows]);
+              this.meta.set({
+                total: response.total,
+                limit: response.limit,
+                offset: response.offset,
+                hasMore: response.hasMore,
+              });
+              this.applyFilter();
+              this.historyLoading.set(false);
+            },
+            error: (error: unknown) => {
+              this.historyError.set(error instanceof Error ? error.message : 'Unable to load books');
+              this.historyLoading.set(false);
+            },
+          });
+        },
+        error: (error: unknown) => {
+          this.historyError.set(error instanceof Error ? error.message : 'Unable to load sessions');
+          this.historyLoading.set(false);
+        },
+      });
   }
 
   private setupSectionObserver(): void {

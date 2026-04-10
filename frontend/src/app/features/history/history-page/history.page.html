@@ -58,9 +58,15 @@
 			</section>
 
 			<footer *ngIf="meta() as m" class="meta">
-				<span>Total {{ m.total }}</span>
-				<span>Limit {{ m.limit }}</span>
-				<span>Offset {{ m.offset }}</span>
-				<span>Has more {{ m.hasMore }}</span>
+				<button
+					type="button"
+					class="btn btn-secondary load-more-btn"
+					*ngIf="m.hasMore"
+					[disabled]="loading()"
+					(click)="loadMore()"
+				>
+					{{ loading() ? 'Loading...' : 'Load more (' + rows().length + ' / ' + m.total + ')' }}
+				</button>
+				<span *ngIf="!m.hasMore && m.total > 0" class="text-muted">Showing all {{ m.total }} entries</span>
 			</footer>
 		</section>

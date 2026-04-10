@@ -35,6 +35,12 @@
         </tbody>
       </table>
 
+      <div *ngIf="!loading() && usersTotal() > 0" class="pagination-bar">
+        <button type="button" class="btn-action" (click)="usersPrevPage()" [disabled]="usersOffset() === 0">← Prev</button>
+        <span>Page {{ usersCurrentPage() }} of {{ usersTotalPages() }} ({{ usersTotal() }} total)</span>
+        <button type="button" class="btn-action" (click)="usersNextPage()" [disabled]="!usersHasMore()">Next →</button>
+      </div>
+
       <section *ngIf="selectedUser()" class="sessions">
         <h2>Sessions for {{ selectedUser()?.email }}</h2>
         <p *ngIf="sessionsLoading()">Loading sessions...</p>
@@ -51,5 +57,10 @@
             </tr>
           </tbody>
         </table>
+        <div *ngIf="!sessionsLoading() && sessionsTotal() > 0" class="pagination-bar">
+          <button type="button" class="btn-action" (click)="sessionsPrevPage()" [disabled]="sessionsOffset() === 0">← Prev</button>
+          <span>Page {{ sessionsCurrentPage() }} of {{ sessionsTotalPages() }} ({{ sessionsTotal() }} total)</span>
+          <button type="button" class="btn-action" (click)="sessionsNextPage()" [disabled]="!sessionsHasMore()">Next →</button>
+        </div>
       </section>
     </div>

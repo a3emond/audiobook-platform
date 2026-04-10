@@ -32,6 +32,8 @@ export class AdminJobsPage implements OnInit, OnDestroy {
   readonly settingsMessage = signal<string | null>(null);
   readonly jobActionInProgress = signal<string | null>(null);
   readonly jobActionMessage = signal<string | null>(null);
+  readonly jobsTotal = signal(0);
+  readonly jobsLoadingMore = signal(false);
   readonly allJobTypes: WorkerQueueSettings['heavyJobTypes'] = [
     'INGEST',
     'INGEST_MP3_AS_M4B',
@@ -52,7 +54,10 @@ export class AdminJobsPage implements OnInit, OnDestroy {
     this.reloadWorkerSettings();
 
     this.admin.listJobs(25, 0).subscribe({
-      next: (response) => this.jobs.set(response.jobs),
+      next: (response) => {
+        this.jobs.set(response.jobs);
+        this.jobsTotal.set(response.total);
+      },
       error: () => this.jobs.set([]),
     });
 
@@ -119,6 +124,25 @@ export class AdminJobsPage implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.streamHandle?.stop();
+  }
+
+  loadMoreJobs(): void {
+    const currentCount = this.jobs().length;
+    if (currentCount >= this.jobsTotal() || this.jobsLoadingMore()) {
+      return;
+    }
+
+    this.jobsLoadingMore.set(true);
+    this.admin.listJobs(25, currentCount).subscribe({
+      next: (response) => {
+        this.jobs.update((current) => mergeJobs(current, response.jobs));
+        this.jobsTotal.set(response.total);
+        this.jobsLoadingMore.set(false);
+      },
+      error: () => {
+        this.jobsLoadingMore.set(false);
+      },
+    });
   }
 
   rerunJob(job: AdminJob): void {

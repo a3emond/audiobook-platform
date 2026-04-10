@@ -98,6 +98,46 @@ export class HistoryPage implements OnInit {
 			});
 	}
 
+	loadMore(): void {
+		const m = this.meta();
+		if (!m?.hasMore || this.loading()) {
+			return;
+		}
+
+		const nextOffset = m.offset + m.limit;
+		this.loading.set(true);
+
+		this.stats
+			.listSessions({ limit: m.limit, offset: nextOffset })
+			.subscribe({
+				next: (response) => {
+					this.library.listBooks({ limit: 300, offset: 0 }).subscribe({
+						next: (booksResponse) => {
+							const byId = new Map(booksResponse.books.map((book) => [book.id, book]));
+							const newRows = groupSessionsByBook(response.sessions, byId);
+							this.rows.update((existing) => [...existing, ...newRows]);
+							this.meta.set({
+								total: response.total,
+								limit: response.limit,
+								offset: response.offset,
+								hasMore: response.hasMore,
+							});
+							this.applyFilter();
+							this.loading.set(false);
+						},
+						error: (error: unknown) => {
+							this.error.set(error instanceof Error ? error.message : 'Unable to load books');
+							this.loading.set(false);
+						},
+					});
+				},
+				error: (error: unknown) => {
+					this.error.set(error instanceof Error ? error.message : 'Unable to load sessions');
+					this.loading.set(false);
+				},
+			});
+	}
+
 	applyFilter(): void {
 		this.filteredRows.set(filterHistoryRows(this.rows(), this.query));
 	}

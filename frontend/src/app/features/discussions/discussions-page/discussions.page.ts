@@ -50,6 +50,8 @@ export class DiscussionsPage implements OnInit, OnDestroy {
   });
   readonly loading = signal(false);
   readonly statusText = signal<string | null>(null);
+  readonly hasOlderMessages = signal(false);
+  readonly loadingOlderMessages = signal(false);
 
   draft = '';
   newChannelTitle = '';
@@ -292,11 +294,37 @@ export class DiscussionsPage implements OnInit, OnDestroy {
     this.discussion.listMessages(this.lang(), this.channelKey()).subscribe({
       next: (response) => {
         this.messages.set(response.messages);
+        this.hasOlderMessages.set(response.hasMore);
         this.statusText.set(null);
       },
       error: () => {
         this.messages.set([]);
+        this.hasOlderMessages.set(false);
         this.statusText.set('Unable to load messages.');
+      },
+    });
+  }
+
+  loadOlderMessages(): void {
+    if (!this.hasOlderMessages() || this.loadingOlderMessages()) {
+      return;
+    }
+
+    const oldest = this.messages()[0];
+    if (!oldest) {
+      return;
+    }
+
+    this.loadingOlderMessages.set(true);
+
+    this.discussion.listMessages(this.lang(), this.channelKey(), 80, oldest.id).subscribe({
+      next: (response) => {
+        this.messages.update((current) => [...response.messages, ...current]);
+        this.hasOlderMessages.set(response.hasMore);
+        this.loadingOlderMessages.set(false);
+      },
+      error: () => {
+        this.loadingOlderMessages.set(false);
       },
     });
   }

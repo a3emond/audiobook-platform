@@ -66,6 +66,16 @@
 
         <section class="chat card">
           <div class="messages" #messageList>
+            <div class="load-older-row" *ngIf="hasOlderMessages()">
+              <button
+                type="button"
+                class="btn btn-secondary load-older-btn"
+                [disabled]="loadingOlderMessages()"
+                (click)="loadOlderMessages()"
+              >
+                {{ loadingOlderMessages() ? 'Loading...' : 'Load older messages' }}
+              </button>
+            </div>
             <article
               class="message"
               *ngFor="let message of messages()"

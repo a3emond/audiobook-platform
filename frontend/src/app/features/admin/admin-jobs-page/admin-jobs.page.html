@@ -143,6 +143,11 @@
 					</tbody>
 				</table>
 				<p *ngIf="jobs().length === 0" class="empty-hint">No jobs in queue</p>
+				<div *ngIf="jobs().length < jobsTotal()" class="load-more-row">
+					<button type="button" class="btn-action" (click)="loadMoreJobs()" [disabled]="jobsLoadingMore()">
+						{{ jobsLoadingMore() ? 'Loading...' : 'Load more (' + jobs().length + ' / ' + jobsTotal() + ')' }}
+					</button>
+				</div>
 			</div>
 			</div>
 
