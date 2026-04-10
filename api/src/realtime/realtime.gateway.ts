@@ -64,6 +64,10 @@ export class RealtimeGateway {
         ts: new Date().toISOString(),
         payload: { ok: true },
       });
+
+      socket.on("message", (raw) => {
+        this.handleClientMessage(raw);
+      });
     });
 
     this.unsubscribe = subscribeRealtimeEvents((event) => {
@@ -187,5 +191,86 @@ export class RealtimeGateway {
     const raw = typeof payload === "string" ? payload : JSON.stringify(payload);
     socket.send(raw);
     return true;
+  }
+
+  private handleClientMessage(raw: unknown): void {
+    if (typeof raw !== "string" && !Buffer.isBuffer(raw)) {
+      return;
+    }
+
+    const content = Buffer.isBuffer(raw) ? raw.toString("utf8") : raw;
+
+    let parsed: { type?: string; payload?: unknown } | null = null;
+    try {
+      parsed = JSON.parse(content) as { type?: string; payload?: unknown };
+    } catch {
+      return;
+    }
+
+    const type = parsed?.type;
+    if (type !== "playback.session.presence" && type !== "playback.claim") {
+      return;
+    }
+
+    if (!parsed.payload || typeof parsed.payload !== "object") {
+      return;
+    }
+
+    if (type === "playback.session.presence") {
+      const payload = parsed.payload as {
+        userId?: unknown;
+        deviceId?: unknown;
+        label?: unknown;
+        platform?: unknown;
+        currentBookId?: unknown;
+        paused?: unknown;
+      };
+
+      if (typeof payload.userId !== "string" || typeof payload.deviceId !== "string") {
+        return;
+      }
+
+      this.broadcast({
+        type: "playback.session.presence",
+        ts: new Date().toISOString(),
+        payload: {
+          userId: payload.userId,
+          deviceId: payload.deviceId,
+          label: typeof payload.label === "string" ? payload.label : "Browser",
+          platform: typeof payload.platform === "string" ? payload.platform : "web",
+          currentBookId: typeof payload.currentBookId === "string" ? payload.currentBookId : null,
+          paused: typeof payload.paused === "boolean" ? payload.paused : true,
+          timestamp: new Date().toISOString(),
+        },
+      });
+      return;
+    }
+
+    const payload = parsed.payload as {
+      userId?: unknown;
+      deviceId?: unknown;
+      bookId?: unknown;
+      timestamp?: unknown;
+    };
+
+    if (
+      typeof payload.userId !== "string" ||
+      typeof payload.deviceId !== "string" ||
+      typeof payload.bookId !== "string" ||
+      typeof payload.timestamp !== "string"
+    ) {
+      return;
+    }
+
+    this.broadcast({
+      type: "playback.claimed",
+      ts: new Date().toISOString(),
+      payload: {
+        userId: payload.userId,
+        deviceId: payload.deviceId,
+        bookId: payload.bookId,
+        timestamp: payload.timestamp,
+      },
+    });
   }
 }

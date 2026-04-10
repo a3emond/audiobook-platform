@@ -227,6 +227,31 @@
 				margin: 0.2rem 0.55rem;
 				background: rgb(255 255 255 / 0.1);
 			}
+			.device-list {
+				display: grid;
+				gap: 0.25rem;
+				padding: 0.2rem 0.55rem 0.55rem;
+			}
+			.device-row {
+				border: 1px solid rgb(255 255 255 / 0.08);
+				background: rgb(255 255 255 / 0.03);
+				border-radius: 0.5rem;
+				padding: 0.4rem 0.5rem;
+				display: grid;
+				gap: 0.15rem;
+			}
+			.device-row.active {
+				border-color: rgb(255 138 0 / 0.45);
+				background: rgb(255 138 0 / 0.08);
+			}
+			.device-title {
+				font-size: 0.8rem;
+				font-weight: 700;
+			}
+			.device-subtitle {
+				font-size: 0.72rem;
+				color: var(--color-text-muted);
+			}
 			.btn-complete {
 				border: 1px solid rgb(255 138 0 / 0.3);
 				border-radius: 999px;

@@ -72,6 +72,20 @@ export class RealtimeService {
     );
   }
 
+  send<T>(type: string, payload: T): boolean {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      return false;
+    }
+
+    this.socket.send(
+      JSON.stringify({
+        type,
+        payload,
+      }),
+    );
+    return true;
+  }
+
   private scheduleReconnect(): void {
     if (this.reconnectTimer) {
       return;

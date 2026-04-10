@@ -20,6 +20,32 @@ import {
 	streamUrlForBook,
 } from './player.service.utils';
 
+interface PlaybackSessionPresencePayload {
+	userId: string;
+	deviceId: string;
+	label: string;
+	platform: string;
+	currentBookId: string | null;
+	paused: boolean;
+	timestamp: string;
+}
+
+interface PlaybackClaimPayload {
+	userId: string;
+	deviceId: string;
+	bookId: string;
+	timestamp: string;
+}
+
+export interface PlaybackDeviceSession {
+	deviceId: string;
+	label: string;
+	platform: string;
+	currentBookId: string | null;
+	paused: boolean;
+	lastSeenAt: string;
+}
+
 @Injectable({ providedIn: 'root' })
 // player: keeps UI and state logic readable for this frontend unit.
 export class PlayerService {
@@ -34,13 +60,18 @@ export class PlayerService {
 	readonly metadataLoaded = signal(false);
 	readonly error = signal<string | null>(null);
 	readonly hasActiveBook = computed(() => Boolean(this.currentBook()));
+	readonly playbackDeviceId = signal('');
+	readonly listeningDevices = signal<PlaybackDeviceSession[]>([]);
+	readonly activeListeningDeviceId = signal<string | null>(null);
 
 	private readonly audio = new Audio();
 	private pendingInitialPosition: number | null = null;
 	private progressSaveTimer?: ReturnType<typeof setInterval>;
+	private playbackPresenceTimer?: ReturnType<typeof setInterval>;
 	private sessionStartedAt: Date | null = null;
 	private sessionStartPosition = 0;
 	private lastSyncedProgressTime = 0;
+	private lastPlayClaimTime = 0;
 
 	constructor(
 		private readonly api: ApiService,
@@ -49,9 +80,11 @@ export class PlayerService {
 		private readonly progress: ProgressService,
 		private readonly stats: StatsService,
 	) {
+		this.initializePlaybackDevice();
 		this.configureAudioEvents();
 		this.configureMediaSessionActions();
 		this.setupProgressSync();
+		this.setupPlaybackSessions();
 	}
 
 	getResumeInfo(bookId: string): Observable<ResumeInfo> {
@@ -60,6 +93,10 @@ export class PlayerService {
 
 	streamUrl(bookId: string): string {
 		return streamUrlForBook(bookId, this.auth.accessToken());
+	}
+
+	claimListeningHere(): void {
+		this.claimPlaybackOwnership();
 	}
 
 	applyProgressSync(syncedData: {
@@ -102,8 +139,34 @@ export class PlayerService {
 			completed: boolean;
 			timestamp: string;
 		}>('progress.synced').subscribe((progressData) => {
+			if (progressData.userId !== this.auth.user()?.id) {
+				return;
+			}
 			this.applyProgressSync(progressData);
 		});
+	}
+
+	private setupPlaybackSessions(): void {
+		this.realtime.on<PlaybackSessionPresencePayload>('playback.session.presence').subscribe((presence) => {
+			this.applyPlaybackPresence(presence);
+		});
+
+		this.realtime.on<PlaybackClaimPayload>('playback.claimed').subscribe((claim) => {
+			this.applyPlaybackClaim(claim);
+		});
+
+		window.addEventListener('visibilitychange', () => {
+			if (document.visibilityState === 'visible') {
+				this.broadcastPlaybackPresence();
+			}
+		});
+
+		window.addEventListener('beforeunload', () => {
+			this.broadcastPlaybackPresence();
+		});
+
+		this.startPlaybackPresenceTicker();
+		this.broadcastPlaybackPresence();
 	}
 
 	loadBook(book: Book, options?: { startSeconds?: number; coverUrl?: string; forceReload?: boolean }): void {
@@ -122,6 +185,7 @@ export class PlayerService {
 				this.pendingInitialPosition = Math.max(0, options.startSeconds);
 			}
 			this.updateMediaSessionMetadata();
+			this.broadcastPlaybackPresence();
 			return;
 		}
 
@@ -137,6 +201,7 @@ export class PlayerService {
 		this.audio.src = this.streamUrl(book.id);
 		this.audio.load();
 		this.updateMediaSessionMetadata();
+		this.broadcastPlaybackPresence();
 	}
 
 	setInitialPosition(seconds: number): void {
@@ -271,12 +336,14 @@ export class PlayerService {
 
 		this.audio.addEventListener('play', () => {
 			this.paused.set(false);
+			this.claimPlaybackOwnership();
 			if (!this.sessionStartedAt) {
 				this.sessionStartedAt = new Date();
 				this.sessionStartPosition = this.audio.currentTime;
 			}
 			this.startProgressSaveTicker();
 			this.updateMediaSessionMetadata();
+			this.broadcastPlaybackPresence();
 		});
 
 		this.audio.addEventListener('pause', () => {
@@ -285,6 +352,7 @@ export class PlayerService {
 			this.stopProgressSaveTicker();
 			void this.persistProgress();
 			this.updateMediaSessionMetadata();
+			this.broadcastPlaybackPresence();
 		});
 
 		this.audio.addEventListener('ended', () => {
@@ -293,6 +361,7 @@ export class PlayerService {
 			this.stopProgressSaveTicker();
 			void this.persistProgress();
 			this.updateMediaSessionMetadata();
+			this.broadcastPlaybackPresence();
 		});
 
 		this.audio.addEventListener('error', () => {
@@ -400,6 +469,151 @@ export class PlayerService {
 				`${book.id}:session:${startedAt.getTime()}`,
 			),
 		).catch(() => undefined);
+	}
+
+	private initializePlaybackDevice(): void {
+		const storageKey = 'player.webDeviceId';
+		let deviceId = localStorage.getItem(storageKey);
+		if (!deviceId) {
+			deviceId = typeof crypto !== 'undefined' && crypto.randomUUID
+				? crypto.randomUUID()
+				: `web-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+			localStorage.setItem(storageKey, deviceId);
+		}
+
+		this.playbackDeviceId.set(deviceId);
+		this.activeListeningDeviceId.set(deviceId);
+	}
+
+	private startPlaybackPresenceTicker(): void {
+		if (this.playbackPresenceTimer) {
+			return;
+		}
+
+		this.playbackPresenceTimer = setInterval(() => {
+			this.pruneStalePlaybackDevices();
+			this.broadcastPlaybackPresence();
+		}, 10000);
+	}
+
+	private broadcastPlaybackPresence(): void {
+		const user = this.auth.user();
+		const deviceId = this.playbackDeviceId();
+		if (!user?.id || !deviceId) {
+			return;
+		}
+
+		const payload = {
+			userId: user.id,
+			deviceId,
+			label: this.browserLabel(),
+			platform: 'web',
+			currentBookId: this.currentBook()?.id ?? null,
+			paused: this.paused(),
+		};
+
+		this.realtime.send('playback.session.presence', payload);
+
+		this.applyPlaybackPresence({
+			...payload,
+			timestamp: new Date().toISOString(),
+		});
+	}
+
+	private applyPlaybackPresence(presence: PlaybackSessionPresencePayload): void {
+		const user = this.auth.user();
+		if (!user || presence.userId !== user.id) {
+			return;
+		}
+
+		const nextById = new Map(this.listeningDevices().map((item) => [item.deviceId, item]));
+		nextById.set(presence.deviceId, {
+			deviceId: presence.deviceId,
+			label: presence.label,
+			platform: presence.platform,
+			currentBookId: presence.currentBookId,
+			paused: presence.paused,
+			lastSeenAt: presence.timestamp,
+		});
+
+		const ownDeviceId = this.playbackDeviceId();
+		const sorted = Array.from(nextById.values())
+			.filter((item) => Date.now() - new Date(item.lastSeenAt).getTime() <= 35000)
+			.sort((a, b) => {
+				if (a.deviceId === ownDeviceId) {
+					return -1;
+				}
+				if (b.deviceId === ownDeviceId) {
+					return 1;
+				}
+				return new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime();
+			});
+
+		this.listeningDevices.set(sorted);
+	}
+
+	private pruneStalePlaybackDevices(): void {
+		const current = this.listeningDevices();
+		const filtered = current.filter((item) => Date.now() - new Date(item.lastSeenAt).getTime() <= 35000);
+		if (filtered.length !== current.length) {
+			this.listeningDevices.set(filtered);
+		}
+	}
+
+	private claimPlaybackOwnership(): void {
+		const user = this.auth.user();
+		const book = this.currentBook();
+		const deviceId = this.playbackDeviceId();
+		if (!user?.id || !book?.id || !deviceId) {
+			return;
+		}
+
+		const timestamp = new Date().toISOString();
+		this.lastPlayClaimTime = new Date(timestamp).getTime();
+		this.activeListeningDeviceId.set(deviceId);
+
+		this.realtime.send('playback.claim', {
+			userId: user.id,
+			deviceId,
+			bookId: book.id,
+			timestamp,
+		});
+	}
+
+	private applyPlaybackClaim(claim: PlaybackClaimPayload): void {
+		const user = this.auth.user();
+		const ownDeviceId = this.playbackDeviceId();
+		if (!user || !ownDeviceId || claim.userId !== user.id) {
+			return;
+		}
+
+		const claimTime = new Date(claim.timestamp).getTime();
+		if (!Number.isFinite(claimTime) || claimTime < this.lastPlayClaimTime) {
+			return;
+		}
+
+		this.lastPlayClaimTime = claimTime;
+		this.activeListeningDeviceId.set(claim.deviceId);
+
+		if (claim.deviceId !== ownDeviceId && !this.paused()) {
+			this.pause();
+		}
+	}
+
+	private browserLabel(): string {
+		const ua = navigator.userAgent;
+		const browser = ua.includes('Firefox')
+			? 'Firefox'
+			: ua.includes('Edg/')
+				? 'Edge'
+				: ua.includes('Chrome')
+					? 'Chrome'
+					: ua.includes('Safari')
+						? 'Safari'
+						: 'Browser';
+
+		const platform = navigator.platform || 'Web';
+		return `${browser} on ${platform}`;
 	}
 
 }

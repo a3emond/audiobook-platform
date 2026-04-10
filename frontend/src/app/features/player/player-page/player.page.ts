@@ -7,6 +7,7 @@ import { interval, Subscription } from 'rxjs';
 import type { Book, Chapter } from '../../../core/models/api.models';
 import { AuthService } from '../../../core/services/auth.service';
 import { LibraryService } from '../../../core/services/library.service';
+import type { PlaybackDeviceSession } from '../../../core/services/player.service';
 import { PlayerService } from '../../../core/services/player.service';
 import { ProgressService } from '../../../core/services/progress.service';
 import { SettingsService } from '../../../core/services/settings.service';
@@ -239,6 +240,22 @@ export class PlayerPage implements OnInit, OnDestroy {
 
 	toggleProgressMenu(): void {
 		this.progressMenuOpen.update((open) => !open);
+	}
+
+	listeningDevices(): PlaybackDeviceSession[] {
+		return this.player.listeningDevices();
+	}
+
+	isCurrentDevice(device: PlaybackDeviceSession): boolean {
+		return device.deviceId === this.player.playbackDeviceId();
+	}
+
+	isActiveDevice(device: PlaybackDeviceSession): boolean {
+		return device.deviceId === this.player.activeListeningDeviceId();
+	}
+
+	listenHere(): void {
+		this.player.claimListeningHere();
 	}
 
 	markCompleted(): void {

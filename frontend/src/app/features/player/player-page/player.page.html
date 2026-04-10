@@ -79,6 +79,25 @@
 									<button type="button" (click)="setSleepTimerMode('chapter')">
 										End of current chapter {{ sleepTimerMode() === 'chapter' ? '✓' : '' }}
 									</button>
+									<div class="menu-divider" aria-hidden="true"></div>
+									<p class="menu-label">Listening on</p>
+									<button type="button" (click)="listenHere()">Listen here</button>
+									<div class="device-list" *ngIf="listeningDevices().length > 0">
+										<div
+											class="device-row"
+											*ngFor="let device of listeningDevices()"
+											[class.active]="isActiveDevice(device)"
+										>
+											<div class="device-title">
+												{{ device.label }}
+												<span *ngIf="isCurrentDevice(device)"> (this browser)</span>
+											</div>
+											<div class="device-subtitle">
+												{{ device.paused ? 'Paused' : 'Playing' }}
+												<span *ngIf="isActiveDevice(device)"> · Active</span>
+											</div>
+										</div>
+									</div>
 								</div>
 							</div>
 						</div>

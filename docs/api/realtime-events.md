@@ -80,9 +80,35 @@ Payload:
 - completed: whether book is marked completed
 - timestamp: ISO datetime of sync
 
+### playback.session.presence
+
+Emitted when a browser client announces it is online for listening.
+
+Payload:
+
+- userId: user ID
+- deviceId: browser session/device ID
+- label: device label (example: Chrome on Linux x86_64)
+- platform: platform (web)
+- currentBookId: current book ID or null
+- paused: whether this device is paused
+- timestamp: ISO datetime of presence ping
+
+### playback.claimed
+
+Emitted when a client starts playback and becomes the active listening device.
+
+Payload:
+
+- userId: user ID
+- deviceId: claiming browser session/device ID
+- bookId: book ID that triggered the claim
+- timestamp: ISO datetime of claim
+
 ## Frontend Usage
 
 - Admin jobs pages consume job.state.changed and stop polling.
 - Global shell displays a subtle toast for catalog.book.added.
 - Discussions page listens to discussion.message.created for live chat updates.
 - Player service listens to progress.synced for multi-tab/device progress parity.
+- Player service listens to playback.session.presence and playback.claimed for browser-only Listening on.
