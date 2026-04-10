@@ -69,6 +69,31 @@ function normalizeName(fileName: string): string {
 	return `${base || 'cover'}.jpg`;
 }
 
+function ensureHttpUrl(value: string): URL {
+	let parsed: URL;
+	try {
+		parsed = new URL(value.trim());
+	} catch {
+		throw new Error('Invalid image URL. Please use a full http/https link.');
+	}
+
+	if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+		throw new Error('Unsupported URL protocol. Use http or https.');
+	}
+
+	return parsed;
+}
+
+function inferImageNameFromUrl(url: URL): string {
+	const pathName = url.pathname.split('/').pop() ?? '';
+	if (!pathName) {
+		return 'cover.jpg';
+	}
+
+	const decoded = decodeURIComponent(pathName).trim();
+	return decoded || 'cover.jpg';
+}
+
 export async function prepareCoverImageFile(file: File): Promise<File> {
 	ensureImageType(file);
 	ensureImageSize(file);
@@ -92,4 +117,29 @@ export async function prepareCoverImageFile(file: File): Promise<File> {
 		type: 'image/jpeg',
 		lastModified: Date.now(),
 	});
+}
+
+export async function prepareCoverImageFromUrl(imageUrl: string): Promise<File> {
+	const url = ensureHttpUrl(imageUrl);
+
+	let response: Response;
+	try {
+		response = await fetch(url.toString());
+	} catch {
+		throw new Error('Unable to fetch the image URL. The source may block cross-origin requests.');
+	}
+
+	if (!response.ok) {
+		throw new Error(`Unable to download image (HTTP ${response.status}).`);
+	}
+
+	const blob = await response.blob();
+	const fetchedType = blob.type || response.headers.get('content-type') || '';
+	const fileName = inferImageNameFromUrl(url);
+	const downloaded = new File([blob], fileName, {
+		type: fetchedType,
+		lastModified: Date.now(),
+	});
+
+	return prepareCoverImageFile(downloaded);
 }

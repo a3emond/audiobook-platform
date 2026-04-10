@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild, signal } from '@angular/core';
+import { Component, effect, HostListener, OnDestroy, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { interval, Subscription } from 'rxjs';
 
@@ -10,7 +10,6 @@ import { LibraryService } from '../../core/services/library.service';
 import { PlayerService } from '../../core/services/player.service';
 import { ProgressService } from '../../core/services/progress.service';
 import { SettingsService } from '../../core/services/settings.service';
-import { StatsService } from '../../core/services/stats.service';
 import { ReadMoreComponent } from '../../shared/ui/read-more/read-more.component';
 import { PlayerControlsComponent } from './controls';
 
@@ -69,6 +68,50 @@ const SLEEP_TIMER_PAUSE_RESET_MS = 30_000;
 									</option>
 								</select>
 							</label>
+
+							<div class="menu-wrap controls-menu-wrap">
+								<button
+									type="button"
+									class="btn-menu btn-menu-compact"
+									[class.sleep-active]="sleepTimerMode() !== 'off'"
+									(click)="toggleProgressMenu()"
+									aria-label="Playback and sleep options"
+									title="Playback and sleep options"
+								>
+									☾⏱
+									<span class="sleep-dot" *ngIf="sleepTimerMode() !== 'off'" aria-hidden="true"></span>
+								</button>
+								<span class="sleep-countdown-pill" *ngIf="sleepTimerCountdownText() as countdown">{{ countdown }}</span>
+								<div class="menu" *ngIf="progressMenuOpen()">
+									<p class="menu-label">Progress tracking</p>
+									<button type="button" (click)="setProgressMode('chapter')">
+										Track chapter progress {{ progressMode() === 'chapter' ? '✓' : '' }}
+									</button>
+									<button type="button" (click)="setProgressMode('book')">
+										Track book progress {{ progressMode() === 'book' ? '✓' : '' }}
+									</button>
+									<div class="menu-divider" aria-hidden="true"></div>
+									<p class="menu-label">Night auto pause: {{ sleepTimerLabel() }}</p>
+									<button type="button" (click)="setSleepTimerMode('off')">
+										Disabled {{ sleepTimerMode() === 'off' ? '✓' : '' }}
+									</button>
+									<button type="button" (click)="setSleepTimerMode('15m')">
+										15 min {{ sleepTimerMode() === '15m' ? '✓' : '' }}
+									</button>
+									<button type="button" (click)="setSleepTimerMode('30m')">
+										30 min {{ sleepTimerMode() === '30m' ? '✓' : '' }}
+									</button>
+									<button type="button" (click)="setSleepTimerMode('45m')">
+										45 min {{ sleepTimerMode() === '45m' ? '✓' : '' }}
+									</button>
+									<button type="button" (click)="setSleepTimerMode('60m')">
+										1 h {{ sleepTimerMode() === '60m' ? '✓' : '' }}
+									</button>
+									<button type="button" (click)="setSleepTimerMode('chapter')">
+										End of current chapter {{ sleepTimerMode() === 'chapter' ? '✓' : '' }}
+									</button>
+								</div>
+							</div>
 						</div>
 
 						<div class="progress-panel">
@@ -86,55 +129,17 @@ const SLEEP_TIMER_PAUSE_RESET_MS = 30_000;
 							</div>
 
 							<div class="controls-row">
+								<button type="button" class="btn-chapter-nav" [disabled]="!canGoToPreviousChapter()" (click)="goToPreviousChapter()">
+									Prev chapter
+								</button>
 								<app-player-controls
-									[paused]="audioRef?.nativeElement?.paused ?? true"
+									[paused]="player.paused()"
 									(toggle)="togglePlay()"
 									(seek)="seek($event)"
 								/>
-
-								<div class="menu-wrap controls-menu-wrap">
-									<button
-										type="button"
-										class="btn-menu btn-menu-compact"
-										[class.sleep-active]="sleepTimerMode() !== 'off'"
-										(click)="toggleProgressMenu()"
-										aria-label="Playback and sleep options"
-										title="Playback and sleep options"
-									>
-										☾⏱
-										<span class="sleep-dot" *ngIf="sleepTimerMode() !== 'off'" aria-hidden="true"></span>
-									</button>
-									<span class="sleep-countdown-pill" *ngIf="sleepTimerCountdownText() as countdown">{{ countdown }}</span>
-									<div class="menu" *ngIf="progressMenuOpen()">
-										<p class="menu-label">Progress tracking</p>
-										<button type="button" (click)="setProgressMode('chapter')">
-											Track chapter progress {{ progressMode() === 'chapter' ? '✓' : '' }}
-										</button>
-										<button type="button" (click)="setProgressMode('book')">
-											Track book progress {{ progressMode() === 'book' ? '✓' : '' }}
-										</button>
-										<div class="menu-divider" aria-hidden="true"></div>
-										<p class="menu-label">Night auto pause: {{ sleepTimerLabel() }}</p>
-										<button type="button" (click)="setSleepTimerMode('off')">
-											Disabled {{ sleepTimerMode() === 'off' ? '✓' : '' }}
-										</button>
-										<button type="button" (click)="setSleepTimerMode('15m')">
-											15 min {{ sleepTimerMode() === '15m' ? '✓' : '' }}
-										</button>
-										<button type="button" (click)="setSleepTimerMode('30m')">
-											30 min {{ sleepTimerMode() === '30m' ? '✓' : '' }}
-										</button>
-										<button type="button" (click)="setSleepTimerMode('45m')">
-											45 min {{ sleepTimerMode() === '45m' ? '✓' : '' }}
-										</button>
-										<button type="button" (click)="setSleepTimerMode('60m')">
-											1 h {{ sleepTimerMode() === '60m' ? '✓' : '' }}
-										</button>
-										<button type="button" (click)="setSleepTimerMode('chapter')">
-											End of current chapter {{ sleepTimerMode() === 'chapter' ? '✓' : '' }}
-										</button>
-									</div>
-								</div>
+								<button type="button" class="btn-chapter-nav" [disabled]="!canGoToNextChapter()" (click)="goToNextChapter()">
+									Next chapter
+								</button>
 							</div>
 						</div>
 					} @else {
@@ -146,17 +151,6 @@ const SLEEP_TIMER_PAUSE_RESET_MS = 30_000;
 					}
 				</div>
 			</header>
-
-			<audio
-				#audio
-				[src]="streamUrl()"
-				(loadedmetadata)="onLoadedMetadata()"
-				(timeupdate)="onTimeUpdate()"
-				(play)="onPlay()"
-				(pause)="onPause()"
-				(ended)="onEnded()"
-				class="native-audio"
-			></audio>
 
 			<section class="details card" *ngIf="book() as currentBook">
 				<div class="details-head">
@@ -309,8 +303,8 @@ const SLEEP_TIMER_PAUSE_RESET_MS = 30_000;
 			.progress-head {
 				margin-top: 0.85rem;
 				display: flex;
-				align-items: start;
-				justify-content: flex-start;
+				align-items: end;
+				justify-content: space-between;
 				gap: 0.8rem;
 			}
 			.progress-head label {
@@ -338,6 +332,19 @@ const SLEEP_TIMER_PAUSE_RESET_MS = 30_000;
 				align-items: center;
 				justify-content: center;
 				gap: 0.5rem;
+			}
+			.btn-chapter-nav {
+				border: 1px solid #3a3a3a;
+				background: #171717;
+				color: var(--color-text);
+				border-radius: 999px;
+				padding: 0.34rem 0.65rem;
+				font-size: 0.72rem;
+				font-weight: 700;
+			}
+			.btn-chapter-nav:disabled {
+				opacity: 0.45;
+				cursor: not-allowed;
 			}
 			.menu-wrap {
 				position: relative;
@@ -491,13 +498,6 @@ const SLEEP_TIMER_PAUSE_RESET_MS = 30_000;
 				line-height: 1;
 				color: #22c55e;
 			}
-			.native-audio {
-				position: absolute;
-				width: 1px;
-				height: 1px;
-				opacity: 0;
-				pointer-events: none;
-			}
 			app-player-controls {
 				width: auto;
 				max-width: none;
@@ -602,14 +602,9 @@ const SLEEP_TIMER_PAUSE_RESET_MS = 30_000;
 	],
 })
 export class PlayerPage implements OnInit, OnDestroy {
-	@ViewChild('audio') audioRef?: ElementRef<HTMLAudioElement>;
-
 	readonly book = signal<Book | null>(null);
 	readonly chapters = signal<Chapter[]>([]);
-	readonly streamUrl = signal<string>('');
 	readonly coverUrl = signal('');
-	readonly durationSeconds = signal(0);
-	readonly currentSeconds = signal(0);
 	readonly activeChapterIndex = signal(0);
 	readonly progressMode = signal<'chapter' | 'book'>('chapter');
 	readonly progressMenuOpen = signal(false);
@@ -619,31 +614,48 @@ export class PlayerPage implements OnInit, OnDestroy {
 	readonly error = signal<string | null>(null);
 
 	private readonly bookId: string;
-	private progressTicker?: Subscription;
 	private sleepUiTicker?: Subscription;
 	private resumeAt = 0;
-	private sessionStartedAt: Date | null = null;
-	private sessionStartPosition = 0;
 	private sleepTimerTimeout?: ReturnType<typeof setTimeout>;
 	private sleepRemainingMs: number | null = null;
 	private sleepStartedAtMs: number | null = null;
 	private sleepPausedAtMs: number | null = null;
 	private sleepChapterTargetSeconds: number | null = null;
-	private metadataLoaded = false;
 	private resumeLoaded = false;
+	private progressLoaded = false;
 	private initialPositionApplied = false;
-	private playbackStarted = false;
+	private lastPausedState = true;
 
 	constructor(
 		route: ActivatedRoute,
 		private readonly library: LibraryService,
-		private readonly player: PlayerService,
+		protected readonly player: PlayerService,
 		private readonly progress: ProgressService,
-		private readonly stats: StatsService,
 		private readonly settings: SettingsService,
 		protected readonly auth: AuthService,
 	) {
 		this.bookId = route.snapshot.paramMap.get('bookId') ?? '';
+
+		effect(() => {
+			const current = this.player.currentSeconds();
+			this.updateActiveChapterFromCurrentTime(current);
+			this.handleSleepTimerTick(current);
+		});
+
+		effect(() => {
+			const paused = this.player.paused();
+			if (paused === this.lastPausedState) {
+				return;
+			}
+
+			this.lastPausedState = paused;
+			if (paused) {
+				this.pauseSleepTimerCountdown();
+				return;
+			}
+
+			this.armSleepTimerForPlayback();
+		});
 	}
 
 	ngOnInit(): void {
@@ -654,11 +666,16 @@ export class PlayerPage implements OnInit, OnDestroy {
 
 		this.library.getBook(this.bookId).subscribe({
 			next: (book) => {
+				const hasActiveSession = this.player.currentBook()?.id === book.id && this.player.currentSeconds() > 0;
 				this.book.set(book);
 				this.chapters.set(book.chapters ?? []);
-				this.streamUrl.set(this.player.streamUrl(this.bookId));
-				this.coverUrl.set(this.computeCoverUrl(book));
-				this.loadResumeInfo();
+				const coverUrl = this.computeCoverUrl(book);
+				this.coverUrl.set(coverUrl);
+				this.player.loadBook(book, { coverUrl });
+				if (hasActiveSession) {
+					this.initialPositionApplied = true;
+				}
+				this.loadResumeInfo(book);
 			},
 			error: (error: unknown) => {
 				if (error instanceof HttpErrorResponse && error.status === 404) {
@@ -669,7 +686,6 @@ export class PlayerPage implements OnInit, OnDestroy {
 			},
 		});
 
-		this.progressTicker = interval(15000).subscribe(() => this.persistProgress());
 		this.sleepUiTicker = interval(1000).subscribe(() => {
 			this.sleepUiNow.set(Date.now());
 		});
@@ -689,139 +705,71 @@ export class PlayerPage implements OnInit, OnDestroy {
 		});
 	}
 
-	private loadResumeInfo(): void {
+	private loadResumeInfo(book: Book): void {
 		this.player.getResumeInfo(this.bookId).subscribe({
 			next: (resume) => {
 				this.resumeAt = resume.startSeconds;
 				this.resumeLoaded = true;
-				this.applyInitialPositionIfReady();
+				this.applyInitialPositionIfReady(book);
 			},
 			error: (error: unknown) => {
 				this.resumeLoaded = true;
 				if (error instanceof HttpErrorResponse && error.status === 404) {
-					this.applyInitialPositionIfReady();
+					this.applyInitialPositionIfReady(book);
 					return;
 				}
 				this.error.set('Unable to load resume information');
-				this.applyInitialPositionIfReady();
+				this.applyInitialPositionIfReady(book);
 			},
 		});
 
 		this.progress.getForBook(this.bookId).subscribe({
 			next: (prog) => {
 				this.isCompleted.set(prog.completed);
-				this.applyInitialPositionIfReady();
+				this.progressLoaded = true;
+				this.applyInitialPositionIfReady(book);
 			},
 			error: () => {
 				// no progress record yet — not completed
 				this.isCompleted.set(false);
-				this.applyInitialPositionIfReady();
+				this.progressLoaded = true;
+				this.applyInitialPositionIfReady(book);
 			},
 		});
 	}
 
-	private applyInitialPositionIfReady(): void {
-		if (this.initialPositionApplied || this.playbackStarted || !this.metadataLoaded || !this.resumeLoaded) {
+	private applyInitialPositionIfReady(book: Book): void {
+		if (this.initialPositionApplied || !this.resumeLoaded || !this.progressLoaded) {
 			return;
 		}
 
-		const audio = this.audioRef?.nativeElement;
-		if (!audio) {
+		const currentBook = this.player.currentBook();
+		if (!currentBook || currentBook.id !== book.id) {
 			return;
 		}
 
-		if (this.isCompleted() && Number.isFinite(audio.duration) && audio.duration > 0) {
-			audio.currentTime = audio.duration;
+		if (this.isCompleted()) {
+			this.player.setInitialPosition(Math.max(0, Math.floor(book.duration || 0)));
 		} else if (this.resumeAt > 0) {
-			audio.currentTime = this.resumeAt;
+			this.player.setInitialPosition(this.resumeAt);
 		}
 
 		this.initialPositionApplied = true;
-		this.currentSeconds.set(Math.floor(audio.currentTime));
-		this.updateActiveChapterFromCurrentTime();
+		this.updateActiveChapterFromCurrentTime(this.player.currentSeconds());
 	}
 
 	ngOnDestroy(): void {
-		this.flushListeningSession();
-		this.persistProgress();
+		this.player.persistNow();
 		this.pauseSleepTimerCountdown();
-		this.progressTicker?.unsubscribe();
 		this.sleepUiTicker?.unsubscribe();
 	}
 
-	onLoadedMetadata(): void {
-		const audio = this.audioRef?.nativeElement;
-		if (!audio) {
-			return;
-		}
-
-		this.metadataLoaded = true;
-		this.applyInitialPositionIfReady();
-
-		this.durationSeconds.set(Number.isFinite(audio.duration) ? Math.floor(audio.duration) : 0);
-		this.currentSeconds.set(Math.floor(audio.currentTime));
-		this.updateActiveChapterFromCurrentTime();
-	}
-
-	onTimeUpdate(): void {
-		const audio = this.audioRef?.nativeElement;
-		if (!audio) {
-			return;
-		}
-
-		this.currentSeconds.set(Math.floor(audio.currentTime));
-		if (Number.isFinite(audio.duration)) {
-			this.durationSeconds.set(Math.floor(audio.duration));
-		}
-		this.updateActiveChapterFromCurrentTime();
-		this.handleSleepTimerTick();
-	}
-
 	togglePlay(): void {
-		const audio = this.audioRef?.nativeElement;
-		if (!audio) {
-			return;
-		}
-
-		if (audio.paused) {
-			void audio.play();
-		} else {
-			audio.pause();
-		}
-	}
-
-	onPlay(): void {
-		const audio = this.audioRef?.nativeElement;
-		this.playbackStarted = true;
-		if (!audio || this.sessionStartedAt) {
-			this.armSleepTimerForPlayback();
-			return;
-		}
-
-		this.sessionStartedAt = new Date();
-		this.sessionStartPosition = audio.currentTime;
-		this.armSleepTimerForPlayback();
-	}
-
-	onPause(): void {
-		this.flushListeningSession();
-		this.pauseSleepTimerCountdown();
-	}
-
-	onEnded(): void {
-		this.flushListeningSession();
-		this.pauseSleepTimerCountdown();
+		this.player.togglePlay();
 	}
 
 	seek(deltaSeconds: number): void {
-		const audio = this.audioRef?.nativeElement;
-		if (!audio) {
-			return;
-		}
-
-		audio.currentTime = Math.max(0, audio.currentTime + deltaSeconds);
-		this.currentSeconds.set(Math.floor(audio.currentTime));
-		this.updateActiveChapterFromCurrentTime();
+		this.player.seek(deltaSeconds);
 		this.refreshChapterSleepTargetIfNeeded();
 	}
 
@@ -831,14 +779,11 @@ export class PlayerPage implements OnInit, OnDestroy {
 			return;
 		}
 
-		const chapter = this.chapters()[value];
-		const audio = this.audioRef?.nativeElement;
-		if (!chapter || !audio) {
+		if (!this.chapters()[value]) {
 			return;
 		}
 
-		audio.currentTime = this.chapterStartSeconds(chapter);
-		this.currentSeconds.set(Math.floor(audio.currentTime));
+		this.player.jumpToChapter(value);
 		this.activeChapterIndex.set(value);
 		this.refreshChapterSleepTargetIfNeeded();
 	}
@@ -849,25 +794,19 @@ export class PlayerPage implements OnInit, OnDestroy {
 
 	markCompleted(): void {
 		this.progressMenuOpen.set(false);
-		const audio = this.audioRef?.nativeElement;
-		const duration = audio && Number.isFinite(audio.duration) && audio.duration > 0 ? Math.floor(audio.duration) : 0;
+		const duration = this.player.durationSeconds() > 0 ? Math.floor(this.player.durationSeconds()) : 0;
 
-		if (audio && duration > 0) {
-			audio.pause();
-			audio.currentTime = duration;
-			this.currentSeconds.set(duration);
-			this.durationSeconds.set(duration);
+		if (duration > 0) {
+			this.player.pause();
+			this.player.setCurrentTime(duration);
 		}
 
 		const finalizeMark = () => {
 			this.progress.markCompleted(this.bookId).subscribe({
 				next: (prog) => {
 					this.isCompleted.set(prog.completed);
-					if (prog.completed) {
-						const currentAudio = this.audioRef?.nativeElement;
-						if (currentAudio && Number.isFinite(currentAudio.duration) && currentAudio.duration > 0) {
-							this.currentSeconds.set(Math.floor(currentAudio.duration));
-						}
+					if (prog.completed && duration > 0) {
+						this.player.setCurrentTime(duration);
 					}
 				},
 				error: () => {
@@ -902,20 +841,16 @@ export class PlayerPage implements OnInit, OnDestroy {
 		this.progress.unmarkCompleted(this.bookId).subscribe({
 			next: (prog) => {
 				this.isCompleted.set(prog.completed);
-				const audio = this.audioRef?.nativeElement;
-				if (audio) {
-					audio.currentTime = 0;
-					this.currentSeconds.set(0);
-				}
+				this.player.setCurrentTime(0);
 
-				if (audio && Number.isFinite(audio.duration) && audio.duration > 0) {
+				if (this.player.durationSeconds() > 0) {
 					const idempotencyKey = `${this.bookId}:manual-restart:${Date.now()}`;
 					this.progress
 						.saveForBook(
 							this.bookId,
 							{
 								positionSeconds: 0,
-								durationAtSave: Math.floor(audio.duration),
+								durationAtSave: Math.floor(this.player.durationSeconds()),
 							},
 							idempotencyKey,
 						)
@@ -1001,14 +936,17 @@ export class PlayerPage implements OnInit, OnDestroy {
 			return;
 		}
 
-		const audio = this.audioRef?.nativeElement;
-		if (!audio) {
-			return;
+		let target = value;
+		if (this.progressMode() === 'chapter') {
+			const chapter = this.chapters()[this.activeChapterIndex()];
+			if (chapter) {
+				const start = this.chapterStartSeconds(chapter);
+				const end = this.chapterEndSeconds(chapter);
+				target = Math.max(start, Math.min(value, Math.max(start, end - 0.25)));
+			}
 		}
 
-		audio.currentTime = value;
-		this.currentSeconds.set(Math.floor(audio.currentTime));
-		this.updateActiveChapterFromCurrentTime();
+		this.player.setCurrentTime(target);
 		this.refreshChapterSleepTargetIfNeeded();
 	}
 
@@ -1027,19 +965,19 @@ export class PlayerPage implements OnInit, OnDestroy {
 
 	progressMax(): number {
 		if (this.progressMode() === 'book') {
-			return Math.max(1, this.durationSeconds());
+			return Math.max(1, this.player.durationSeconds());
 		}
 
 		const chapter = this.chapters()[this.activeChapterIndex()];
 		if (!chapter) {
-			return Math.max(1, this.durationSeconds());
+			return Math.max(1, this.player.durationSeconds());
 		}
 
-		return Math.max(this.progressMin() + 1, Math.floor(this.chapterEndSeconds(chapter)));
+		return Math.max(this.progressMin() + 1, Math.floor(this.chapterEndSeconds(chapter) - 0.001));
 	}
 
 	progressValue(): number {
-		const current = this.currentSeconds();
+		const current = this.player.currentSeconds();
 		if (current < this.progressMin()) {
 			return this.progressMin();
 		}
@@ -1098,59 +1036,6 @@ export class PlayerPage implements OnInit, OnDestroy {
 		return initials || 'BK';
 	}
 
-	private persistProgress(): void {
-		const audio = this.audioRef?.nativeElement;
-		if (!audio || !Number.isFinite(audio.duration) || audio.duration <= 0) {
-			return;
-		}
-
-		const idempotencyKey = `${this.bookId}:${Math.floor(Date.now() / 15000)}`;
-		this.progress
-			.saveForBook(
-				this.bookId,
-				{
-					positionSeconds: Math.floor(audio.currentTime),
-					durationAtSave: Math.floor(audio.duration),
-				},
-				idempotencyKey,
-			)
-			.subscribe({ error: () => undefined });
-	}
-
-	private flushListeningSession(): void {
-		const audio = this.audioRef?.nativeElement;
-		if (!audio || !this.sessionStartedAt) {
-			return;
-		}
-
-		const startedAt = this.sessionStartedAt;
-		const startPosition = this.sessionStartPosition;
-		const endPosition = audio.currentTime;
-		const listenedSeconds = Math.max(0, Math.round(endPosition - startPosition));
-
-		this.sessionStartedAt = null;
-		this.sessionStartPosition = endPosition;
-
-		if (listenedSeconds < 3) {
-			return;
-		}
-
-		this.stats
-			.createSession(
-				{
-					bookId: this.bookId,
-					startedAt: startedAt.toISOString(),
-					endedAt: new Date().toISOString(),
-					listenedSeconds,
-					startPositionSeconds: Math.floor(startPosition),
-					endPositionSeconds: Math.floor(endPosition),
-					device: 'web',
-				},
-				`${this.bookId}:session:${startedAt.getTime()}`,
-			)
-			.subscribe({ error: () => undefined });
-	}
-
 	private computeCoverUrl(book: Book): string {
 		if (!book.coverPath) {
 			return '';
@@ -1164,24 +1049,24 @@ export class PlayerPage implements OnInit, OnDestroy {
 		return `/streaming/books/${book.id}/cover?access_token=${encodeURIComponent(token)}`;
 	}
 
-	private updateActiveChapterFromCurrentTime(): void {
+	private updateActiveChapterFromCurrentTime(current: number): void {
 		const chapters = this.chapters();
 		if (chapters.length === 0) {
 			this.activeChapterIndex.set(0);
 			return;
 		}
 
-		const current = this.currentSeconds();
-		const index = chapters.findIndex((chapter) => {
+		const index = chapters.findIndex((chapter, chapterIndex) => {
 			const start = this.chapterStartSeconds(chapter);
 			const end = this.chapterEndSeconds(chapter);
-			return current >= start && current < end;
+			const isLast = chapterIndex === chapters.length - 1;
+			return current >= start && (isLast ? current <= end : current < end);
 		});
 
 		this.activeChapterIndex.set(index >= 0 ? index : chapters.length - 1);
 	}
 
-	private handleSleepTimerTick(): void {
+	private handleSleepTimerTick(currentTime: number): void {
 		if (this.sleepTimerMode() !== 'chapter') {
 			return;
 		}
@@ -1191,14 +1076,12 @@ export class PlayerPage implements OnInit, OnDestroy {
 			return;
 		}
 
-		const audio = this.audioRef?.nativeElement;
-		if (!audio || audio.paused) {
+		if (this.player.paused()) {
 			return;
 		}
 
-		if (audio.currentTime >= target) {
-			audio.pause();
-			this.currentSeconds.set(Math.floor(audio.currentTime));
+		if (currentTime >= target) {
+			this.player.pause();
 			this.sleepChapterTargetSeconds = null;
 		}
 	}
@@ -1208,8 +1091,7 @@ export class PlayerPage implements OnInit, OnDestroy {
 			return;
 		}
 
-		const audio = this.audioRef?.nativeElement;
-		if (!audio || audio.paused) {
+		if (this.player.paused()) {
 			return;
 		}
 
@@ -1271,12 +1153,7 @@ export class PlayerPage implements OnInit, OnDestroy {
 		this.sleepPausedAtMs = Date.now();
 		this.sleepRemainingMs = 0;
 
-		const audio = this.audioRef?.nativeElement;
-		if (!audio) {
-			return;
-		}
-
-		audio.pause();
+		this.player.pause();
 	}
 
 	private armChapterSleepTarget(): void {
@@ -1302,9 +1179,48 @@ export class PlayerPage implements OnInit, OnDestroy {
 			this.sleepRemainingMs = SLEEP_TIMER_MINUTES[mode] * 60_000;
 		}
 
-		const audio = this.audioRef?.nativeElement;
-		if (audio && !audio.paused) {
+		if (!this.player.paused()) {
 			this.armSleepTimerForPlayback();
+		}
+	}
+
+	goToPreviousChapter(): void {
+		this.player.jumpToPreviousChapter();
+		this.updateActiveChapterFromCurrentTime(this.player.currentSeconds());
+		this.refreshChapterSleepTargetIfNeeded();
+	}
+
+	goToNextChapter(): void {
+		this.player.jumpToNextChapter();
+		this.updateActiveChapterFromCurrentTime(this.player.currentSeconds());
+		this.refreshChapterSleepTargetIfNeeded();
+	}
+
+	canGoToPreviousChapter(): boolean {
+		return this.activeChapterIndex() > 0 || this.player.currentSeconds() > 0;
+	}
+
+	canGoToNextChapter(): boolean {
+		return this.activeChapterIndex() < this.chapters().length - 1;
+	}
+
+	@HostListener('window:keydown', ['$event'])
+	onKeyDown(event: KeyboardEvent): void {
+		const target = event.target as HTMLElement | null;
+		const tag = target?.tagName.toLowerCase();
+		if (tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable) {
+			return;
+		}
+
+		if (event.key === 'ArrowLeft') {
+			event.preventDefault();
+			this.seek(-15);
+			return;
+		}
+
+		if (event.key === 'ArrowRight') {
+			event.preventDefault();
+			this.seek(30);
 		}
 	}
 

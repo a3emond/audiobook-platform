@@ -3,7 +3,7 @@ import { Component, inject } from '@angular/core';
 
 import { AdminJob } from '../../core/services/admin.service';
 import { AdminUploadQueueService } from '../../core/services/admin-upload-queue.service';
-import { prepareCoverImageFile } from '../../core/utils/image-upload';
+import { prepareCoverImageFile, prepareCoverImageFromUrl } from '../../core/utils/image-upload';
 
 @Component({
 	selector: 'app-admin-upload-page',
@@ -73,6 +73,12 @@ import { prepareCoverImageFile } from '../../core/utils/image-upload';
 									[disabled]="loading()"
 									(change)="onQueueCoverPicked(item.id, $event)"
 								/>
+								<div class="cover-url-row">
+									<input #coverUrlInput type="url" placeholder="https://example.com/cover.jpg" [disabled]="loading()" />
+									<button type="button" class="btn-action" [disabled]="loading()" (click)="onQueueCoverUrlPicked(item.id, coverUrlInput.value)">
+										Use URL
+									</button>
+								</div>
 								<span>{{ item.mp3?.coverFile?.name || 'Auto-extracted' }}</span>
 							</div>
 							<span *ngIf="item.type !== 'mp3'">-</span>
@@ -127,6 +133,8 @@ import { prepareCoverImageFile } from '../../core/utils/image-upload';
 			.queue-table th { background: #1a1a1a; color: var(--color-text-muted); }
 			.lang-radio { display: flex; gap: 0.5rem; font-size: 0.82rem; }
 			.cover-cell { display: grid; gap: 0.35rem; }
+			.cover-url-row { display: flex; gap: 0.4rem; align-items: center; }
+			.cover-url-row input { min-width: 14rem; }
 			.jobs-panel { display: grid; gap: 0.5rem; }
 			.jobs-panel h2 { margin: 0; font-size: 1rem; }
 			.error { color: var(--color-danger); }
@@ -160,6 +168,22 @@ export class AdminUploadPage {
 			this.uploadQueue.updateMp3Cover(itemId, prepared);
 		} catch (error: unknown) {
 			this.uploadQueue.setError(error instanceof Error ? error.message : 'Invalid cover image');
+		}
+	}
+
+	async onQueueCoverUrlPicked(itemId: string, imageUrl: string): Promise<void> {
+		const value = imageUrl.trim();
+		if (!value) {
+			this.uploadQueue.setError('Please provide an image URL');
+			return;
+		}
+
+		try {
+			const prepared = await prepareCoverImageFromUrl(value);
+			this.uploadQueue.updateMp3Cover(itemId, prepared);
+			this.uploadQueue.setError(null);
+		} catch (error: unknown) {
+			this.uploadQueue.setError(error instanceof Error ? error.message : 'Invalid cover image URL');
 		}
 	}
 

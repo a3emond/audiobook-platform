@@ -5,7 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 
 import type { Book } from '../../core/models/api.models';
 import { AdminService } from '../../core/services/admin.service';
-import { prepareCoverImageFile } from '../../core/utils/image-upload';
+import { prepareCoverImageFile, prepareCoverImageFromUrl } from '../../core/utils/image-upload';
 
 interface EditableChapter {
 	id: number;
@@ -117,6 +117,13 @@ interface EditableChapter {
 					<span>Replace Embedded Cover</span>
 					<input type="file" accept=".jpg,.jpeg,.png,.webp" (change)="onCoverPicked($event)" />
 				</label>
+				<label class="cover-upload">
+					<span>Cover image URL</span>
+					<input type="url" placeholder="https://example.com/cover.jpg" name="coverUrl" [(ngModel)]="coverUrlInput" />
+				</label>
+				<button type="button" class="btn-action" [disabled]="!coverUrlInput.trim()" (click)="useCoverUrl()">
+					Use URL
+				</button>
 				<button type="button" class="btn-action" [disabled]="!selectedCoverFile()" (click)="replaceCover()">
 					Upload Cover & Repack
 				</button>
@@ -174,6 +181,7 @@ export class AdminEditPage implements OnInit {
 	language: 'en' | 'fr' = 'en';
 	tagsRaw = '';
 	descriptionDefault = '';
+	coverUrlInput = '';
 	chapterRows: EditableChapter[] = [];
 	private chapterRowCounter = 1;
 
@@ -291,6 +299,24 @@ export class AdminEditPage implements OnInit {
 		} catch (error: unknown) {
 			this.selectedCoverFile.set(null);
 			this.error.set(error instanceof Error ? error.message : 'Invalid cover image');
+		}
+	}
+
+	async useCoverUrl(): Promise<void> {
+		const value = this.coverUrlInput.trim();
+		if (!value) {
+			this.error.set('Please provide an image URL');
+			return;
+		}
+
+		this.error.set(null);
+		try {
+			const prepared = await prepareCoverImageFromUrl(value);
+			this.selectedCoverFile.set(prepared);
+			this.success.set('Cover image downloaded and prepared. You can now upload it.');
+		} catch (error: unknown) {
+			this.selectedCoverFile.set(null);
+			this.error.set(error instanceof Error ? error.message : 'Unable to load image from URL');
 		}
 	}
 

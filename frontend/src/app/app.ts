@@ -12,6 +12,7 @@ import { ProgressService } from './core/services/progress.service';
 import { SettingsService } from './core/services/settings.service';
 import { I18nService } from './core/services/i18n.service';
 import { RealtimeService } from './core/services/realtime.service';
+import { PlayerService } from './core/services/player.service';
 import { CoverTileComponent } from './shared/ui/cover-tile/cover-tile.component';
 
 interface InProgressBookItem {
@@ -46,6 +47,7 @@ export class App implements OnDestroy {
     private readonly settingsService: SettingsService,
     protected readonly i18n: I18nService,
     private readonly realtime: RealtimeService,
+    protected readonly player: PlayerService,
   ) {
     effect(() => {
       if (this.auth.isAuthenticated()) {
@@ -180,6 +182,16 @@ export class App implements OnDestroy {
     }
 
     return book.title;
+  }
+
+  miniPlayerProgressPercent(): number {
+    const duration = this.player.durationSeconds();
+    if (!Number.isFinite(duration) || duration <= 0) {
+      return 0;
+    }
+
+    const ratio = (this.player.currentSeconds() / duration) * 100;
+    return Math.max(0, Math.min(100, Math.round(ratio)));
   }
 
   private loadInProgressBooks(): void {

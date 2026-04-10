@@ -61,6 +61,31 @@
     </div>
   </header>
 
+  @if (auth.isAuthenticated() && player.currentBook(); as playingBook) {
+    <section class="mini-player" aria-label="Mini player">
+      <div class="mini-player-inner">
+        <a class="mini-cover-link" [routerLink]="['/player', playingBook.id]" [attr.aria-label]="'Open player for ' + playingBook.title">
+          <img *ngIf="player.coverUrl()" [src]="player.coverUrl()" [alt]="playingBook.title + ' cover'" class="mini-cover" />
+          <div *ngIf="!player.coverUrl()" class="mini-cover fallback">{{ coverInitials(playingBook) }}</div>
+        </a>
+        <div class="mini-meta">
+          <a class="mini-title" [routerLink]="['/player', playingBook.id]">{{ playingBook.title }}</a>
+          <div class="mini-author">{{ playingBook.author }}</div>
+          <div class="mini-progress-track" aria-hidden="true">
+            <span class="mini-progress-fill" [style.width.%]="miniPlayerProgressPercent()"></span>
+          </div>
+        </div>
+        <div class="mini-controls" role="group" aria-label="Mini player controls">
+          <button type="button" class="mini-btn" (click)="player.seek(-15)" aria-label="Back 15 seconds">-15</button>
+          <button type="button" class="mini-btn mini-btn-main" (click)="player.togglePlay()" [attr.aria-label]="player.paused() ? 'Play' : 'Pause'">
+            {{ player.paused() ? 'Play' : 'Pause' }}
+          </button>
+          <button type="button" class="mini-btn" (click)="player.seek(30)" aria-label="Forward 30 seconds">+30</button>
+        </div>
+      </div>
+    </section>
+  }
+
   @if (auth.isAuthenticated() && inProgressBooks().length > 0) {
     <section class="progress-strip" [attr.aria-label]="t('app.continueListening')">
       <div class="progress-strip-inner">
