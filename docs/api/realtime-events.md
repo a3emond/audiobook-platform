@@ -105,6 +105,28 @@ Payload:
 - bookId: book ID that triggered the claim
 - timestamp: ISO datetime of claim
 
+## Client-originated Messages
+
+The browser can also send messages to the websocket gateway.
+
+### playback.progress (client -> server)
+
+Sent by the player for low-latency progress sync while playback is active.
+
+Payload:
+
+- userId: user ID
+- bookId: book ID
+- positionSeconds: current position in seconds
+- durationAtSave: known duration in seconds
+- completed: whether playback reached completion threshold
+- timestamp: ISO datetime emitted by client
+
+Gateway behavior:
+
+- Rebroadcasts as `progress.synced` so other tabs/devices can update quickly.
+- Does not persist by itself; regular API progress saves still provide durability.
+
 ## Frontend Usage
 
 - Admin jobs pages consume job.state.changed and stop polling.

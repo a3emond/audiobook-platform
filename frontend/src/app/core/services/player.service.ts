@@ -93,6 +93,8 @@ export class PlayerService {
 	private sessionStartPosition = 0;
 	private lastSyncedProgressTime = 0;
 	private lastPlayClaimTime = 0;
+	private lastLiveProgressEmitAt = 0;
+	private suppressLiveProgressUntil = 0;
 
 	constructor(
 		private readonly api: ApiService,
@@ -147,6 +149,7 @@ export class PlayerService {
 		}
 
 		this.lastSyncedProgressTime = syncTime;
+		this.suppressLiveProgressUntil = Date.now() + 1500;
 		this.setCurrentTime(syncedData.positionSeconds);
 	}
 
@@ -277,6 +280,7 @@ export class PlayerService {
 		this.audio.currentTime = clamped;
 		this.currentSeconds.set(Math.floor(clamped));
 		this.updateMediaSessionPosition();
+		this.broadcastLiveProgressSync(true);
 	}
 
 	jumpToChapter(index: number): void {
@@ -353,6 +357,7 @@ export class PlayerService {
 				this.durationSeconds.set(Math.floor(this.audio.duration));
 			}
 			this.updateMediaSessionPosition();
+			this.broadcastLiveProgressSync(false);
 		});
 
 		this.audio.addEventListener('play', () => {
@@ -374,6 +379,7 @@ export class PlayerService {
 			void this.persistProgress();
 			this.updateMediaSessionMetadata();
 			this.broadcastPlaybackPresence();
+			this.broadcastLiveProgressSync(true);
 		});
 
 		this.audio.addEventListener('ended', () => {
@@ -598,6 +604,43 @@ export class PlayerService {
 			deviceId,
 			bookId: book.id,
 			timestamp,
+		});
+	}
+
+	private broadcastLiveProgressSync(force: boolean): void {
+		const now = Date.now();
+		if (now < this.suppressLiveProgressUntil) {
+			return;
+		}
+
+		if (!force && now - this.lastLiveProgressEmitAt < 2000) {
+			return;
+		}
+
+		const user = this.auth.user();
+		const book = this.currentBook();
+		if (!user?.id || !book?.id) {
+			return;
+		}
+
+		const duration = Number.isFinite(this.audio.duration) && this.audio.duration > 0
+			? Math.floor(this.audio.duration)
+			: this.durationSeconds();
+		if (!Number.isFinite(duration) || duration <= 0) {
+			return;
+		}
+
+		const position = Math.max(0, Math.floor(this.audio.currentTime));
+		const completed = position >= Math.max(0, duration - 1);
+		this.lastLiveProgressEmitAt = now;
+
+		this.realtime.send('playback.progress', {
+			userId: user.id,
+			bookId: book.id,
+			positionSeconds: position,
+			durationAtSave: duration,
+			completed,
+			timestamp: new Date(now).toISOString(),
 		});
 	}
 

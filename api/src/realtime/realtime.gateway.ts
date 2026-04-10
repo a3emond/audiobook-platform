@@ -208,7 +208,7 @@ export class RealtimeGateway {
     }
 
     const type = parsed?.type;
-    if (type !== "playback.session.presence" && type !== "playback.claim") {
+    if (type !== "playback.session.presence" && type !== "playback.claim" && type !== "playback.progress") {
       return;
     }
 
@@ -246,30 +246,65 @@ export class RealtimeGateway {
       return;
     }
 
+    if (type === "playback.claim") {
+      const payload = parsed.payload as {
+        userId?: unknown;
+        deviceId?: unknown;
+        bookId?: unknown;
+        timestamp?: unknown;
+      };
+
+      if (
+        typeof payload.userId !== "string" ||
+        typeof payload.deviceId !== "string" ||
+        typeof payload.bookId !== "string" ||
+        typeof payload.timestamp !== "string"
+      ) {
+        return;
+      }
+
+      this.broadcast({
+        type: "playback.claimed",
+        ts: new Date().toISOString(),
+        payload: {
+          userId: payload.userId,
+          deviceId: payload.deviceId,
+          bookId: payload.bookId,
+          timestamp: payload.timestamp,
+        },
+      });
+      return;
+    }
+
     const payload = parsed.payload as {
       userId?: unknown;
-      deviceId?: unknown;
       bookId?: unknown;
+      positionSeconds?: unknown;
+      durationAtSave?: unknown;
+      completed?: unknown;
       timestamp?: unknown;
     };
 
     if (
       typeof payload.userId !== "string" ||
-      typeof payload.deviceId !== "string" ||
       typeof payload.bookId !== "string" ||
-      typeof payload.timestamp !== "string"
+      typeof payload.positionSeconds !== "number" ||
+      typeof payload.durationAtSave !== "number" ||
+      typeof payload.completed !== "boolean"
     ) {
       return;
     }
 
     this.broadcast({
-      type: "playback.claimed",
+      type: "progress.synced",
       ts: new Date().toISOString(),
       payload: {
         userId: payload.userId,
-        deviceId: payload.deviceId,
         bookId: payload.bookId,
-        timestamp: payload.timestamp,
+        positionSeconds: Math.max(0, Math.floor(payload.positionSeconds)),
+        durationAtSave: Math.max(0, Math.floor(payload.durationAtSave)),
+        completed: payload.completed,
+        timestamp: typeof payload.timestamp === "string" ? payload.timestamp : new Date().toISOString(),
       },
     });
   }
