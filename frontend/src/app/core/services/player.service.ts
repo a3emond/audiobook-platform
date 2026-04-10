@@ -624,6 +624,9 @@ export class PlayerService {
 	private browserLabel(): string {
 		const ua = navigator.userAgent;
 		const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
+		const platform = navigator.platform || '';
+		const isIOSDevice = /iPhone|iPad|iPod/i.test(ua);
+		const isIPadDesktopMode = /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1;
 		const browser = ua.includes('Firefox')
 			? 'Firefox'
 			: ua.includes('Edg/')
@@ -635,17 +638,17 @@ export class PlayerService {
 						: 'Browser';
 
 		const uaPlatform = nav.userAgentData?.platform;
-		const os = uaPlatform
-			? uaPlatform
-			: ua.includes('Windows')
-				? 'Windows'
-				: ua.includes('Mac OS X')
-					? 'macOS'
-					: ua.includes('Android')
-						? 'Android'
-						: ua.includes('iPhone') || ua.includes('iPad')
-							? 'iOS'
-							: ua.includes('Linux')
+		const os = isIOSDevice || isIPadDesktopMode || /iPhone|iPad|iPod/i.test(uaPlatform ?? '')
+			? 'iOS'
+			: uaPlatform
+				? uaPlatform
+				: ua.includes('Android')
+					? 'Android'
+					: ua.includes('Windows') || /Win32|Win64/i.test(platform)
+						? 'Windows'
+						: ua.includes('Mac OS X') || /Mac/i.test(platform)
+							? 'macOS'
+							: ua.includes('Linux') || /Linux/i.test(platform)
 								? 'Linux'
 								: 'Web';
 
