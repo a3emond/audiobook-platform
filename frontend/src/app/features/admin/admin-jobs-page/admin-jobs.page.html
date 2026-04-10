@@ -102,16 +102,18 @@
 
 		<!-- ── Jobs queue + log detail ──────────────────────────── -->
 		<div class="jobs-pane">
-			<!-- Action controls -->
-			<div class="job-controls">
-				<button type="button" class="btn-action" (click)="triggerManualParityScan()" 
-					[disabled]="jobActionInProgress() !== null">
-					{{ jobActionInProgress() === 'parity-scan' ? 'Triggering...' : 'Manual Parity Scan' }}
-				</button>
-				<p *ngIf="jobActionMessage()" class="action-message">{{ jobActionMessage() }}</p>
-			</div>
+			<!-- Left column: queue controls + job list -->
+			<div class="jobs-column">
+				<!-- Action controls -->
+				<div class="job-controls">
+					<button type="button" class="btn-action" (click)="triggerManualParityScan()" 
+						[disabled]="jobActionInProgress() !== null">
+						{{ jobActionInProgress() === 'parity-scan' ? 'Triggering...' : 'Manual Parity Scan' }}
+					</button>
+					<p *ngIf="jobActionMessage()" class="action-message">{{ jobActionMessage() }}</p>
+				</div>
 
-			<div class="jobs-list">
+				<div class="jobs-list">
 				<p class="pane-label">Jobs Queue</p>
 				<table *ngIf="jobs().length > 0" class="jobs-table">
 					<thead>
@@ -142,13 +144,17 @@
 				</table>
 				<p *ngIf="jobs().length === 0" class="empty-hint">No jobs in queue</p>
 			</div>
-
-			<div class="logs-pane" *ngIf="selectedJobId(); else noSelection">
-				<app-admin-job-logs [jobId]="selectedJobId()!"></app-admin-job-logs>
 			</div>
-			<ng-template #noSelection>
-				<div class="no-selection">Select a job to view its logs</div>
-			</ng-template>
+
+			<!-- Right column: logs pane -->
+			<div class="logs-column">
+				<div class="logs-pane" *ngIf="selectedJobId(); else noSelection">
+					<app-admin-job-logs [jobId]="selectedJobId()!"></app-admin-job-logs>
+				</div>
+				<ng-template #noSelection>
+					<div class="no-selection">Select a job to view its logs</div>
+				</ng-template>
+			</div>
 		</div>
 
 	</div>

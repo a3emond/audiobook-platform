@@ -206,6 +206,22 @@
 		gap: 1rem;
 		align-items: start;
 	}
+
+	/* Left column: controls and job list */
+	.jobs-column {
+		display: flex;
+		flex-direction: column;
+		gap: 0.8rem;
+		min-width: 0;
+	}
+
+	/* Right column: logs pane */
+	.logs-column {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+
 	.pane-label {
 		margin: 0 0 0.55rem;
 		font-size: 0.7rem;
@@ -290,15 +306,20 @@
 	/* Job control buttons */
 	.job-controls {
 		display: flex;
-		gap: 0.65rem;
-		align-items: center;
-		margin-bottom: 0.8rem;
+		flex-direction: column;
+		gap: 0.5rem;
+		padding: 0.65rem;
+		background: rgba(255 255 255 / 0.03);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm, 0.25rem);
 	}
+
 	.job-controls .btn-action {
 		padding: 0.5rem 1rem;
 		border-radius: var(--radius-sm, 0.25rem);
 		font-size: 0.8rem;
 		font-weight: 600;
+		align-self: flex-start;
 	}
 	.action-message {
 		margin: 0;
