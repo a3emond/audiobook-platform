@@ -14,6 +14,8 @@ export class PlayerService {
 	readonly coverUrl = signal('');
 	readonly currentSeconds = signal(0);
 	readonly durationSeconds = signal(0);
+	readonly backwardJumpSeconds = signal(15);
+	readonly forwardJumpSeconds = signal(30);
 	readonly paused = signal(true);
 	readonly metadataLoaded = signal(false);
 	readonly error = signal<string | null>(null);
@@ -53,9 +55,10 @@ export class PlayerService {
 		const current = this.currentBook();
 		const sameBook = current?.id === book.id;
 		const shouldReload = options?.forceReload || !sameBook;
+		const normalizedChapters = this.normalizeChapters(book.chapters ?? [], Math.max(0, Math.floor(book.duration || 0)));
 
 		this.currentBook.set(book);
-		this.chapters.set(book.chapters ?? []);
+		this.chapters.set(normalizedChapters);
 		this.coverUrl.set(options?.coverUrl ?? this.coverUrl());
 		this.error.set(null);
 
@@ -114,6 +117,11 @@ export class PlayerService {
 
 	seek(deltaSeconds: number): void {
 		this.setCurrentTime(this.audio.currentTime + deltaSeconds);
+	}
+
+	setJumpSeconds(backward: number, forward: number): void {
+		this.backwardJumpSeconds.set(Math.max(1, Math.floor(backward)));
+		this.forwardJumpSeconds.set(Math.max(1, Math.floor(forward)));
 	}
 
 	setCurrentTime(seconds: number): void {
@@ -256,15 +264,15 @@ export class PlayerService {
 		try {
 			mediaSession.setActionHandler('play', () => this.play());
 			mediaSession.setActionHandler('pause', () => this.pause());
-			mediaSession.setActionHandler('seekbackward', (details) => this.seek(-(details.seekOffset ?? 15)));
-			mediaSession.setActionHandler('seekforward', (details) => this.seek(details.seekOffset ?? 30));
+			mediaSession.setActionHandler('seekbackward', (details) => this.seek(-(details.seekOffset ?? this.backwardJumpSeconds())));
+			mediaSession.setActionHandler('seekforward', (details) => this.seek(details.seekOffset ?? this.forwardJumpSeconds()));
 			mediaSession.setActionHandler('seekto', (details) => {
 				if (typeof details.seekTime === 'number') {
 					this.setCurrentTime(details.seekTime);
 				}
 			});
-			mediaSession.setActionHandler('previoustrack', () => this.jumpToPreviousChapter());
-			mediaSession.setActionHandler('nexttrack', () => this.jumpToNextChapter());
+			mediaSession.setActionHandler('previoustrack', () => this.seek(-this.backwardJumpSeconds()));
+			mediaSession.setActionHandler('nexttrack', () => this.seek(this.forwardJumpSeconds()));
 		} catch {
 			// Browsers may throw for unsupported actions.
 		}
@@ -401,14 +409,35 @@ export class PlayerService {
 	}
 
 	private chapterStartSeconds(chapter: Chapter): number {
-		return this.shouldConvertChapterTimesToSeconds(chapter) ? chapter.start / 1000 : chapter.start;
+		return chapter.start;
 	}
 
 	private chapterEndSeconds(chapter: Chapter): number {
-		return this.shouldConvertChapterTimesToSeconds(chapter) ? chapter.end / 1000 : chapter.end;
+		return chapter.end;
 	}
 
-	private shouldConvertChapterTimesToSeconds(chapter: Chapter): boolean {
-		return chapter.end > 10000;
+	private normalizeChapters(chapters: Chapter[], durationSeconds: number): Chapter[] {
+		if (chapters.length === 0) {
+			return [];
+		}
+
+		const normalized = chapters
+			.map((chapter) => ({
+				...chapter,
+				start: Math.max(0, Math.floor(chapter.start / 1000)),
+				end: Math.max(0, Math.floor(chapter.end / 1000)),
+			}))
+			.sort((a, b) => a.index - b.index || a.start - b.start);
+
+		for (let index = 0; index < normalized.length; index += 1) {
+			const current = normalized[index];
+			const next = normalized[index + 1];
+			const fallbackEnd = next ? Math.max(current.start + 1, next.start) : Math.max(current.start + 1, durationSeconds || current.start + 1);
+			if (current.end <= current.start) {
+				current.end = fallbackEnd;
+			}
+		}
+
+		return normalized;
 	}
 }

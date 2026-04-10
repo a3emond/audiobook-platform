@@ -117,15 +117,15 @@ const SLEEP_TIMER_PAUSE_RESET_MS = 30_000;
 						<div class="progress-panel">
 							<input
 								type="range"
-								[min]="progressMin()"
-								[max]="progressMax()"
+								[min]="progressRangeMin()"
+								[max]="progressRangeMax()"
 								[step]="1"
-								[value]="progressValue()"
+								[value]="progressSliderValue()"
 								(input)="onProgressInput($event)"
 							/>
 							<div class="times">
-								<span>{{ formatTime(progressValue() - progressMin()) }}</span>
-								<span>{{ formatTime(progressMax() - progressMin()) }}</span>
+								<span>{{ progressLeadingLabel() }}</span>
+								<span>{{ progressTrailingLabel() }}</span>
 							</div>
 
 							<div class="controls-row">
@@ -134,6 +134,8 @@ const SLEEP_TIMER_PAUSE_RESET_MS = 30_000;
 								</button>
 								<app-player-controls
 									[paused]="player.paused()"
+									[backwardSeconds]="player.backwardJumpSeconds()"
+									[forwardSeconds]="player.forwardJumpSeconds()"
 									(toggle)="togglePlay()"
 									(seek)="seek($event)"
 								/>
@@ -398,11 +400,13 @@ const SLEEP_TIMER_PAUSE_RESET_MS = 30_000;
 			.controls-menu-wrap .menu {
 				right: 0;
 				top: calc(100% + 0.35rem);
+				z-index: 60;
 			}
 			.menu {
 				position: absolute;
 				right: 0;
 				top: calc(100% + 0.3rem);
+				z-index: 60;
 				background: #181818;
 				border: 1px solid var(--color-border);
 				border-radius: 0.5rem;
@@ -410,6 +414,9 @@ const SLEEP_TIMER_PAUSE_RESET_MS = 30_000;
 				display: grid;
 				min-width: 220px;
 				overflow: hidden;
+			}
+			.controls-menu-wrap {
+				z-index: 50;
 			}
 			.menu button {
 				border: none;
@@ -637,6 +644,10 @@ export class PlayerPage implements OnInit, OnDestroy {
 		this.bookId = route.snapshot.paramMap.get('bookId') ?? '';
 
 		effect(() => {
+			this.chapters.set(this.player.chapters());
+		});
+
+		effect(() => {
 			const current = this.player.currentSeconds();
 			this.updateActiveChapterFromCurrentTime(current);
 			this.handleSleepTimerTick(current);
@@ -659,6 +670,8 @@ export class PlayerPage implements OnInit, OnDestroy {
 	}
 
 	ngOnInit(): void {
+		this.progressMode.set('chapter');
+
 		if (!this.bookId) {
 			this.error.set('Missing book id');
 			return;
@@ -668,7 +681,6 @@ export class PlayerPage implements OnInit, OnDestroy {
 			next: (book) => {
 				const hasActiveSession = this.player.currentBook()?.id === book.id && this.player.currentSeconds() > 0;
 				this.book.set(book);
-				this.chapters.set(book.chapters ?? []);
 				const coverUrl = this.computeCoverUrl(book);
 				this.coverUrl.set(coverUrl);
 				this.player.loadBook(book, { coverUrl });
@@ -695,10 +707,15 @@ export class PlayerPage implements OnInit, OnDestroy {
 	private loadPlayerSettings(): void {
 		this.settings.getMine().subscribe({
 			next: (settings) => {
+				this.player.setJumpSeconds(
+					settings.player.backwardJumpSeconds ?? 15,
+					settings.player.forwardJumpSeconds ?? 30,
+				);
 				this.sleepTimerMode.set(settings.player.sleepTimerMode ?? 'off');
 				this.resetSleepTimerForMode();
 			},
 			error: () => {
+				this.player.setJumpSeconds(15, 30);
 				this.sleepTimerMode.set('off');
 				this.resetSleepTimerForMode();
 			},
@@ -942,12 +959,56 @@ export class PlayerPage implements OnInit, OnDestroy {
 			if (chapter) {
 				const start = this.chapterStartSeconds(chapter);
 				const end = this.chapterEndSeconds(chapter);
-				target = Math.max(start, Math.min(value, Math.max(start, end - 0.25)));
+				target = Math.max(start, Math.min(start + value, Math.max(start, end - 0.25)));
 			}
 		}
 
 		this.player.setCurrentTime(target);
 		this.refreshChapterSleepTargetIfNeeded();
+	}
+
+	progressRangeMin(): number {
+		return 0;
+	}
+
+	progressRangeMax(): number {
+		if (this.progressMode() === 'book') {
+			return Math.max(1, this.player.durationSeconds());
+		}
+
+		const chapter = this.chapters()[this.activeChapterIndex()];
+		if (!chapter) {
+			return Math.max(1, this.player.durationSeconds());
+		}
+
+		return Math.max(1, Math.floor(this.chapterDurationSeconds(chapter)));
+	}
+
+	progressSliderValue(): number {
+		const current = this.player.currentSeconds();
+		if (this.progressMode() === 'book') {
+			return Math.max(0, Math.min(current, this.progressRangeMax()));
+		}
+
+		const chapter = this.chapters()[this.activeChapterIndex()];
+		if (!chapter) {
+			return Math.max(0, Math.min(current, this.progressRangeMax()));
+		}
+
+		const offset = current - this.chapterStartSeconds(chapter);
+		return Math.max(0, Math.min(offset, this.progressRangeMax()));
+	}
+
+	progressLeadingLabel(): string {
+		return this.formatTime(this.progressSliderValue());
+	}
+
+	progressTrailingLabel(): string {
+		if (this.progressMode() === 'book') {
+			return this.formatTime(this.player.durationSeconds());
+		}
+
+		return this.formatTime(this.progressRangeMax());
 	}
 
 	progressMin(): number {
@@ -1214,13 +1275,13 @@ export class PlayerPage implements OnInit, OnDestroy {
 
 		if (event.key === 'ArrowLeft') {
 			event.preventDefault();
-			this.seek(-15);
+			this.seek(-this.player.backwardJumpSeconds());
 			return;
 		}
 
 		if (event.key === 'ArrowRight') {
 			event.preventDefault();
-			this.seek(30);
+			this.seek(this.player.forwardJumpSeconds());
 		}
 	}
 
@@ -1234,14 +1295,15 @@ export class PlayerPage implements OnInit, OnDestroy {
 	}
 
 	private chapterStartSeconds(chapter: Chapter): number {
-		return this.shouldConvertChapterTimesToSeconds(chapter) ? chapter.start / 1000 : chapter.start;
+		return chapter.start;
 	}
 
 	private chapterEndSeconds(chapter: Chapter): number {
-		return this.shouldConvertChapterTimesToSeconds(chapter) ? chapter.end / 1000 : chapter.end;
+		return chapter.end;
 	}
 
-	private shouldConvertChapterTimesToSeconds(chapter: Chapter): boolean {
-		return chapter.end > 10000;
+	private chapterDurationSeconds(chapter: Chapter): number {
+		return Math.max(1, this.chapterEndSeconds(chapter) - this.chapterStartSeconds(chapter));
 	}
+
 }

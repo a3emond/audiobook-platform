@@ -5,17 +5,17 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 	standalone: true,
 	template: `
 		<div class="controls" role="group" aria-label="Player transport controls">
-			<button type="button" class="circle seek" (click)="seek.emit(-15)" aria-label="Back 15 seconds" title="Back 15s">
+			<button type="button" class="circle seek" (click)="seek.emit(-backwardSeconds)" [attr.aria-label]="'Back ' + backwardSeconds + ' seconds'" [attr.title]="'Back ' + backwardSeconds + 's'">
 				<span class="icon">&#8634;</span>
-				<span class="delta">-15</span>
+				<span class="delta">-{{ backwardSeconds }}</span>
 			</button>
 			<button type="button" class="circle play" (click)="toggle.emit()" [attr.aria-label]="paused ? 'Play' : 'Pause'">
 				<span class="icon" [hidden]="!paused">&#9654;</span>
 				<span class="icon" [hidden]="paused">&#10074;&#10074;</span>
 			</button>
-			<button type="button" class="circle seek" (click)="seek.emit(30)" aria-label="Forward 30 seconds" title="Forward 30s">
+			<button type="button" class="circle seek" (click)="seek.emit(forwardSeconds)" [attr.aria-label]="'Forward ' + forwardSeconds + ' seconds'" [attr.title]="'Forward ' + forwardSeconds + 's'">
 				<span class="icon">&#8635;</span>
-				<span class="delta">+30</span>
+				<span class="delta">+{{ forwardSeconds }}</span>
 			</button>
 		</div>
 	`,
@@ -102,6 +102,8 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 })
 export class PlayerControlsComponent {
 	@Input() paused = true;
+	@Input() backwardSeconds = 15;
+	@Input() forwardSeconds = 30;
 	@Output() toggle = new EventEmitter<void>();
 	@Output() seek = new EventEmitter<number>();
 }
