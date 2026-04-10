@@ -64,6 +64,9 @@
           </a>
           <div class="topbar-player-meta">
             <a class="topbar-player-title" [routerLink]="['/player', playingBook.id]">{{ playingBook.title }}</a>
+            <div class="topbar-player-device" [class.here]="player.activeListeningDeviceId() === player.playbackDeviceId()">
+              Listening on {{ player.activeListeningDeviceLabel() }}
+            </div>
             <div class="topbar-player-progress" aria-hidden="true">
               <span class="topbar-player-progress-fill" [style.width.%]="miniPlayerProgressPercent()"></span>
             </div>

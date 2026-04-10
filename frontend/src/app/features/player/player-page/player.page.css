@@ -70,6 +70,23 @@
 				margin: 0.35rem 0 0;
 				color: var(--color-text-muted);
 			}
+			.listening-badge {
+				display: inline-flex;
+				align-items: center;
+				margin-top: 0.5rem;
+				padding: 0.2rem 0.56rem;
+				border-radius: 999px;
+				border: 1px solid rgb(255 138 0 / 0.42);
+				background: rgb(255 138 0 / 0.12);
+				color: #ffe0b0;
+				font-size: 0.72rem;
+				font-weight: 700;
+			}
+			.listening-badge.here {
+				border-color: rgb(34 197 94 / 0.5);
+				background: rgb(34 197 94 / 0.16);
+				color: #d7fee5;
+			}
 			.btn-admin-edit {
 				display: inline-flex;
 				align-items: center;

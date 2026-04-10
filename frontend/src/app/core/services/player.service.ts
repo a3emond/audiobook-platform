@@ -63,6 +63,15 @@ export class PlayerService {
 	readonly playbackDeviceId = signal('');
 	readonly listeningDevices = signal<PlaybackDeviceSession[]>([]);
 	readonly activeListeningDeviceId = signal<string | null>(null);
+	readonly activeListeningDevice = computed<PlaybackDeviceSession | null>(() => {
+		const activeId = this.activeListeningDeviceId();
+		if (!activeId) {
+			return null;
+		}
+
+		return this.listeningDevices().find((item) => item.deviceId === activeId) ?? null;
+	});
+	readonly activeListeningDeviceLabel = computed(() => this.activeListeningDevice()?.label ?? 'This browser');
 
 	private readonly audio = new Audio();
 	private pendingInitialPosition: number | null = null;
