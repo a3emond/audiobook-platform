@@ -30,6 +30,8 @@ export class AdminJobsPage implements OnInit, OnDestroy {
   readonly settingsDraft = signal<WorkerSettingsDraft | null>(null);
   readonly savingSettings = signal(false);
   readonly settingsMessage = signal<string | null>(null);
+  readonly jobActionInProgress = signal<string | null>(null);
+  readonly jobActionMessage = signal<string | null>(null);
   readonly allJobTypes: WorkerQueueSettings['heavyJobTypes'] = [
     'INGEST',
     'INGEST_MP3_AS_M4B',
@@ -117,5 +119,19 @@ export class AdminJobsPage implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.streamHandle?.stop();
+  }
+
+  rerunJob(job: AdminJob): void {
+    // Job rerun would require a backend endpoint to re-enqueue a specific job type
+    // with the same parameters. This is a placeholder for future implementation.
+    this.jobActionMessage.set('Job rerun requires backend API endpoint implementation');
+    setTimeout(() => this.jobActionMessage.set(null), 3000);
+  }
+
+  triggerManualParityScan(): void {
+    // Manual parity scan would require a special POST endpoint in the admin API.
+    // This is a placeholder for future implementation.
+    this.jobActionMessage.set('Manual parity scan requires backend API endpoint implementation');
+    setTimeout(() => this.jobActionMessage.set(null), 3000);
   }
 }

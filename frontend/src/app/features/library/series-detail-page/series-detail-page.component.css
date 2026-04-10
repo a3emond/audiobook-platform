@@ -69,7 +69,27 @@
   margin-top: 0.55rem;
 }
 
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 190px));
+  gap: 0.75rem;
+  justify-content: start;
+}
+
+.card-grid app-book-card {
+  display: block;
+  width: 190px;
+}
+
 @media (max-width: 720px) {
+  .card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(165px, 165px));
+  }
+
+  .card-grid app-book-card {
+    width: 165px;
+  }
+
   .hero h1 {
     font-size: 1.5rem;
   }

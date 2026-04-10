@@ -37,8 +37,46 @@ export class AdminUploadQueueService {
 	readonly jobsById = signal<Record<string, AdminJob>>({});
 
 	private jobsStreamHandle?: { stop: () => void };
+	private readonly storageKey = 'audiobook:upload-queue:metadata';
 
-	constructor(private readonly admin: AdminService) {}
+	constructor(private readonly admin: AdminService) {
+		this.loadQueueMetadata();
+	}
+
+	private loadQueueMetadata(): void {
+		try {
+			const stored = localStorage.getItem(this.storageKey);
+			if (!stored) return;
+
+			const data = JSON.parse(stored) as {
+				trackedJobIds: string[];
+				lastQueuedJobId: string | null;
+			};
+
+			this.trackedJobIds.set(data.trackedJobIds || []);
+			this.lastQueuedJobId.set(data.lastQueuedJobId || null);
+
+			if (data.trackedJobIds?.length) {
+				this.startRealtimeTracking();
+			}
+		} catch (error) {
+			console.warn('Failed to restore upload queue metadata:', error);
+		}
+	}
+
+	private saveQueueMetadata(): void {
+		try {
+			localStorage.setItem(
+				this.storageKey,
+				JSON.stringify({
+					trackedJobIds: this.trackedJobIds(),
+					lastQueuedJobId: this.lastQueuedJobId(),
+				}),
+			);
+		} catch (error) {
+			console.warn('Failed to save upload queue metadata:', error);
+		}
+	}
 
 	addFiles(files: File[]): void {
 		if (files.length === 0) {
@@ -85,6 +123,7 @@ export class AdminUploadQueueService {
 		this.jobsById.set({});
 		this.jobsStreamHandle?.stop();
 		this.jobsStreamHandle = undefined;
+		this.saveQueueMetadata();
 	}
 
 	startQueue(): void {
@@ -162,6 +201,7 @@ export class AdminUploadQueueService {
 		if (!this.trackedJobIds().includes(jobId)) {
 			this.trackedJobIds.update((ids) => [...ids, jobId]);
 		}
+		this.saveQueueMetadata();
 		this.startRealtimeTracking();
 	}
 

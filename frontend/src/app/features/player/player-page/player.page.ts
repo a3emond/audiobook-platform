@@ -140,11 +140,13 @@ export class PlayerPage implements OnInit, OnDestroy {
 					settings.player.backwardJumpSeconds ?? 15,
 					settings.player.forwardJumpSeconds ?? 30,
 				);
+				this.player.setPlaybackRate(settings.player.playbackRate ?? 1);
 				this.sleepTimerMode.set(settings.player.sleepTimerMode ?? 'off');
 				this.resetSleepTimerForMode();
 			},
 			error: () => {
 				this.player.setJumpSeconds(15, 30);
+				this.player.setPlaybackRate(1);
 				this.sleepTimerMode.set('off');
 				this.resetSleepTimerForMode();
 			},

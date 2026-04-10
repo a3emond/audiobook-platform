@@ -131,6 +131,12 @@ export class PlayerService {
 		this.forwardJumpSeconds.set(Math.max(1, Math.floor(forward)));
 	}
 
+	setPlaybackRate(rate: number): void {
+		const clamped = Math.max(0.5, Math.min(3, rate || 1));
+		this.audio.playbackRate = clamped;
+		this.updateMediaSessionPosition();
+	}
+
 	setCurrentTime(seconds: number): void {
 		const duration = Number.isFinite(this.audio.duration) ? this.audio.duration : Number.POSITIVE_INFINITY;
 		const clamped = Math.max(0, Math.min(seconds, duration));

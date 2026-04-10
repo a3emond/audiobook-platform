@@ -1,10 +1,116 @@
-      .admin-page { display: grid; gap: 0.9rem; }
-      .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.7rem; }
-      .card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 0.5rem; padding: 0.8rem; }
-      .card h3 { margin: 0 0 0.4rem; font-size: 0.95rem; }
-      .card p { margin: 0; font-size: 1.3rem; font-weight: 700; }
-      .jobs-status { margin: 0.2rem 0; display: grid; gap: 0.25rem; padding: 0.8rem; border: 1px solid var(--color-border); border-radius: 0.5rem; background: var(--color-surface); }
-      .admin-table { width: 100%; border-collapse: collapse; background: var(--color-surface); }
-      .admin-table th, .admin-table td { border: 1px solid var(--color-border); padding: 0.45rem; text-align: left; }
-      .admin-table th { background: #1a1a1a; color: var(--color-text-muted); }
-      .error { color: var(--color-danger); }
+.admin-page {
+      display: grid;
+      gap: 1rem;
+}
+
+.block {
+      display: grid;
+      gap: 0.7rem;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 0.6rem;
+      padding: 0.9rem;
+}
+
+.section-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.8rem;
+}
+
+.dim {
+      margin: 0;
+      color: var(--color-text-muted);
+      font-size: 0.85rem;
+}
+
+.cards,
+.status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.7rem;
+}
+
+.card,
+.status-card {
+      background: var(--color-surface-strong, #151515);
+      border: 1px solid var(--color-border);
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+}
+
+.card h3,
+.status-card h3 {
+      margin: 0 0 0.35rem;
+      font-size: 0.9rem;
+      color: var(--color-text-muted);
+}
+
+.card p,
+.status-card p {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 700;
+}
+
+.coverage-groups {
+      display: grid;
+      gap: 0.85rem;
+}
+
+.coverage-group {
+      display: grid;
+      gap: 0.5rem;
+}
+
+.coverage-group h3 {
+      margin: 0;
+      font-size: 0.92rem;
+}
+
+.admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--color-surface-strong, #151515);
+}
+
+.admin-table th,
+.admin-table td {
+      border: 1px solid var(--color-border);
+      padding: 0.45rem;
+      text-align: left;
+      vertical-align: top;
+}
+
+.admin-table th {
+      background: #1a1a1a;
+      color: var(--color-text-muted);
+}
+
+.method {
+      width: 5.5rem;
+      font-weight: 700;
+}
+
+.path {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.82rem;
+}
+
+.notes {
+      margin: 0;
+      padding-left: 1.1rem;
+      color: var(--color-text-muted);
+}
+
+.error {
+      color: var(--color-danger);
+}
+
+@media (max-width: 700px) {
+      .section-header {
+            flex-direction: column;
+            align-items: flex-start;
+      }
+}

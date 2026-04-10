@@ -7,6 +7,7 @@ import { forkJoin } from 'rxjs';
 import type {
   Book,
   Collection,
+  SeriesSummary,
 } from '../../../core/models/api.models';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 import { I18nService } from '../../../core/services/i18n.service';
@@ -133,34 +134,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
         this.latestBooks.set(filterBooks(booksResponse.books).slice(0, LATEST_BOOKS_LIMIT));
 
-        this.library.listSeries({ q: this.q || undefined, limit: 10, offset: 0 }).subscribe({
-          next: (seriesResponse) => {
-            const topSeries = uniqueTopSeries(seriesResponse.series, 8);
-
-            if (topSeries.length === 0) {
-              this.seriesRails.set([]);
-              this.loadCollections();
-              return;
-            }
-
-            forkJoin(topSeries.map((series) => this.library.getSeries(series.name))).subscribe({
-              next: (seriesDetails) => {
-                const rails = mapSeriesRails(seriesDetails, filterBooks);
-
-                this.seriesRails.set(rails);
-                this.loadCollections();
-              },
-              error: (error: unknown) => {
-                this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.seriesRows'));
-                this.loading.set(false);
-              },
-            });
-          },
-          error: (error: unknown) => {
-            this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.series'));
-            this.loading.set(false);
-          },
-        });
+        this.loadAllSeries(this.q || undefined, 0, [], filterBooks);
       },
       error: (error: unknown) => {
         this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.load'));
@@ -186,6 +160,47 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
       },
       error: (error: unknown) => {
         this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.collections'));
+        this.loading.set(false);
+      },
+    });
+  }
+
+  private loadAllSeries(
+    query: string | undefined,
+    offset: number,
+    acc: SeriesSummary[],
+    filterBooks: (books: Book[]) => Book[],
+  ): void {
+    const pageSize = 100;
+    this.library.listSeries({ q: query, limit: pageSize, offset }).subscribe({
+      next: (seriesResponse) => {
+        const merged = [...acc, ...seriesResponse.series];
+        if (seriesResponse.hasMore) {
+          this.loadAllSeries(query, offset + pageSize, merged, filterBooks);
+          return;
+        }
+
+        const topSeries = uniqueTopSeries(merged, Number.MAX_SAFE_INTEGER);
+        if (topSeries.length === 0) {
+          this.seriesRails.set([]);
+          this.loadCollections();
+          return;
+        }
+
+        forkJoin(topSeries.map((series) => this.library.getSeries(series.name))).subscribe({
+          next: (seriesDetails) => {
+            const rails = mapSeriesRails(seriesDetails, filterBooks);
+            this.seriesRails.set(rails);
+            this.loadCollections();
+          },
+          error: (error: unknown) => {
+            this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.seriesRows'));
+            this.loading.set(false);
+          },
+        });
+      },
+      error: (error: unknown) => {
+        this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.series'));
         this.loading.set(false);
       },
     });

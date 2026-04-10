@@ -102,6 +102,15 @@
 
 		<!-- ── Jobs queue + log detail ──────────────────────────── -->
 		<div class="jobs-pane">
+			<!-- Action controls -->
+			<div class="job-controls">
+				<button type="button" class="btn-action" (click)="triggerManualParityScan()" 
+					[disabled]="jobActionInProgress() !== null">
+					{{ jobActionInProgress() === 'parity-scan' ? 'Triggering...' : 'Manual Parity Scan' }}
+				</button>
+				<p *ngIf="jobActionMessage()" class="action-message">{{ jobActionMessage() }}</p>
+			</div>
+
 			<div class="jobs-list">
 				<p class="pane-label">Jobs Queue</p>
 				<table *ngIf="jobs().length > 0" class="jobs-table">
@@ -111,6 +120,7 @@
 							<th>Status</th>
 							<th>Attempts</th>
 							<th>Updated</th>
+							<th>Actions</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -121,6 +131,12 @@
 							<td><span class="badge" [class]="'status-' + job.status">{{ job.status }}</span></td>
 							<td class="dim-cell">{{ job.attempt }}/{{ job.maxAttempts }}</td>
 							<td class="dim-cell">{{ job.updatedAt | date:'HH:mm:ss' }}</td>
+							<td class="action-cell">
+								<button type="button" class="btn-small" (click)="rerunJob(job); $event.stopPropagation()" 
+									[disabled]="jobActionInProgress() === job.id">
+									{{ jobActionInProgress() === job.id ? '...' : 'Rerun' }}
+								</button>
+							</td>
 						</tr>
 					</tbody>
 				</table>

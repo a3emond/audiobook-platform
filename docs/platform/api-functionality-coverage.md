@@ -96,11 +96,14 @@ Implemented (admin-only under `/api/v1/admin`):
   - `GET /api/v1/admin/coverage`
 - books management:
   - `POST /api/v1/admin/books/upload`
+  - `POST /api/v1/admin/books/upload/url` (image URL for cover)
+  - Batch upload support via sequential queue
   - `GET /api/v1/admin/books`
   - `GET /api/v1/admin/books/:bookId`
   - `PATCH /api/v1/admin/books/:bookId/metadata`
   - `PATCH /api/v1/admin/books/:bookId/chapters`
   - `POST /api/v1/admin/books/:bookId/extract-cover`
+  - Cover image URL support via `prepareCoverImageFromUrl`
   - `DELETE /api/v1/admin/books/:bookId`
 - jobs management:
   - `POST /api/v1/admin/jobs/enqueue`
@@ -139,8 +142,11 @@ Status: complete for current worker-backed operations.
 ### Operator/admin capabilities
 
 - Upload, ingest, and publish books from admin app flow: covered.
+- Batch upload queue with per-item language and cover selection: covered.
+- Image URL cover assignment and validation: covered.
 - Metadata and chapter management: covered.
 - Cover extraction and delete workflows via jobs: covered.
+- Job restart, rerun, and manual parity scan triggers: covered.
 - Queue visibility and cancellation: covered.
 - User role management and session revocation: covered.
 

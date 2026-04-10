@@ -1,43 +1,57 @@
-    <div class="admin-page">
-      <h1>Admin Overview</h1>
+<div class="admin-page">
+  <h1>Admin Overview</h1>
 
-      <p *ngIf="loading()">Loading overview...</p>
-      <p *ngIf="error()" class="error">{{ error() }}</p>
+  <p *ngIf="loading()">Loading overview...</p>
+  <p *ngIf="error()" class="error">{{ error() }}</p>
 
-      <div *ngIf="overview() as o" class="cards">
-        <article class="card"><h3>Users</h3><p>{{ o.counts.users }}</p></article>
-        <article class="card"><h3>Books</h3><p>{{ o.counts.books }}</p></article>
-        <article class="card"><h3>Collections</h3><p>{{ o.counts.collections }}</p></article>
-        <article class="card"><h3>Jobs</h3><p>{{ o.counts.jobs }}</p></article>
-      </div>
+  <section *ngIf="overview() as o" class="block">
+    <h2>Platform Snapshot</h2>
+    <div class="cards">
+      <article class="card"><h3>Users</h3><p>{{ o.counts.users }}</p></article>
+      <article class="card"><h3>Books</h3><p>{{ o.counts.books }}</p></article>
+      <article class="card"><h3>Collections</h3><p>{{ o.counts.collections }}</p></article>
+      <article class="card"><h3>Jobs</h3><p>{{ o.counts.jobs }}</p></article>
+    </div>
+  </section>
 
-      <div *ngIf="overview() as o" class="jobs-status">
-        <h2>Jobs by Status</h2>
-        <p>Queued: {{ o.jobsByStatus.queued }}</p>
-        <p>Running: {{ o.jobsByStatus.running }}</p>
-        <p>Retrying: {{ o.jobsByStatus.retrying }}</p>
-        <p>Done: {{ o.jobsByStatus.done }}</p>
-        <p>Failed: {{ o.jobsByStatus.failed }}</p>
-      </div>
+  <section *ngIf="overview() as o" class="block">
+    <h2>Jobs by Status</h2>
+    <div class="status-grid">
+      <article class="status-card"><h3>Queued</h3><p>{{ o.jobsByStatus.queued }}</p></article>
+      <article class="status-card"><h3>Running</h3><p>{{ o.jobsByStatus.running }}</p></article>
+      <article class="status-card"><h3>Retrying</h3><p>{{ o.jobsByStatus.retrying }}</p></article>
+      <article class="status-card"><h3>Done</h3><p>{{ o.jobsByStatus.done }}</p></article>
+      <article class="status-card"><h3>Failed</h3><p>{{ o.jobsByStatus.failed }}</p></article>
+    </div>
+  </section>
 
-      <section *ngIf="coverage() as c">
-        <h2>Admin Coverage</h2>
-        <table *ngIf="c.adminOnlyEndpoints.length > 0" class="admin-table">
+  <section *ngIf="coverage() as c" class="block">
+    <div class="section-header">
+      <h2>Admin Coverage</h2>
+      <p class="dim">{{ totalAdminEndpoints() }} admin-only endpoints</p>
+    </div>
+
+    <div class="coverage-groups" *ngIf="coverageByArea().length > 0">
+      <article *ngFor="let group of coverageByArea()" class="coverage-group">
+        <h3>{{ areaLabel(group.area) }} ({{ group.endpoints.length }})</h3>
+
+        <table class="admin-table">
           <thead>
-            <tr><th>Method</th><th>Path</th><th>Area</th><th>Description</th></tr>
+            <tr><th>Method</th><th>Path</th><th>Description</th></tr>
           </thead>
           <tbody>
-            <tr *ngFor="let endpoint of c.adminOnlyEndpoints">
-              <td>{{ endpoint.method }}</td>
-              <td>{{ endpoint.path }}</td>
-              <td>{{ endpoint.area }}</td>
+            <tr *ngFor="let endpoint of group.endpoints">
+              <td class="method">{{ endpoint.method }}</td>
+              <td class="path">{{ endpoint.path }}</td>
               <td>{{ endpoint.description }}</td>
             </tr>
           </tbody>
         </table>
-
-        <ul *ngIf="c.notes.length > 0">
-          <li *ngFor="let note of c.notes">{{ note }}</li>
-        </ul>
-      </section>
+      </article>
     </div>
+
+    <ul *ngIf="c.notes.length > 0" class="notes">
+      <li *ngFor="let note of c.notes">{{ note }}</li>
+    </ul>
+  </section>
+</div>
