@@ -82,11 +82,6 @@
 				font-size: 0.72rem;
 				font-weight: 700;
 			}
-			.listening-badge.here {
-				border-color: rgb(34 197 94 / 0.5);
-				background: rgb(34 197 94 / 0.16);
-				color: #d7fee5;
-			}
 			.btn-admin-edit {
 				display: inline-flex;
 				align-items: center;

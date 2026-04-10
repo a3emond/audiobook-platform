@@ -17,7 +17,7 @@
 				<div class="meta">
 					<h1>{{ currentBook.title }}</h1>
 					<p>by {{ currentBook.author }}</p>
-					<div class="listening-badge" [class.here]="player.activeListeningDeviceId() === player.playbackDeviceId()">
+					<div class="listening-badge" *ngIf="player.shouldShowListeningBadge()">
 						Listening on {{ player.activeListeningDeviceLabel() }}
 					</div>
 					<a

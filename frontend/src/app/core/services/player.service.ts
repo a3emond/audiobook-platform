@@ -71,7 +71,19 @@ export class PlayerService {
 
 		return this.listeningDevices().find((item) => item.deviceId === activeId) ?? null;
 	});
-	readonly activeListeningDeviceLabel = computed(() => this.activeListeningDevice()?.label ?? 'This browser');
+	readonly activeListeningDeviceLabel = computed(() => this.activeListeningDevice()?.label ?? 'another device');
+	readonly shouldShowListeningBadge = computed(() => {
+		const active = this.activeListeningDevice();
+		if (!active) {
+			return false;
+		}
+
+		if (active.deviceId === this.playbackDeviceId()) {
+			return false;
+		}
+
+		return !active.paused;
+	});
 
 	private readonly audio = new Audio();
 	private pendingInitialPosition: number | null = null;
@@ -611,6 +623,7 @@ export class PlayerService {
 
 	private browserLabel(): string {
 		const ua = navigator.userAgent;
+		const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
 		const browser = ua.includes('Firefox')
 			? 'Firefox'
 			: ua.includes('Edg/')
@@ -621,8 +634,22 @@ export class PlayerService {
 						? 'Safari'
 						: 'Browser';
 
-		const platform = navigator.platform || 'Web';
-		return `${browser} on ${platform}`;
+		const uaPlatform = nav.userAgentData?.platform;
+		const os = uaPlatform
+			? uaPlatform
+			: ua.includes('Windows')
+				? 'Windows'
+				: ua.includes('Mac OS X')
+					? 'macOS'
+					: ua.includes('Android')
+						? 'Android'
+						: ua.includes('iPhone') || ua.includes('iPad')
+							? 'iOS'
+							: ua.includes('Linux')
+								? 'Linux'
+								: 'Web';
+
+		return `${browser} on ${os}`;
 	}
 
 }

@@ -64,7 +64,7 @@
           </a>
           <div class="topbar-player-meta">
             <a class="topbar-player-title" [routerLink]="['/player', playingBook.id]">{{ playingBook.title }}</a>
-            <div class="topbar-player-device" [class.here]="player.activeListeningDeviceId() === player.playbackDeviceId()">
+            <div class="topbar-player-device" *ngIf="player.shouldShowListeningBadge()">
               Listening on {{ player.activeListeningDeviceLabel() }}
             </div>
             <div class="topbar-player-progress" aria-hidden="true">
