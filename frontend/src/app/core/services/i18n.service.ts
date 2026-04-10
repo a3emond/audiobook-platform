@@ -1,6 +1,7 @@
 import { Injectable, computed, signal } from '@angular/core';
 
 @Injectable({ providedIn: 'root' })
+// i18n: keeps UI and state logic readable for this frontend unit.
 export class I18nService {
 	private readonly localeState = signal<'fr' | 'en'>('en');
 	private readonly messagesState = signal<Record<string, string>>({});

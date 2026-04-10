@@ -1,0 +1,29 @@
+      .legal-page {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .legal-header {
+        display: grid;
+        gap: 0.35rem;
+      }
+
+      .legal-card {
+        display: grid;
+        gap: 0.8rem;
+        line-height: 1.6;
+      }
+
+      .legal-card h2 {
+        margin: 0.2rem 0 0;
+        font-size: 1.05rem;
+      }
+
+      .legal-card p,
+      .legal-card ul {
+        margin: 0;
+      }
+
+      .legal-card ul {
+        padding-left: 1.15rem;
+      }

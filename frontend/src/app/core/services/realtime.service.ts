@@ -4,6 +4,7 @@ import { Observable, Subject, filter, map } from 'rxjs';
 import type { RealtimeEventEnvelope } from '../models/api.models';
 
 @Injectable({ providedIn: 'root' })
+// realtime: keeps UI and state logic readable for this frontend unit.
 export class RealtimeService {
   private socket: WebSocket | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;

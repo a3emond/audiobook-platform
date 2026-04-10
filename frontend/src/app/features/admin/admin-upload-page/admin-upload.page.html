@@ -1,0 +1,105 @@
+		<div class="admin-page">
+			<h1>Admin Upload</h1>
+			<input type="file" multiple accept=".m4b,.m4a,.mp3,.ogg,.wav" (change)="onFilesPicked($event)" />
+
+			<div class="actions">
+				<button type="button" class="btn-action" [disabled]="queue().length === 0 || loading()" (click)="startQueue()">
+					{{ loading() ? 'Uploading Queue...' : 'Start Batch Upload' }}
+				</button>
+				<button type="button" class="btn-action" [disabled]="loading() || queue().length === 0" (click)="clearQueue()">
+					Clear Queue
+				</button>
+			</div>
+
+			<table *ngIf="queue().length > 0" class="queue-table">
+				<thead>
+					<tr>
+						<th>File</th>
+						<th>Type</th>
+						<th>Lang</th>
+						<th>Cover override</th>
+						<th>Status</th>
+						<th>Job</th>
+						<th>Error</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr *ngFor="let item of queue()">
+						<td>{{ item.file.name }}</td>
+						<td>{{ item.type }}</td>
+						<td>
+							<div class="lang-radio">
+								<label>
+									<input
+										type="radio"
+										[name]="'lang-' + item.id"
+										[value]="'en'"
+										[checked]="item.language === 'en'"
+										[disabled]="loading()"
+										(change)="updateItemLanguage(item.id, 'en')"
+									/>
+									EN
+								</label>
+								<label>
+									<input
+										type="radio"
+										[name]="'lang-' + item.id"
+										[value]="'fr'"
+										[checked]="item.language === 'fr'"
+										[disabled]="loading()"
+										(change)="updateItemLanguage(item.id, 'fr')"
+									/>
+									FR
+								</label>
+							</div>
+						</td>
+						<td>
+							<div *ngIf="item.type === 'mp3'" class="cover-cell">
+								<input
+									type="file"
+									accept=".jpg,.jpeg,.png,.webp"
+									[disabled]="loading()"
+									(change)="onQueueCoverPicked(item.id, $event)"
+								/>
+								<div class="cover-url-row">
+									<input #coverUrlInput type="url" placeholder="https://example.com/cover.jpg" [disabled]="loading()" />
+									<button type="button" class="btn-action" [disabled]="loading()" (click)="onQueueCoverUrlPicked(item.id, coverUrlInput.value)">
+										Use URL
+									</button>
+								</div>
+								<span>{{ item.mp3?.coverFile?.name || 'Auto-extracted' }}</span>
+							</div>
+							<span *ngIf="item.type !== 'mp3'">-</span>
+						</td>
+						<td>{{ item.status }}</td>
+						<td>{{ item.jobId || '-' }}</td>
+						<td>{{ item.error || '-' }}</td>
+					</tr>
+				</tbody>
+			</table>
+
+			<section *ngIf="trackedJobIds().length > 0" class="jobs-panel">
+				<h2>Batch Job Progress</h2>
+				<table class="queue-table">
+					<thead>
+						<tr>
+							<th>Job ID</th>
+							<th>Type</th>
+							<th>Status</th>
+							<th>Updated</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr *ngFor="let job of trackedJobs()">
+							<td>{{ job.id }}</td>
+							<td>{{ job.type }}</td>
+							<td>{{ job.status }}</td>
+							<td>{{ job.updatedAt || '-' }}</td>
+						</tr>
+					</tbody>
+				</table>
+			</section>
+
+			<p *ngIf="lastQueuedJobId()">Last queued job: {{ lastQueuedJobId() }}</p>
+			<p *ngIf="error()" class="error">{{ error() }}</p>
+		</div>

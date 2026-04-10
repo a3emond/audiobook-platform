@@ -1,0 +1,55 @@
+    <div class="admin-page">
+      <h1>Admin Users</h1>
+
+      <form class="filters" (ngSubmit)="reload()">
+        <input name="q" [(ngModel)]="q" placeholder="Search email/display name" />
+        <select name="role" [(ngModel)]="roleFilter">
+          <option value="">All roles</option>
+          <option value="admin">Admin</option>
+          <option value="user">User</option>
+        </select>
+        <button type="submit" class="btn-action">Search</button>
+      </form>
+
+      <p *ngIf="loading()">Loading users...</p>
+      <p *ngIf="error()" class="error">{{ error() }}</p>
+      <p *ngIf="success()" class="success">{{ success() }}</p>
+
+      <table *ngIf="users().length > 0" class="admin-table">
+        <thead>
+          <tr><th>Email</th><th>Display Name</th><th>Role</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let user of users()">
+            <td>{{ user.email }}</td>
+            <td>{{ user.profile.displayName || '-' }}</td>
+            <td>{{ user.role }}</td>
+            <td>
+              <button type="button" class="btn-action" (click)="toggleRole(user)">
+                Make {{ user.role === 'admin' ? 'User' : 'Admin' }}
+              </button>
+              <button type="button" class="btn-action" (click)="loadSessions(user)">Sessions</button>
+              <button type="button" class="btn-action" (click)="revokeSessions(user)">Revoke Sessions</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <section *ngIf="selectedUser()" class="sessions">
+        <h2>Sessions for {{ selectedUser()?.email }}</h2>
+        <p *ngIf="sessionsLoading()">Loading sessions...</p>
+        <table *ngIf="sessions().length > 0" class="admin-table">
+          <thead>
+            <tr><th>Device</th><th>IP</th><th>Last Used</th><th>Expires</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let session of sessions()">
+              <td>{{ session.device || '-' }}</td>
+              <td>{{ session.ip || '-' }}</td>
+              <td>{{ session.lastUsedAt }}</td>
+              <td>{{ session.expiresAt }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </div>

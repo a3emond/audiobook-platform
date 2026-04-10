@@ -1,0 +1,180 @@
+		<section class="page page-shell player-page">
+			<header class="hero" *ngIf="book() as currentBook">
+				<div class="cover-wrap">
+					<div class="cover-overlay-actions">
+						<button type="button" class="btn-complete" *ngIf="!isCompleted()" (click)="markCompleted()">
+							Complete
+						</button>
+					</div>
+					<img *ngIf="coverUrl()" [src]="coverUrl()" [alt]="currentBook.title + ' cover'" class="cover" />
+					<div *ngIf="!coverUrl()" class="cover fallback">{{ coverInitials(currentBook.title) }}</div>
+					<div class="cover-completed-overlay" *ngIf="isCompleted()">
+						<span class="check">✓</span>
+						<span>Completed</span>
+					</div>
+				</div>
+
+				<div class="meta">
+					<h1>{{ currentBook.title }}</h1>
+					<p>by {{ currentBook.author }}</p>
+					<a
+						*ngIf="auth.isAdmin()"
+						class="btn-admin-edit"
+						[routerLink]="['/admin/books', currentBook.id]"
+						target="_blank"
+						rel="noopener noreferrer"
+					>
+						Edit metadata
+					</a>
+
+					@if (!isCompleted()) {
+						<div class="progress-head">
+							<label>
+								<span>Chapter</span>
+								<select [value]="activeChapterIndex()" (change)="onChapterSelected($event)">
+									<option *ngFor="let chapter of chapters(); let i = index" [value]="i">
+										{{ i + 1 }}. {{ chapter.title }}
+									</option>
+								</select>
+							</label>
+
+							<div class="menu-wrap controls-menu-wrap">
+								<button
+									type="button"
+									class="btn-menu btn-menu-compact"
+									[class.sleep-active]="sleepTimerMode() !== 'off'"
+									(click)="toggleProgressMenu()"
+									aria-label="Playback and sleep options"
+									title="Playback and sleep options"
+								>
+									☾⏱
+									<span class="sleep-dot" *ngIf="sleepTimerMode() !== 'off'" aria-hidden="true"></span>
+								</button>
+								<span class="sleep-countdown-pill" *ngIf="sleepTimerCountdownText() as countdown">{{ countdown }}</span>
+								<div class="menu" *ngIf="progressMenuOpen()">
+									<p class="menu-label">Progress tracking</p>
+									<button type="button" (click)="setProgressMode('chapter')">
+										Track chapter progress {{ progressMode() === 'chapter' ? '✓' : '' }}
+									</button>
+									<button type="button" (click)="setProgressMode('book')">
+										Track book progress {{ progressMode() === 'book' ? '✓' : '' }}
+									</button>
+									<div class="menu-divider" aria-hidden="true"></div>
+									<p class="menu-label">Night auto pause: {{ sleepTimerLabel() }}</p>
+									<button type="button" (click)="setSleepTimerMode('off')">
+										Disabled {{ sleepTimerMode() === 'off' ? '✓' : '' }}
+									</button>
+									<button type="button" (click)="setSleepTimerMode('15m')">
+										15 min {{ sleepTimerMode() === '15m' ? '✓' : '' }}
+									</button>
+									<button type="button" (click)="setSleepTimerMode('30m')">
+										30 min {{ sleepTimerMode() === '30m' ? '✓' : '' }}
+									</button>
+									<button type="button" (click)="setSleepTimerMode('45m')">
+										45 min {{ sleepTimerMode() === '45m' ? '✓' : '' }}
+									</button>
+									<button type="button" (click)="setSleepTimerMode('60m')">
+										1 h {{ sleepTimerMode() === '60m' ? '✓' : '' }}
+									</button>
+									<button type="button" (click)="setSleepTimerMode('chapter')">
+										End of current chapter {{ sleepTimerMode() === 'chapter' ? '✓' : '' }}
+									</button>
+								</div>
+							</div>
+						</div>
+
+						<div class="progress-panel">
+							<input
+								type="range"
+								[min]="progressRangeMin()"
+								[max]="progressRangeMax()"
+								[step]="1"
+								[value]="progressSliderValue()"
+								(input)="onProgressInput($event)"
+							/>
+							<div class="times">
+								<span>{{ progressLeadingLabel() }}</span>
+								<span>{{ progressTrailingLabel() }}</span>
+							</div>
+
+							<div class="controls-row">
+								<button type="button" class="btn-chapter-nav" [disabled]="!canGoToPreviousChapter()" (click)="goToPreviousChapter()">
+									Prev chapter
+								</button>
+								<app-player-controls
+									[paused]="player.paused()"
+									[backwardSeconds]="player.backwardJumpSeconds()"
+									[forwardSeconds]="player.forwardJumpSeconds()"
+									(toggle)="togglePlay()"
+									(seek)="seek($event)"
+								/>
+								<button type="button" class="btn-chapter-nav" [disabled]="!canGoToNextChapter()" (click)="goToNextChapter()">
+									Next chapter
+								</button>
+							</div>
+						</div>
+					} @else {
+						<section class="completed-state">
+							<h3>You completed this book</h3>
+							<p>Restart to listen again from the beginning.</p>
+							<button type="button" class="btn-restart" (click)="restartBook()">Restart Book</button>
+						</section>
+					}
+				</div>
+			</header>
+
+			<section class="details card" *ngIf="book() as currentBook">
+				<div class="details-head">
+					<div>
+						<p class="eyebrow">Book Details</p>
+						<h2>About this title</h2>
+					</div>
+					<a
+						*ngIf="currentBook.series"
+						class="btn btn-secondary"
+						[routerLink]="['/series', currentBook.series]"
+					>
+						Open Series
+					</a>
+				</div>
+
+				<div class="detail-grid">
+					<article class="detail-card" *ngIf="currentBook.series">
+						<h3>Series</h3>
+						<p>
+							{{ currentBook.series }}
+							<span *ngIf="currentBook.seriesIndex"> · Book {{ currentBook.seriesIndex }}</span>
+						</p>
+					</article>
+
+					<article class="detail-card" *ngIf="currentBook.genre">
+						<h3>Genre</h3>
+						<p>{{ currentBook.genre }}</p>
+					</article>
+
+					<article class="detail-card" *ngIf="currentBook.tags?.length">
+						<h3>Tags</h3>
+						<app-read-more [text]="currentBook.tags?.join(' • ') ?? ''" [limit]="120" />
+					</article>
+
+					<article class="detail-card">
+						<h3>Duration</h3>
+						<p>{{ formatLongDuration(currentBook.duration) }}</p>
+					</article>
+				</div>
+
+				<div class="description" *ngIf="resolvedDescription() as description; else noDescription">
+					<h3>Description</h3>
+					<app-read-more [text]="description" [limit]="280" />
+				</div>
+
+				<ng-template #noDescription>
+					<div class="description empty-description">
+						<h3>Description</h3>
+						<p>No description is available for this book yet.</p>
+					</div>
+				</ng-template>
+			</section>
+
+			<p *ngIf="error()" class="error">{{ error() }}</p>
+		</section>

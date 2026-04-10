@@ -1,0 +1,33 @@
+    .oauth-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .google-btn-wrapper {
+      /* GIS SDK renders an iframe/button here — let it size naturally */
+      display: flex;
+      justify-content: center;
+    }
+
+    .oauth-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      width: 100%;
+      padding: 0.6rem 1rem;
+      border: 1px solid #d1d5db;
+      border-radius: 0.4rem;
+      background: #000;
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .oauth-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .apple-btn:hover:not(:disabled) { background: #1a1a1a; }
+
+    .icon { width: 1.15rem; height: 1.15rem; flex-shrink: 0; }

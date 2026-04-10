@@ -16,6 +16,7 @@ import { BookCardComponent } from '../book-card/book-card.component';
   templateUrl: './series-detail-page.component.html',
   styleUrl: './series-detail-page.component.css',
 })
+// series-detail-page: keeps UI and state logic readable for this frontend unit.
 export class SeriesDetailPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly library = inject(LibraryService);

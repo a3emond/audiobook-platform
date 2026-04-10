@@ -19,6 +19,7 @@ export interface UploadQueueItem {
 }
 
 @Injectable({ providedIn: 'root' })
+// admin-upload-queue: keeps UI and state logic readable for this frontend unit.
 export class AdminUploadQueueService {
 	readonly queue = signal<UploadQueueItem[]>([]);
 	readonly loading = signal(false);

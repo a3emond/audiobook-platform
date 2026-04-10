@@ -1,0 +1,20 @@
+			.admin-page { display: grid; gap: 0.8rem; max-width: 56rem; }
+			.actions { display: flex; gap: 0.6rem; }
+			.btn-action {
+				border: 1px solid #3a3a3a;
+				background: #1a1a1a;
+				color: var(--color-text);
+				border-radius: 0.45rem;
+				padding: 0.4rem 0.65rem;
+			}
+			.btn-action:hover { background: #252525; }
+			.queue-table { width: 100%; border-collapse: collapse; background: var(--color-surface); }
+			.queue-table th, .queue-table td { border: 1px solid var(--color-border); padding: 0.4rem; text-align: left; }
+			.queue-table th { background: #1a1a1a; color: var(--color-text-muted); }
+			.lang-radio { display: flex; gap: 0.5rem; font-size: 0.82rem; }
+			.cover-cell { display: grid; gap: 0.35rem; }
+			.cover-url-row { display: flex; gap: 0.4rem; align-items: center; }
+			.cover-url-row input { min-width: 14rem; }
+			.jobs-panel { display: grid; gap: 0.5rem; }
+			.jobs-panel h2 { margin: 0; font-size: 1rem; }
+			.error { color: var(--color-danger); }

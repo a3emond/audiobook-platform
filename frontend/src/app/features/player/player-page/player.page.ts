@@ -1,0 +1,512 @@
+import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, effect, HostListener, OnDestroy, OnInit, signal } from '@angular/core';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { interval, Subscription } from 'rxjs';
+
+import type { Book, Chapter } from '../../../core/models/api.models';
+import { AuthService } from '../../../core/services/auth.service';
+import { LibraryService } from '../../../core/services/library.service';
+import { PlayerService } from '../../../core/services/player.service';
+import { ProgressService } from '../../../core/services/progress.service';
+import { SettingsService } from '../../../core/services/settings.service';
+import { ReadMoreComponent } from '../../../shared/ui/read-more/read-more.component';
+import { PlayerControlsComponent } from '../player-controls/controls';
+import { SleepTimerMode } from './player-page.types';
+import {
+	activeChapterIndexFromTime,
+	chapterEndSeconds,
+	chapterStartSeconds,
+	clampProgressValue,
+	computeCoverUrl,
+	coverInitials,
+	formatLongDuration,
+	formatTime,
+	progressMax,
+	progressMin,
+	progressRangeMax,
+	progressSliderValue,
+	resolveProgressInputTarget,
+	resolvedDescription,
+	shouldHandlePlayerHotkey,
+	sleepTimerLabel,
+} from './player-page.utils';
+import { PlayerSleepTimer } from './player-sleep-timer';
+
+@Component({
+	selector: 'app-player-page',
+	standalone: true,
+	imports: [CommonModule, RouterLink, PlayerControlsComponent, ReadMoreComponent],
+	templateUrl: './player.page.html',
+	styleUrl: './player.page.css',
+})
+// Main UI/state logic for this standalone view component.
+export class PlayerPage implements OnInit, OnDestroy {
+	readonly book = signal<Book | null>(null);
+	readonly chapters = signal<Chapter[]>([]);
+	readonly coverUrl = signal('');
+	readonly activeChapterIndex = signal(0);
+	readonly progressMode = signal<'chapter' | 'book'>('chapter');
+	readonly progressMenuOpen = signal(false);
+	readonly sleepTimerMode = signal<SleepTimerMode>('off');
+	readonly sleepUiNow = signal(Date.now());
+	readonly isCompleted = signal(false);
+	readonly error = signal<string | null>(null);
+
+	private readonly bookId: string;
+	private sleepUiTicker?: Subscription;
+	private readonly sleepTimer = new PlayerSleepTimer();
+	private resumeAt = 0;
+	private resumeLoaded = false;
+	private progressLoaded = false;
+	private initialPositionApplied = false;
+	private lastPausedState = true;
+
+	constructor(
+		route: ActivatedRoute,
+		private readonly library: LibraryService,
+		protected readonly player: PlayerService,
+		private readonly progress: ProgressService,
+		private readonly settings: SettingsService,
+		protected readonly auth: AuthService,
+	) {
+		this.bookId = route.snapshot.paramMap.get('bookId') ?? '';
+
+		effect(() => {
+			this.chapters.set(this.player.chapters());
+		});
+
+		effect(() => {
+			const current = this.player.currentSeconds();
+			this.updateActiveChapterFromCurrentTime(current);
+			this.handleSleepTimerTick(current);
+		});
+
+		effect(() => {
+			const paused = this.player.paused();
+			if (paused === this.lastPausedState) {
+				return;
+			}
+
+			this.lastPausedState = paused;
+			if (paused) {
+				this.pauseSleepTimerCountdown();
+				return;
+			}
+
+			this.armSleepTimerForPlayback();
+		});
+	}
+
+	ngOnInit(): void {
+		this.progressMode.set('chapter');
+
+		if (!this.bookId) {
+			this.error.set('Missing book id');
+			return;
+		}
+
+		this.library.getBook(this.bookId).subscribe({
+			next: (book) => {
+				const hasActiveSession = this.player.currentBook()?.id === book.id && this.player.currentSeconds() > 0;
+				this.book.set(book);
+				const coverUrl = this.computeCoverUrl(book);
+				this.coverUrl.set(coverUrl);
+				this.player.loadBook(book, { coverUrl });
+				if (hasActiveSession) {
+					this.initialPositionApplied = true;
+				}
+				this.loadResumeInfo(book);
+			},
+			error: (error: unknown) => {
+				if (error instanceof HttpErrorResponse && error.status === 404) {
+					this.error.set('Book not found. It may have been deleted or the database was reset.');
+					return;
+				}
+				this.error.set('Unable to load book details');
+			},
+		});
+
+		this.sleepUiTicker = interval(1000).subscribe(() => {
+			this.sleepUiNow.set(Date.now());
+		});
+		this.loadPlayerSettings();
+	}
+
+	private loadPlayerSettings(): void {
+		this.settings.getMine().subscribe({
+			next: (settings) => {
+				this.player.setJumpSeconds(
+					settings.player.backwardJumpSeconds ?? 15,
+					settings.player.forwardJumpSeconds ?? 30,
+				);
+				this.sleepTimerMode.set(settings.player.sleepTimerMode ?? 'off');
+				this.resetSleepTimerForMode();
+			},
+			error: () => {
+				this.player.setJumpSeconds(15, 30);
+				this.sleepTimerMode.set('off');
+				this.resetSleepTimerForMode();
+			},
+		});
+	}
+
+	private loadResumeInfo(book: Book): void {
+		this.player.getResumeInfo(this.bookId).subscribe({
+			next: (resume) => {
+				this.resumeAt = resume.startSeconds;
+				this.resumeLoaded = true;
+				this.applyInitialPositionIfReady(book);
+			},
+			error: (error: unknown) => {
+				this.resumeLoaded = true;
+				if (error instanceof HttpErrorResponse && error.status === 404) {
+					this.applyInitialPositionIfReady(book);
+					return;
+				}
+				this.error.set('Unable to load resume information');
+				this.applyInitialPositionIfReady(book);
+			},
+		});
+
+		this.progress.getForBook(this.bookId).subscribe({
+			next: (prog) => {
+				this.isCompleted.set(prog.completed);
+				this.progressLoaded = true;
+				this.applyInitialPositionIfReady(book);
+			},
+			error: () => {
+				// no progress record yet — not completed
+				this.isCompleted.set(false);
+				this.progressLoaded = true;
+				this.applyInitialPositionIfReady(book);
+			},
+		});
+	}
+
+	private applyInitialPositionIfReady(book: Book): void {
+		if (this.initialPositionApplied || !this.resumeLoaded || !this.progressLoaded) {
+			return;
+		}
+
+		const currentBook = this.player.currentBook();
+		if (!currentBook || currentBook.id !== book.id) {
+			return;
+		}
+
+		if (this.isCompleted()) {
+			this.player.setInitialPosition(Math.max(0, Math.floor(book.duration || 0)));
+		} else if (this.resumeAt > 0) {
+			this.player.setInitialPosition(this.resumeAt);
+		}
+
+		this.initialPositionApplied = true;
+		this.updateActiveChapterFromCurrentTime(this.player.currentSeconds());
+	}
+
+	ngOnDestroy(): void {
+		this.player.persistNow();
+		this.pauseSleepTimerCountdown();
+		this.sleepUiTicker?.unsubscribe();
+		this.sleepTimer.dispose();
+	}
+
+	togglePlay(): void {
+		this.player.togglePlay();
+	}
+
+	seek(deltaSeconds: number): void {
+		this.player.seek(deltaSeconds);
+		this.refreshChapterSleepTargetIfNeeded();
+	}
+
+	onChapterSelected(event: Event): void {
+		const value = Number((event.target as HTMLSelectElement | null)?.value);
+		if (!Number.isFinite(value)) {
+			return;
+		}
+
+		if (!this.chapters()[value]) {
+			return;
+		}
+
+		this.player.jumpToChapter(value);
+		this.activeChapterIndex.set(value);
+		this.refreshChapterSleepTargetIfNeeded();
+	}
+
+	toggleProgressMenu(): void {
+		this.progressMenuOpen.update((open) => !open);
+	}
+
+	markCompleted(): void {
+		this.progressMenuOpen.set(false);
+		const duration = this.player.durationSeconds() > 0 ? Math.floor(this.player.durationSeconds()) : 0;
+
+		if (duration > 0) {
+			this.player.pause();
+			this.player.setCurrentTime(duration);
+		}
+
+		const finalizeMark = () => {
+			this.progress.markCompleted(this.bookId).subscribe({
+				next: (prog) => {
+					this.isCompleted.set(prog.completed);
+					if (prog.completed && duration > 0) {
+						this.player.setCurrentTime(duration);
+					}
+				},
+				error: () => {
+					this.error.set('Unable to mark book as completed');
+				},
+			});
+		};
+
+		if (duration <= 0) {
+			finalizeMark();
+			return;
+		}
+
+		const idempotencyKey = `${this.bookId}:manual-complete:${Date.now()}`;
+		this.progress
+			.saveForBook(
+				this.bookId,
+				{
+					positionSeconds: duration,
+					durationAtSave: duration,
+				},
+				idempotencyKey,
+			)
+			.subscribe({
+				next: () => finalizeMark(),
+				error: () => finalizeMark(),
+			});
+	}
+
+	restartBook(): void {
+		this.progressMenuOpen.set(false);
+		this.progress.unmarkCompleted(this.bookId).subscribe({
+			next: (prog) => {
+				this.isCompleted.set(prog.completed);
+				this.player.setCurrentTime(0);
+
+				if (this.player.durationSeconds() > 0) {
+					const idempotencyKey = `${this.bookId}:manual-restart:${Date.now()}`;
+					this.progress
+						.saveForBook(
+							this.bookId,
+							{
+								positionSeconds: 0,
+								durationAtSave: Math.floor(this.player.durationSeconds()),
+							},
+							idempotencyKey,
+						)
+						.subscribe({ error: () => undefined });
+				}
+			},
+			error: () => {
+				this.error.set('Unable to restart book');
+			},
+		});
+	}
+
+	setProgressMode(mode: 'chapter' | 'book'): void {
+		this.progressMode.set(mode);
+		this.progressMenuOpen.set(false);
+	}
+
+	setSleepTimerMode(mode: SleepTimerMode): void {
+		if (this.sleepTimerMode() === mode) {
+			this.progressMenuOpen.set(false);
+			return;
+		}
+
+		this.sleepTimerMode.set(mode);
+		this.resetSleepTimerForMode();
+		this.progressMenuOpen.set(false);
+
+		this.settings.updateMine({ player: { sleepTimerMode: mode } }).subscribe({
+			error: () => {
+				this.error.set('Unable to save sleep timer preference');
+			},
+		});
+	}
+
+	sleepTimerLabel(): string {
+		return sleepTimerLabel(this.sleepTimerMode());
+	}
+
+	sleepTimerCountdownText(): string | null {
+		this.sleepUiNow();
+		return this.sleepTimer.countdownText(this.sleepTimerMode(), Date.now());
+	}
+
+	onProgressInput(event: Event): void {
+		const value = Number((event.target as HTMLInputElement | null)?.value);
+		if (!Number.isFinite(value)) {
+			return;
+		}
+
+		const target = resolveProgressInputTarget(this.progressMode(), value, this.activeChapter());
+
+		this.player.setCurrentTime(target);
+		this.refreshChapterSleepTargetIfNeeded();
+	}
+
+	progressRangeMin(): number {
+		return 0;
+	}
+
+	progressRangeMax(): number {
+		return progressRangeMax(this.progressMode(), this.player.durationSeconds(), this.activeChapter());
+	}
+
+	progressSliderValue(): number {
+		return progressSliderValue(
+			this.progressMode(),
+			this.player.currentSeconds(),
+			this.progressRangeMax(),
+			this.activeChapter(),
+		);
+	}
+
+	progressLeadingLabel(): string {
+		return this.formatTime(this.progressSliderValue());
+	}
+
+	progressTrailingLabel(): string {
+		if (this.progressMode() === 'book') {
+			return this.formatTime(this.player.durationSeconds());
+		}
+
+		return this.formatTime(this.progressRangeMax());
+	}
+
+	progressMin(): number {
+		return progressMin(this.progressMode(), this.activeChapter());
+	}
+
+	progressMax(): number {
+		return progressMax(
+			this.progressMode(),
+			this.player.durationSeconds(),
+			this.activeChapter(),
+			this.progressMin(),
+		);
+	}
+
+	progressValue(): number {
+		return clampProgressValue(this.player.currentSeconds(), this.progressMin(), this.progressMax());
+	}
+
+	formatTime(totalSeconds: number): string {
+		return formatTime(totalSeconds);
+	}
+
+	formatLongDuration(totalSeconds: number): string {
+		return formatLongDuration(totalSeconds);
+	}
+
+	resolvedDescription(): string | null {
+		return resolvedDescription(this.book());
+	}
+
+	coverInitials(title: string): string {
+		return coverInitials(title);
+	}
+
+	private computeCoverUrl(book: Book): string {
+		return computeCoverUrl(book, this.auth.accessToken());
+	}
+
+	private updateActiveChapterFromCurrentTime(current: number): void {
+		this.activeChapterIndex.set(activeChapterIndexFromTime(this.chapters(), current));
+	}
+
+	private handleSleepTimerTick(currentTime: number): void {
+		this.sleepTimer.handleTick(this.sleepTimerMode(), currentTime, this.player.paused(), () => this.player.pause());
+	}
+
+	private refreshChapterSleepTargetIfNeeded(): void {
+		this.sleepTimer.refreshChapterTarget(
+			this.sleepTimerMode(),
+			this.player.paused(),
+			this.activeChapterEndSeconds(),
+		);
+	}
+
+	private armSleepTimerForPlayback(): void {
+		this.sleepTimer.armForPlayback(
+			this.sleepTimerMode(),
+			this.player.paused(),
+			this.activeChapterEndSeconds(),
+			() => this.player.pause(),
+		);
+	}
+
+	private pauseSleepTimerCountdown(): void {
+		this.sleepTimer.pauseCountdown(this.sleepTimerMode());
+	}
+
+	private resetSleepTimerForMode(): void {
+		this.sleepTimer.resetForMode(
+			this.sleepTimerMode(),
+			this.player.paused(),
+			this.activeChapterEndSeconds(),
+			() => this.player.pause(),
+		);
+	}
+
+	goToPreviousChapter(): void {
+		this.player.jumpToPreviousChapter();
+		this.updateActiveChapterFromCurrentTime(this.player.currentSeconds());
+		this.refreshChapterSleepTargetIfNeeded();
+	}
+
+	goToNextChapter(): void {
+		this.player.jumpToNextChapter();
+		this.updateActiveChapterFromCurrentTime(this.player.currentSeconds());
+		this.refreshChapterSleepTargetIfNeeded();
+	}
+
+	canGoToPreviousChapter(): boolean {
+		return this.activeChapterIndex() > 0 || this.player.currentSeconds() > 0;
+	}
+
+	canGoToNextChapter(): boolean {
+		return this.activeChapterIndex() < this.chapters().length - 1;
+	}
+
+	@HostListener('window:keydown', ['$event'])
+	onKeyDown(event: KeyboardEvent): void {
+		const target = event.target as HTMLElement | null;
+		if (!shouldHandlePlayerHotkey(target)) {
+			return;
+		}
+
+		if (event.key === 'ArrowLeft') {
+			event.preventDefault();
+			this.seek(-this.player.backwardJumpSeconds());
+			return;
+		}
+
+		if (event.key === 'ArrowRight') {
+			event.preventDefault();
+			this.seek(this.player.forwardJumpSeconds());
+		}
+	}
+
+	private activeChapter(): Chapter | null {
+		return this.chapters()[this.activeChapterIndex()] ?? null;
+	}
+
+	private activeChapterEndSeconds(): number | null {
+		const chapter = this.activeChapter();
+		if (!chapter) {
+			return null;
+		}
+
+		return chapterEndSeconds(chapter);
+	}
+
+}

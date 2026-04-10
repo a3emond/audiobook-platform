@@ -1,0 +1,23 @@
+    :host {
+      display: block;
+    }
+    .read-more-text {
+      white-space: pre-line;
+      word-break: break-word;
+    }
+    .read-more-toggle {
+      display: inline-block;
+      margin-top: 0.3rem;
+      border: none;
+      background: transparent;
+      padding: 0;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--color-accent, #ff8a00);
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .read-more-toggle:hover {
+      opacity: 0.8;
+    }

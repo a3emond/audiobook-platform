@@ -4,10 +4,23 @@ import { firstValueFrom, Observable } from 'rxjs';
 import type { Book, Chapter, ResumeInfo } from '../models/api.models';
 import { ApiService } from './api.service';
 import { AuthService } from './auth.service';
+import {
+	configureMediaSessionActions,
+	getMediaSession,
+	updateMediaSessionMetadata,
+	updateMediaSessionPosition,
+} from './player-media-session.utils';
 import { ProgressService } from './progress.service';
 import { StatsService } from './stats.service';
+import {
+	chapterStartSeconds,
+	currentChapterIndex,
+	normalizeChapters,
+	streamUrlForBook,
+} from './player.service.utils';
 
 @Injectable({ providedIn: 'root' })
+// player: keeps UI and state logic readable for this frontend unit.
 export class PlayerService {
 	readonly currentBook = signal<Book | null>(null);
 	readonly chapters = signal<Chapter[]>([]);
@@ -42,23 +55,17 @@ export class PlayerService {
 	}
 
 	streamUrl(bookId: string): string {
-		const token = this.auth.accessToken();
-		const base = `/streaming/books/${bookId}/audio`;
-		if (!token) {
-			return base;
-		}
-
-		return `${base}?access_token=${encodeURIComponent(token)}`;
+		return streamUrlForBook(bookId, this.auth.accessToken());
 	}
 
 	loadBook(book: Book, options?: { startSeconds?: number; coverUrl?: string; forceReload?: boolean }): void {
 		const current = this.currentBook();
 		const sameBook = current?.id === book.id;
 		const shouldReload = options?.forceReload || !sameBook;
-		const normalizedChapters = this.normalizeChapters(book.chapters ?? [], Math.max(0, Math.floor(book.duration || 0)));
+		const normalizedBookChapters = normalizeChapters(book.chapters ?? [], Math.max(0, Math.floor(book.duration || 0)));
 
 		this.currentBook.set(book);
-		this.chapters.set(normalizedChapters);
+		this.chapters.set(normalizedBookChapters);
 		this.coverUrl.set(options?.coverUrl ?? this.coverUrl());
 		this.error.set(null);
 
@@ -139,7 +146,7 @@ export class PlayerService {
 			return;
 		}
 
-		this.setCurrentTime(this.chapterStartSeconds(chapter));
+		this.setCurrentTime(chapterStartSeconds(chapter));
 	}
 
 	jumpToPreviousChapter(): void {
@@ -154,7 +161,7 @@ export class PlayerService {
 			return;
 		}
 
-		const currentStart = this.chapterStartSeconds(chapters[index]);
+		const currentStart = chapterStartSeconds(chapters[index]);
 		if (this.audio.currentTime - currentStart > 3) {
 			this.setCurrentTime(currentStart);
 			return;
@@ -178,23 +185,7 @@ export class PlayerService {
 	}
 
 	currentChapterIndex(): number {
-		const chapters = this.chapters();
-		if (chapters.length === 0) {
-			return 0;
-		}
-
-		const current = this.currentSeconds();
-		for (let index = 0; index < chapters.length; index += 1) {
-			const chapter = chapters[index];
-			const start = this.chapterStartSeconds(chapter);
-			const end = this.chapterEndSeconds(chapter);
-			const isLast = index === chapters.length - 1;
-			if (current >= start && (isLast ? current <= end : current < end)) {
-				return index;
-			}
-		}
-
-		return chapters.length - 1;
+		return currentChapterIndex(this.chapters(), this.currentSeconds());
 	}
 
 	persistNow(): void {
@@ -256,80 +247,29 @@ export class PlayerService {
 	}
 
 	private configureMediaSessionActions(): void {
-		if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) {
-			return;
-		}
-
-		const mediaSession = navigator.mediaSession;
-		try {
-			mediaSession.setActionHandler('play', () => this.play());
-			mediaSession.setActionHandler('pause', () => this.pause());
-			mediaSession.setActionHandler('seekbackward', (details) => this.seek(-(details.seekOffset ?? this.backwardJumpSeconds())));
-			mediaSession.setActionHandler('seekforward', (details) => this.seek(details.seekOffset ?? this.forwardJumpSeconds()));
-			mediaSession.setActionHandler('seekto', (details) => {
-				if (typeof details.seekTime === 'number') {
-					this.setCurrentTime(details.seekTime);
-				}
-			});
-			mediaSession.setActionHandler('previoustrack', () => this.seek(-this.backwardJumpSeconds()));
-			mediaSession.setActionHandler('nexttrack', () => this.seek(this.forwardJumpSeconds()));
-		} catch {
-			// Browsers may throw for unsupported actions.
-		}
+		configureMediaSessionActions(getMediaSession(), {
+			onPlay: () => this.play(),
+			onPause: () => this.pause(),
+			onSeekBackward: (offset) => this.seek(-(offset ?? this.backwardJumpSeconds())),
+			onSeekForward: (offset) => this.seek(offset ?? this.forwardJumpSeconds()),
+			onSeekTo: (time) => this.setCurrentTime(time),
+			onPreviousTrack: () => this.seek(-this.backwardJumpSeconds()),
+			onNextTrack: () => this.seek(this.forwardJumpSeconds()),
+		});
 	}
 
 	private updateMediaSessionMetadata(): void {
-		if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) {
-			return;
-		}
-
-		const book = this.currentBook();
-		if (!book) {
-			return;
-		}
-
-		navigator.mediaSession.metadata = new MediaMetadata({
-			title: book.title,
-			artist: book.author,
-			album: book.series ?? 'StoryWave',
-			artwork: this.coverUrl()
-				? [
-					{
-						src: this.coverUrl(),
-						sizes: '512x512',
-						type: 'image/jpeg',
-					},
-				]
-				: undefined,
-		});
-
-		navigator.mediaSession.playbackState = this.paused() ? 'paused' : 'playing';
+		updateMediaSessionMetadata(getMediaSession(), this.currentBook(), this.coverUrl(), this.paused());
 		this.updateMediaSessionPosition();
 	}
 
 	private updateMediaSessionPosition(): void {
-		if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) {
-			return;
-		}
-
-		if (typeof navigator.mediaSession.setPositionState !== 'function') {
-			return;
-		}
-
-		const duration = this.durationSeconds();
-		if (!Number.isFinite(duration) || duration <= 0) {
-			return;
-		}
-
-		try {
-			navigator.mediaSession.setPositionState({
-				duration,
-				playbackRate: this.audio.playbackRate || 1,
-				position: Math.max(0, Math.min(this.currentSeconds(), duration)),
-			});
-		} catch {
-			// Some browsers reject transient states.
-		}
+		updateMediaSessionPosition(
+			getMediaSession(),
+			this.durationSeconds(),
+			this.currentSeconds(),
+			this.audio.playbackRate || 1,
+		);
 	}
 
 	private startProgressSaveTicker(): void {
@@ -408,36 +348,4 @@ export class PlayerService {
 		).catch(() => undefined);
 	}
 
-	private chapterStartSeconds(chapter: Chapter): number {
-		return chapter.start;
-	}
-
-	private chapterEndSeconds(chapter: Chapter): number {
-		return chapter.end;
-	}
-
-	private normalizeChapters(chapters: Chapter[], durationSeconds: number): Chapter[] {
-		if (chapters.length === 0) {
-			return [];
-		}
-
-		const normalized = chapters
-			.map((chapter) => ({
-				...chapter,
-				start: Math.max(0, Math.floor(chapter.start / 1000)),
-				end: Math.max(0, Math.floor(chapter.end / 1000)),
-			}))
-			.sort((a, b) => a.index - b.index || a.start - b.start);
-
-		for (let index = 0; index < normalized.length; index += 1) {
-			const current = normalized[index];
-			const next = normalized[index + 1];
-			const fallbackEnd = next ? Math.max(current.start + 1, next.start) : Math.max(current.start + 1, durationSeconds || current.start + 1);
-			if (current.end <= current.start) {
-				current.end = fallbackEnd;
-			}
-		}
-
-		return normalized;
-	}
 }

@@ -19,6 +19,7 @@ interface PreviewImage {
   templateUrl: './collection-card.component.html',
   styleUrl: './collection-card.component.css',
 })
+// collection-card: keeps UI and state logic readable for this frontend unit.
 export class CollectionCardComponent {
   @Input({ required: true }) collection!: Collection;
 

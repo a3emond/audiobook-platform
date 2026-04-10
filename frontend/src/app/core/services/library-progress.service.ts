@@ -16,6 +16,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 @Injectable({ providedIn: 'root' })
+// library-progress: keeps UI and state logic readable for this frontend unit.
 export class LibraryProgressService {
   private readonly progressByBookIdState = signal<Map<string, Progress>>(new Map());
   private loading = false;

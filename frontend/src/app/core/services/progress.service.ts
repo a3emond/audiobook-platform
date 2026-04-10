@@ -16,6 +16,7 @@ interface ListProgressResponse extends PaginationMeta {
 }
 
 @Injectable({ providedIn: 'root' })
+// progress: keeps UI and state logic readable for this frontend unit.
 export class ProgressService {
 	private readonly progressChangedSubject = new Subject<void>();
 	readonly progressChanged$ = this.progressChangedSubject.asObservable();

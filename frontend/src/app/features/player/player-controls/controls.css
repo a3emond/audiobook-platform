@@ -1,0 +1,76 @@
+			.controls {
+				display: flex;
+				gap: 0.55rem;
+				justify-content: center;
+				align-items: center;
+				flex-wrap: nowrap;
+			}
+
+			.circle {
+				width: 2.5rem;
+				height: 2.5rem;
+				border-radius: 999px;
+				border: 1px solid #3a3a3a;
+				background: #171717;
+				color: var(--color-text);
+				display: inline-grid;
+				place-items: center;
+				position: relative;
+				cursor: pointer;
+				transition: transform 120ms ease, box-shadow 120ms ease;
+			}
+
+			.circle:hover {
+				transform: translateY(-1px);
+				box-shadow: 0 6px 14px rgb(15 23 42 / 0.14);
+			}
+
+			.circle:active {
+				transform: translateY(0);
+				box-shadow: none;
+			}
+
+			.icon {
+				font-size: 1rem;
+				line-height: 1;
+			}
+
+			.play {
+				width: 2.85rem;
+				height: 2.85rem;
+				background: linear-gradient(135deg, #ff9f2f, #ff8500);
+				border-color: transparent;
+				color: #191919;
+			}
+
+			.seek {
+				color: var(--color-text);
+			}
+
+			.delta {
+				position: absolute;
+				bottom: -0.22rem;
+				padding: 0 0.2rem;
+				border-radius: 0.35rem;
+				font-size: 0.55rem;
+				font-weight: 700;
+				background: #111111;
+				color: var(--color-text-muted);
+				border: 1px solid #3a3a3a;
+			}
+
+			@media (max-width: 560px) {
+				.controls {
+					gap: 0.45rem;
+				}
+
+				.circle {
+					width: 2.4rem;
+					height: 2.4rem;
+				}
+
+				.play {
+					width: 2.75rem;
+					height: 2.75rem;
+				}
+			}

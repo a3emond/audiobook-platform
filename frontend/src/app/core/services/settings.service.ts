@@ -11,6 +11,7 @@ import type {
 import { ApiService } from './api.service';
 
 @Injectable({ providedIn: 'root' })
+// settings: keeps UI and state logic readable for this frontend unit.
 export class SettingsService {
 	constructor(private readonly api: ApiService) {}
 

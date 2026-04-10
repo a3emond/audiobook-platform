@@ -17,29 +17,16 @@ import { ProgressService } from '../../../core/services/progress.service';
 import { SettingsService } from '../../../core/services/settings.service';
 import { BookCardComponent } from '../book-card/book-card.component';
 import { CollectionCardComponent } from '../collection-card/collection-card.component';
-
-interface SeriesRail {
-  id: string;
-  name: string;
-  books: Book[];
-}
-
-interface RailState {
-  overflow: boolean;
-  canScrollLeft: boolean;
-  canScrollRight: boolean;
-}
-
-const AUTO_ACTIVITY_COLLECTION_ID = 'auto:listened';
-const LATEST_BOOKS_LIMIT = 20;
-
-function normalizeSeriesName(seriesName: string): string {
-  return seriesName.trim().replace(/\s+/g, ' ');
-}
-
-function normalizeSeriesKey(seriesName: string): string {
-  return normalizeSeriesName(seriesName).toLocaleLowerCase();
-}
+import type { RailState, SeriesRail } from './library-page.types';
+import {
+  collectionPreviewUrls,
+  computeListenedBookOrder,
+  dedupeBooks,
+  deriveCollections,
+  LATEST_BOOKS_LIMIT,
+  mapSeriesRails,
+  uniqueTopSeries,
+} from './library-page.utils';
 
 @Component({
   selector: 'app-library-page',
@@ -48,6 +35,7 @@ function normalizeSeriesKey(seriesName: string): string {
   templateUrl: './library-page.component.html',
   styleUrl: './library-page.component.css',
 })
+// library-page: keeps UI and state logic readable for this frontend unit.
 export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChildren('railEl', { read: ElementRef }) private railElements?: QueryList<ElementRef<HTMLElement>>;
 
@@ -147,23 +135,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
         this.library.listSeries({ q: this.q || undefined, limit: 10, offset: 0 }).subscribe({
           next: (seriesResponse) => {
-            const seenSeries = new Set<string>();
-            const topSeries = seriesResponse.series
-              .filter((series) => {
-                const normalizedName = normalizeSeriesName(series.name);
-                if (!normalizedName) {
-                  return false;
-                }
-
-                const key = normalizeSeriesKey(normalizedName);
-                if (seenSeries.has(key)) {
-                  return false;
-                }
-
-                seenSeries.add(key);
-                return true;
-              })
-              .slice(0, 8);
+            const topSeries = uniqueTopSeries(seriesResponse.series, 8);
 
             if (topSeries.length === 0) {
               this.seriesRails.set([]);
@@ -173,13 +145,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
             forkJoin(topSeries.map((series) => this.library.getSeries(series.name))).subscribe({
               next: (seriesDetails) => {
-                const rails = seriesDetails
-                  .map((series) => ({
-                    id: series.id,
-                    name: series.name,
-                    books: filterBooks(series.books),
-                  }))
-                  .filter((series) => series.books.length > 0);
+                const rails = mapSeriesRails(seriesDetails, filterBooks);
 
                 this.seriesRails.set(rails);
                 this.loadCollections();
@@ -206,23 +172,15 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private loadCollections(): void {
     this.library.listCollections(24, 0).subscribe({
       next: (response) => {
-        const autoCollection: Collection = {
-          id: AUTO_ACTIVITY_COLLECTION_ID,
-          name: this.i18n.t('library.activityCollection'),
-          bookIds: this.listenedBookIds(),
-          updatedAt: new Date().toISOString(),
-        };
-        const nonAutoCollections = response.collections.filter((c) => c.id !== AUTO_ACTIVITY_COLLECTION_ID);
-        const allCollections = [autoCollection, ...nonAutoCollections];
+        const derived = deriveCollections(
+          response.collections,
+          this.listenedBookIds(),
+          this.q,
+          this.i18n.t('library.activityCollection'),
+        );
 
-        const query = this.q.trim().toLowerCase();
-        const filteredNonAuto = !query
-          ? nonAutoCollections
-          : nonAutoCollections.filter((collection) => collection.name.toLowerCase().includes(query));
-        const filtered = [autoCollection, ...filteredNonAuto];
-
-        this.collections.set(allCollections);
-        this.filteredCollections.set(filtered);
+        this.collections.set(derived.collections);
+        this.filteredCollections.set(derived.filteredCollections);
         this.loading.set(false);
         this.scheduleRailSync();
       },
@@ -263,21 +221,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   collectionPreviewUrls(collection: Collection): Array<{ bookId: string; url: string }> {
-    const token = this.auth.accessToken();
-    if (!token) {
-      return [];
-    }
-
-    const ids = collection.bookIds.slice(0, 3);
-    const books = this.bookPool();
-    const available = new Set(books.filter((book) => !!book.coverPath).map((book) => book.id));
-
-    return ids
-      .filter((id) => available.has(id))
-      .map((id) => ({
-        bookId: id,
-        url: `/streaming/books/${id}/cover?access_token=${encodeURIComponent(token)}`,
-      }));
+    return collectionPreviewUrls(collection, this.auth.accessToken(), this.bookPool());
   }
 
   scrollRail(key: string, rail: HTMLElement, direction: 1 | -1): void {
@@ -330,19 +274,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private bookPool(): Book[] {
-    const all = [...this.latestBooks()];
-    for (const series of this.seriesRails()) {
-      all.push(...series.books);
-    }
-
-    const byId = new Map<string, Book>();
-    for (const book of all) {
-      if (!byId.has(book.id)) {
-        byId.set(book.id, book);
-      }
-    }
-
-    return Array.from(byId.values());
+    return dedupeBooks(this.latestBooks(), this.seriesRails());
   }
 
   private observeRails(): void {
@@ -412,22 +344,6 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private computeListenedBookOrder(progress: Array<{ bookId: string; completed: boolean; positionSeconds: number; lastListenedAt: string | null }>): string[] {
-    const byLastListenedDesc = (a: { lastListenedAt: string | null }, b: { lastListenedAt: string | null }) => {
-      const aTime = a.lastListenedAt ? Date.parse(a.lastListenedAt) : 0;
-      const bTime = b.lastListenedAt ? Date.parse(b.lastListenedAt) : 0;
-      return bTime - aTime;
-    };
-
-    const inProgress = progress
-      .filter((item) => !item.completed && item.positionSeconds > 0)
-      .sort(byLastListenedDesc)
-      .map((item) => item.bookId);
-
-    const completed = progress
-      .filter((item) => item.completed)
-      .sort(byLastListenedDesc)
-      .map((item) => item.bookId);
-
-    return [...new Set([...inProgress, ...completed])];
+    return computeListenedBookOrder(progress);
   }
 }

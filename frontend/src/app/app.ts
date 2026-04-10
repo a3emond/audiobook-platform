@@ -31,6 +31,7 @@ interface ToastItem {
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
+// app: keeps UI and state logic readable for this frontend unit.
 export class App implements OnDestroy {
   readonly mobileNavOpen  = signal(false);
   readonly inProgressBooks = signal<InProgressBookItem[]>([]);

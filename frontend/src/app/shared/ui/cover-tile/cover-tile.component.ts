@@ -9,6 +9,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
   templateUrl: './cover-tile.component.html',
   styleUrl: './cover-tile.component.css',
 })
+// cover-tile: keeps UI and state logic readable for this frontend unit.
 export class CoverTileComponent {
   @Input() imageUrl = '';
   @Input() fallback = 'BK';

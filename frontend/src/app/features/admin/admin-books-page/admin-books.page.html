@@ -1,0 +1,20 @@
+		<div class="admin-page">
+			<h1>Admin Books</h1>
+			<p *ngIf="loading()">Loading books...</p>
+			<p *ngIf="error()" class="error">{{ error() }}</p>
+
+			<table *ngIf="books().length > 0" class="admin-table">
+				<thead>
+					<tr><th>Title</th><th>Author</th><th>Series</th><th>Duration (s)</th><th>Actions</th></tr>
+				</thead>
+				<tbody>
+					<tr *ngFor="let book of books()">
+						<td>{{ book.title }}</td>
+						<td>{{ book.author }}</td>
+						<td>{{ book.series || '-' }}</td>
+						<td>{{ book.duration }}</td>
+						<td><a [routerLink]="['/admin/books', book.id]">Edit</a></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>

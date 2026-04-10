@@ -9,19 +9,19 @@ export const routes: Routes = [
 	},
 	{
 		path: 'login',
-		loadComponent: () => import('./features/auth/login.page').then((m) => m.LoginPage),
+		loadComponent: () => import('./features/auth/login-page/login.page').then((m) => m.LoginPage),
 	},
 	{
 		path: 'register',
-		loadComponent: () => import('./features/auth/register.page').then((m) => m.RegisterPage),
+		loadComponent: () => import('./features/auth/register-page/register.page').then((m) => m.RegisterPage),
 	},
 	{
 		path: 'privacy',
-		loadComponent: () => import('./features/legal/privacy.page').then((m) => m.PrivacyPage),
+		loadComponent: () => import('./features/legal/privacy-page/privacy.page').then((m) => m.PrivacyPage),
 	},
 	{
 		path: 'terms',
-		loadComponent: () => import('./features/legal/terms.page').then((m) => m.TermsPage),
+		loadComponent: () => import('./features/legal/terms-page/terms.page').then((m) => m.TermsPage),
 	},
 	{
 		path: 'library',
@@ -41,28 +41,28 @@ export const routes: Routes = [
 	{
 		path: 'player/:bookId',
 		canActivate: [authGuard],
-		loadComponent: () => import('./features/player/player.page').then((m) => m.PlayerPage),
+		loadComponent: () => import('./features/player/player-page/player.page').then((m) => m.PlayerPage),
 	},
 	{
 		path: 'profile',
 		canActivate: [authGuard],
-		loadComponent: () => import('./features/profile/profile.page').then((m) => m.ProfilePage),
+		loadComponent: () => import('./features/profile/profile-page/profile.page').then((m) => m.ProfilePage),
 	},
 	{
 		path: 'discussions',
 		canActivate: [authGuard],
-		loadComponent: () => import('./features/discussions/discussions-redirect.page').then((m) => m.DiscussionsRedirectPage),
+		loadComponent: () => import('./features/discussions/discussions-redirect-page/discussions-redirect.page').then((m) => m.DiscussionsRedirectPage),
 	},
 	{
 		path: 'discussions/:lang',
 		canActivate: [authGuard],
-		loadComponent: () => import('./features/discussions/discussions.page').then((m) => m.DiscussionsPage),
+		loadComponent: () => import('./features/discussions/discussions-page/discussions.page').then((m) => m.DiscussionsPage),
 	},
 	{
 		path: 'admin',
 		canActivate: [adminGuard],
 		loadComponent: () =>
-			import('./features/admin/admin-shell.component').then((m) => m.AdminShellComponent),
+			import('./features/admin/admin-shell/admin-shell.component').then((m) => m.AdminShellComponent),
 		loadChildren: () =>
 			import('./features/admin/admin.routes').then((m) => m.adminRoutes),
 	},

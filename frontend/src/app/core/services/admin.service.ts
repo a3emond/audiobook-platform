@@ -172,6 +172,7 @@ interface UpdateBookChaptersPayload {
 }
 
 @Injectable({ providedIn: 'root' })
+// admin: keeps UI and state logic readable for this frontend unit.
 export class AdminService {
   constructor(
     private readonly api: ApiService,

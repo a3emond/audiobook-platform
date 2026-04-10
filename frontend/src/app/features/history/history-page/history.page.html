@@ -1,0 +1,66 @@
+		<section class="history-page page-shell">
+			<header class="page-head">
+				<h1 class="hero-title">History</h1>
+				<p class="hero-subtitle">Recently played sessions with quick resume access.</p>
+			</header>
+
+			<section class="filters card">
+				<label>
+					<span>Filter</span>
+					<input
+						name="query"
+						[(ngModel)]="query"
+						(ngModelChange)="onFilterChange()"
+						placeholder="Filter by title, author, or book id"
+					/>
+				</label>
+				<button type="button" class="clear-filter" (click)="clearFilter()" [disabled]="!hasActiveFilter()">Clear</button>
+			</section>
+
+			<p *ngIf="loading()" class="text-muted">Loading sessions...</p>
+			<p *ngIf="error()" class="text-error">{{ error() }}</p>
+
+			<section class="table-wrap card" *ngIf="!loading() && filteredRows().length > 0">
+				<table class="history-table">
+					<thead>
+						<tr>
+							<th>Book</th>
+							<th>Author</th>
+							<th>Sessions</th>
+							<th>Total listened</th>
+							<th>Avg session</th>
+							<th>Last listened</th>
+							<th></th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr *ngFor="let row of filteredRows()">
+							<td>{{ displayTitle(row) }}</td>
+							<td>{{ displayAuthor(row) }}</td>
+							<td>{{ row.sessions }}</td>
+							<td>{{ formatDuration(row.totalListenedSeconds) }}</td>
+							<td>{{ formatDuration(row.averageSessionSeconds) }}</td>
+							<td>{{ row.lastListenedAt ? (row.lastListenedAt | date: 'medium') : 'N/A' }}</td>
+							<td><a class="resume" [routerLink]="['/player', row.bookId]">Open</a></td>
+						</tr>
+					</tbody>
+				</table>
+			</section>
+
+			<section *ngIf="!loading() && !error() && filteredRows().length === 0" class="empty card">
+				<h3>{{ rows().length === 0 ? 'No listening history yet' : 'No books matched this filter' }}</h3>
+				<p class="text-muted">
+					{{ rows().length === 0 ? 'Play a book to build your listening history here.' : 'Try a broader query or clear the filter.' }}
+				</p>
+				<div class="empty-actions" *ngIf="rows().length > 0">
+					<button type="button" class="btn btn-secondary" (click)="clearFilter()">Clear filter</button>
+				</div>
+			</section>
+
+			<footer *ngIf="meta() as m" class="meta">
+				<span>Total {{ m.total }}</span>
+				<span>Limit {{ m.limit }}</span>
+				<span>Offset {{ m.offset }}</span>
+				<span>Has more {{ m.hasMore }}</span>
+			</footer>
+		</section>

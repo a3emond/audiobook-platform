@@ -1,0 +1,112 @@
+		<div class="admin-page">
+			<h1>Admin Book Edit</h1>
+
+			<p *ngIf="loading()">Loading book...</p>
+			<p *ngIf="error()" class="error">{{ error() }}</p>
+			<p *ngIf="success()" class="success">{{ success() }}</p>
+
+			<form *ngIf="!loading()" (ngSubmit)="saveMetadata()" class="grid">
+				<h2>Metadata</h2>
+				<label>
+					Title
+					<input name="title" [(ngModel)]="title" />
+				</label>
+
+				<label>
+					Author
+					<input name="author" [(ngModel)]="author" />
+				</label>
+
+				<label>
+					Series
+					<input name="series" [(ngModel)]="series" />
+				</label>
+
+				<label>
+					Series Index
+					<input name="seriesIndex" type="number" [(ngModel)]="seriesIndex" />
+				</label>
+
+				<label>
+					Genre
+					<input name="genre" [(ngModel)]="genre" />
+				</label>
+
+				<label>
+					Language
+					<select name="language" [(ngModel)]="language">
+						<option value="en">English</option>
+						<option value="fr">French</option>
+					</select>
+				</label>
+
+				<label>
+					Tags (comma-separated)
+					<input name="tags" [(ngModel)]="tagsRaw" />
+				</label>
+
+				<label>
+					Description (default)
+					<textarea name="description" [(ngModel)]="descriptionDefault"></textarea>
+				</label>
+
+				<button type="submit" class="btn-action" [disabled]="savingMetadata()">
+					{{ savingMetadata() ? 'Saving...' : 'Save Metadata' }}
+				</button>
+			</form>
+
+			<form *ngIf="!loading()" (ngSubmit)="saveChapters()" class="grid">
+				<h2>Chapters</h2>
+				<p>Manage chapters with explicit start/end boundaries (milliseconds).</p>
+
+				<table class="chapters-table" *ngIf="chapterRows.length > 0">
+					<thead>
+						<tr><th>Title</th><th>Start</th><th>End</th><th>Actions</th></tr>
+					</thead>
+					<tbody>
+						<tr *ngFor="let chapter of chapterRows; let i = index">
+							<td>
+								<input [name]="'chapterTitle' + i" [(ngModel)]="chapter.title" />
+							</td>
+							<td>
+								<input [name]="'chapterStart' + i" type="number" min="0" [(ngModel)]="chapter.start" />
+							</td>
+							<td>
+								<input [name]="'chapterEnd' + i" type="number" min="0" [(ngModel)]="chapter.end" />
+							</td>
+							<td>
+								<button type="button" (click)="removeChapterRow(chapter.id)" [disabled]="chapterRows.length <= 1">
+									Remove
+								</button>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+
+				<button type="button" class="btn-action" (click)="addChapterRow()">Add Chapter</button>
+				<p *ngIf="chapterValidationError()" class="error">{{ chapterValidationError() }}</p>
+
+				<button type="submit" class="btn-action" [disabled]="savingChapters()">
+					{{ savingChapters() ? 'Saving...' : 'Save Chapters' }}
+				</button>
+			</form>
+
+			<div class="actions" *ngIf="!loading()">
+				<label class="cover-upload">
+					<span>Replace Embedded Cover</span>
+					<input type="file" accept=".jpg,.jpeg,.png,.webp" (change)="onCoverPicked($event)" />
+				</label>
+				<label class="cover-upload">
+					<span>Cover image URL</span>
+					<input type="url" placeholder="https://example.com/cover.jpg" name="coverUrl" [(ngModel)]="coverUrlInput" />
+				</label>
+				<button type="button" class="btn-action" [disabled]="!coverUrlInput.trim()" (click)="useCoverUrl()">
+					Use URL
+				</button>
+				<button type="button" class="btn-action" [disabled]="!selectedCoverFile()" (click)="replaceCover()">
+					Upload Cover & Repack
+				</button>
+				<button type="button" class="btn-action" (click)="extractCover()">Extract Cover</button>
+				<button type="button" class="danger" (click)="deleteBook()">Delete Book</button>
+			</div>
+		</div>

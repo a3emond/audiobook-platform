@@ -7,6 +7,7 @@ import { I18nService } from '../services/i18n.service';
   standalone: true,
   pure: false,
 })
+// translate: keeps UI and state logic readable for this frontend unit.
 export class TranslatePipe implements PipeTransform {
   private readonly i18n = inject(I18nService);
 

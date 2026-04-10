@@ -1,0 +1,17 @@
+      .admin-page { display: grid; gap: 0.9rem; }
+      .filters { display: flex; gap: 0.5rem; margin-bottom: 0.2rem; }
+      .btn-action {
+        border: 1px solid #3a3a3a;
+        background: #1a1a1a;
+        color: var(--color-text);
+        border-radius: 0.45rem;
+        padding: 0.4rem 0.65rem;
+      }
+      .btn-action:hover { background: #252525; }
+      .admin-table { width: 100%; border-collapse: collapse; background: var(--color-surface); }
+      .admin-table th, .admin-table td { border: 1px solid var(--color-border); padding: 0.45rem; text-align: left; }
+      .admin-table th { background: #1a1a1a; color: var(--color-text-muted); }
+      td button { margin-right: 0.4rem; }
+      .sessions { margin-top: 1rem; }
+      .error { color: var(--color-danger); }
+      .success { color: var(--color-success); }

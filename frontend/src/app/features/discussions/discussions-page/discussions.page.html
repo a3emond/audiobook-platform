@@ -1,0 +1,142 @@
+    <section class="page-shell discussions-page">
+      <header class="head">
+        <h1>{{ i18n.t('discussions.title') }}</h1>
+        <div class="lang-toggle">
+          <button type="button" [class.active]="lang() === 'en'" (click)="switchLang('en')">
+            {{ i18n.t('discussions.lang.en') }}
+          </button>
+          <button type="button" [class.active]="lang() === 'fr'" (click)="switchLang('fr')">
+            {{ i18n.t('discussions.lang.fr') }}
+          </button>
+        </div>
+      </header>
+
+      <div class="layout">
+        <aside class="channels card">
+          <div class="channel-row" *ngFor="let channel of channels()">
+            <button
+              type="button"
+              [class.active]="channel.key === channelKey()"
+              (click)="selectChannel(channel.key)"
+            >
+              <strong>{{ channel.title }}</strong>
+              <span>{{ channel.description }}</span>
+            </button>
+            <button
+              *ngIf="auth.isAdmin() && canDeleteChannel(channel)"
+              type="button"
+              class="btn-channel-delete"
+              [disabled]="loading()"
+              (click)="deleteChannel(channel)"
+              [attr.aria-label]="'Delete ' + channel.title"
+              title="Delete category"
+            >
+              Del
+            </button>
+          </div>
+
+          <form class="channel-admin" *ngIf="auth.isAdmin()" (ngSubmit)="createChannel()">
+            <p class="channel-admin-title">Admin channel controls</p>
+            <input
+              type="text"
+              name="newChannelTitle"
+              [(ngModel)]="newChannelTitle"
+              placeholder="New category title"
+              maxlength="80"
+            />
+            <input
+              type="text"
+              name="newChannelDescription"
+              [(ngModel)]="newChannelDescription"
+              placeholder="Short description"
+              maxlength="220"
+            />
+            <input
+              type="text"
+              name="newChannelKey"
+              [(ngModel)]="newChannelKey"
+              placeholder="Optional key (slug)"
+              maxlength="48"
+            />
+            <button type="submit" [disabled]="loading() || !newChannelTitle.trim() || !newChannelDescription.trim()">
+              Add category
+            </button>
+          </form>
+        </aside>
+
+        <section class="chat card">
+          <div class="messages" #messageList>
+            <article
+              class="message"
+              *ngFor="let message of messages()"
+              [attr.id]="messageDomId(message.id)"
+            >
+              <p class="reply-context" *ngIf="message.replyTo as replyTo">
+                Replying to <strong>{{ replyTo.authorDisplayName }}</strong>
+                <span>"{{ replyTo.bodyPreview }}"</span>
+                <button
+                  type="button"
+                  class="btn-link-original"
+                  *ngIf="hasOriginalInLoadedMessages(message.replyToMessageId)"
+                  (click)="scrollToOriginal(message.replyToMessageId)"
+                >
+                  Jump to original
+                </button>
+              </p>
+              <header>
+                <div class="author-block">
+                  <strong>{{ message.author.displayName }}</strong>
+                  <span class="admin-pill" *ngIf="message.author.isAdmin">Admin Team</span>
+                </div>
+                <div class="message-meta">
+                  <time>{{ formatDate(message.createdAt) }}</time>
+                  <button
+                    type="button"
+                    class="btn-reply"
+                    (click)="startReply(message)"
+                    [disabled]="loading()"
+                  >
+                    Reply
+                  </button>
+                  <button
+                    *ngIf="auth.isAdmin()"
+                    type="button"
+                    class="btn-delete"
+                    [disabled]="loading()"
+                    (click)="deleteMessage(message)"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </header>
+              <p>{{ message.body }}</p>
+            </article>
+
+            <p class="empty" *ngIf="messages().length === 0">
+              {{ i18n.t('discussions.noMessages') }}
+            </p>
+          </div>
+
+          <form class="composer" (ngSubmit)="sendMessage()">
+            <p class="reply-banner" *ngIf="replyTarget() as target">
+              Replying to <strong>{{ target.author.displayName }}</strong>
+              <span>"{{ previewBody(target.body) }}"</span>
+              <button type="button" (click)="cancelReply()" [disabled]="loading()">Cancel</button>
+            </p>
+            <input
+              #messageInput
+              type="text"
+              name="message"
+              [(ngModel)]="draft"
+              [placeholder]="i18n.t('discussions.placeholder')"
+              autocomplete="off"
+            />
+            <button type="submit" [disabled]="loading() || !draft.trim()">
+              {{ i18n.t('discussions.send') }}
+            </button>
+          </form>
+
+          <p class="status" *ngIf="statusText()">{{ statusText() }}</p>
+        </section>
+      </div>
+    </section>

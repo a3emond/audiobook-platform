@@ -1,0 +1,1 @@
+export type SleepTimerMode = 'off' | '15m' | '30m' | '45m' | '60m' | 'chapter';

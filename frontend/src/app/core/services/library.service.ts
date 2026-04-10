@@ -25,6 +25,7 @@ export interface BookFilters {
 export interface SeriesFilters extends BookFilters {}
 
 @Injectable({ providedIn: 'root' })
+// library: keeps UI and state logic readable for this frontend unit.
 export class LibraryService {
   constructor(private readonly api: ApiService) {}
 

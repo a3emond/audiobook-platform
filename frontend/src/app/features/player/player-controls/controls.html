@@ -1,0 +1,14 @@
+		<div class="controls" role="group" aria-label="Player transport controls">
+			<button type="button" class="circle seek" (click)="seek.emit(-backwardSeconds)" [attr.aria-label]="'Back ' + backwardSeconds + ' seconds'" [attr.title]="'Back ' + backwardSeconds + 's'">
+				<span class="icon">&#8634;</span>
+				<span class="delta">-{{ backwardSeconds }}</span>
+			</button>
+			<button type="button" class="circle play" (click)="toggle.emit()" [attr.aria-label]="paused ? 'Play' : 'Pause'">
+				<span class="icon" [hidden]="!paused">&#9654;</span>
+				<span class="icon" [hidden]="paused">&#10074;&#10074;</span>
+			</button>
+			<button type="button" class="circle seek" (click)="seek.emit(forwardSeconds)" [attr.aria-label]="'Forward ' + forwardSeconds + ' seconds'" [attr.title]="'Forward ' + forwardSeconds + 's'">
+				<span class="icon">&#8635;</span>
+				<span class="delta">+{{ forwardSeconds }}</span>
+			</button>
+		</div>

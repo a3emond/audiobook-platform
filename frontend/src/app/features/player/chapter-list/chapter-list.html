@@ -1,0 +1,8 @@
+		<section>
+			<h3>Chapters</h3>
+			<ol>
+				<li *ngFor="let chapter of chapters">
+					{{ chapter.index + 1 }}. {{ chapter.title }}
+				</li>
+			</ol>
+		</section>

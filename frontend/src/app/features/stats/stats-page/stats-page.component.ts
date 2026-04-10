@@ -11,6 +11,7 @@ import { StatsService, UserStatsResponse } from '../../../core/services/stats.se
   templateUrl: './stats-page.component.html',
   styleUrl: './stats-page.component.css',
 })
+// stats-page: keeps UI and state logic readable for this frontend unit.
 export class StatsPageComponent implements OnInit {
   readonly stats = signal<UserStatsResponse | null>(null);
   private readonly statsService = inject(StatsService);

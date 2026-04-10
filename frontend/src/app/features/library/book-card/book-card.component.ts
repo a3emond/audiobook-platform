@@ -15,6 +15,7 @@ import { CoverTileComponent } from '../../../shared/ui/cover-tile/cover-tile.com
   templateUrl: './book-card.component.html',
   styleUrl: './book-card.component.css',
 })
+// book-card: keeps UI and state logic readable for this frontend unit.
 export class BookCardComponent {
   @Input({ required: true }) book!: Book;
 

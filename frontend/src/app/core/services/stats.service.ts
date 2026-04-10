@@ -26,6 +26,7 @@ export interface UserStatsResponse {
 }
 
 @Injectable({ providedIn: 'root' })
+// stats: keeps UI and state logic readable for this frontend unit.
 export class StatsService {
 	constructor(private readonly api: ApiService) {}
 

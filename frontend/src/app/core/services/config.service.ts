@@ -16,6 +16,7 @@ declare global {
 }
 
 @Injectable({ providedIn: 'root' })
+// config: keeps UI and state logic readable for this frontend unit.
 export class AppConfigService {
   private readonly env: WindowEnv = window.__env__ ?? {};
 

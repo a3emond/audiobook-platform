@@ -20,6 +20,7 @@ const AUTO_ACTIVITY_COLLECTION_ID = 'auto:listened';
   templateUrl: './collection-detail-page.component.html',
   styleUrl: './collection-detail-page.component.css',
 })
+// collection-detail-page: keeps UI and state logic readable for this frontend unit.
 export class CollectionDetailPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);

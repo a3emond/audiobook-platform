@@ -8,26 +8,26 @@ export const adminRoutes: Routes = [
 	},
 	{
 		path: 'overview',
-		loadComponent: () => import('./admin-overview.page').then((m) => m.AdminOverviewPage),
+		loadComponent: () => import('./admin-overview-page/admin-overview.page').then((m) => m.AdminOverviewPage),
 	},
 	{
 		path: 'books',
-		loadComponent: () => import('./admin-books.page').then((m) => m.AdminBooksPage),
+		loadComponent: () => import('./admin-books-page/admin-books.page').then((m) => m.AdminBooksPage),
 	},
 	{
 		path: 'books/:bookId',
-		loadComponent: () => import('./admin-edit.page').then((m) => m.AdminEditPage),
+		loadComponent: () => import('./admin-edit-page/admin-edit.page').then((m) => m.AdminEditPage),
 	},
 	{
 		path: 'upload',
-		loadComponent: () => import('./admin-upload.page').then((m) => m.AdminUploadPage),
+		loadComponent: () => import('./admin-upload-page/admin-upload.page').then((m) => m.AdminUploadPage),
 	},
 	{
 		path: 'users',
-		loadComponent: () => import('./admin-users.page').then((m) => m.AdminUsersPage),
+		loadComponent: () => import('./admin-users-page/admin-users.page').then((m) => m.AdminUsersPage),
 	},
 	{
 		path: 'jobs',
-		loadComponent: () => import('./admin-jobs.page').then((m) => m.AdminJobsPage),
+		loadComponent: () => import('./admin-jobs-page/admin-jobs.page').then((m) => m.AdminJobsPage),
 	},
 ];

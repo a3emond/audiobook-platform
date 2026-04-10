@@ -8,6 +8,7 @@ export interface ApiRequestOptions {
 }
 
 @Injectable({ providedIn: 'root' })
+// api: keeps UI and state logic readable for this frontend unit.
 export class ApiService {
 	private readonly http = inject(HttpClient);
 	private readonly baseUrl = this.resolveBaseUrl();

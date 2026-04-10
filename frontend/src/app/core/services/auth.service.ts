@@ -18,6 +18,7 @@ interface RefreshResponse {
 }
 
 @Injectable({ providedIn: 'root' })
+// auth: keeps UI and state logic readable for this frontend unit.
 export class AuthService {
 	private readonly accessTokenState = signal<string | null>(null);
 	private readonly refreshTokenState = signal<string | null>(null);
