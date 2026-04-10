@@ -3,18 +3,17 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
-import type { Book, ListeningSession, PaginationMeta } from '../../../core/models/api.models';
+import type { PaginationMeta } from '../../../core/models/api.models';
 import { LibraryService } from '../../../core/services/library.service';
 import { StatsService } from '../../../core/services/stats.service';
-
-interface HistoryBookRow {
-	bookId: string;
-  book: Book | null;
-	sessions: number;
-	totalListenedSeconds: number;
-	averageSessionSeconds: number;
-	lastListenedAt: string | null;
-}
+import type { HistoryBookRow } from './history-page.types';
+import {
+	filterHistoryRows,
+	formatHistoryDuration,
+	groupSessionsByBook,
+	historyAuthor,
+	historyTitle,
+} from './history-page.utils';
 
 @Component({
 	selector: 'app-history-page',
@@ -76,7 +75,7 @@ export class HistoryPage implements OnInit {
 					this.library.listBooks({ limit: 300, offset: 0 }).subscribe({
 						next: (booksResponse) => {
 							const byId = new Map(booksResponse.books.map((book) => [book.id, book]));
-							this.rows.set(this.groupByBook(response.sessions, byId));
+							this.rows.set(groupSessionsByBook(response.sessions, byId));
 							this.meta.set({
 								total: response.total,
 								limit: response.limit,
@@ -100,83 +99,18 @@ export class HistoryPage implements OnInit {
 	}
 
 	applyFilter(): void {
-		const query = this.query.trim().toLowerCase();
-		if (!query) {
-			this.filteredRows.set(this.rows());
-			return;
-		}
-
-		this.filteredRows.set(
-			this.rows().filter((item) => {
-				const title = item.book?.title ?? '';
-				const author = item.book?.author ?? '';
-				const haystack = `${title} ${author} ${item.bookId}`.toLowerCase();
-				return haystack.includes(query);
-			}),
-		);
+		this.filteredRows.set(filterHistoryRows(this.rows(), this.query));
 	}
 
 	displayTitle(item: HistoryBookRow): string {
-		return item.book?.title ?? `Book ${item.bookId.slice(0, 8)}`;
+		return historyTitle(item);
 	}
 
 	displayAuthor(item: HistoryBookRow): string {
-		return item.book?.author ?? 'Unknown author';
+		return historyAuthor(item);
 	}
 
 	formatDuration(totalSeconds: number): string {
-		const value = Math.max(0, Math.floor(totalSeconds));
-		const hours = Math.floor(value / 3600);
-		const minutes = Math.floor((value % 3600) / 60);
-		const seconds = value % 60;
-
-		if (hours > 0) {
-			return `${hours}h ${minutes}m ${seconds}s`;
-		}
-
-		if (minutes > 0) {
-			return `${minutes}m ${seconds}s`;
-		}
-
-		return `${seconds}s`;
-	}
-
-	private groupByBook(sessions: ListeningSession[], booksById: Map<string, Book>): HistoryBookRow[] {
-		const grouped = new Map<string, ListeningSession[]>();
-
-		for (const session of sessions) {
-			const bucket = grouped.get(session.bookId);
-			if (bucket) {
-				bucket.push(session);
-			} else {
-				grouped.set(session.bookId, [session]);
-			}
-		}
-
-		const rows: HistoryBookRow[] = [];
-		for (const [bookId, bookSessions] of grouped.entries()) {
-			const totalListenedSeconds = bookSessions.reduce((sum, s) => sum + (s.listenedSeconds || 0), 0);
-			const sessionsCount = bookSessions.length;
-			const averageSessionSeconds = sessionsCount > 0 ? Math.floor(totalListenedSeconds / sessionsCount) : 0;
-			const lastListenedAt = bookSessions
-				.map((s) => s.endedAt)
-				.filter((date): date is string => !!date)
-				.sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null;
-
-			rows.push({
-				bookId,
-				book: booksById.get(bookId) ?? null,
-				sessions: sessionsCount,
-				totalListenedSeconds,
-				averageSessionSeconds,
-				lastListenedAt,
-			});
-		}
-
-		return rows.sort((a, b) => {
-			const aTime = a.lastListenedAt ? Date.parse(a.lastListenedAt) : 0;
-			const bTime = b.lastListenedAt ? Date.parse(b.lastListenedAt) : 0;
-			return bTime - aTime;
-		});
+		return formatHistoryDuration(totalSeconds);
 	}
 }

@@ -10,8 +10,14 @@ import { I18nService } from '../../../core/services/i18n.service';
 import { LibraryService } from '../../../core/services/library.service';
 import { ProgressService } from '../../../core/services/progress.service';
 import { BookCardComponent } from '../book-card/book-card.component';
-
-const AUTO_ACTIVITY_COLLECTION_ID = 'auto:listened';
+import {
+  AUTO_ACTIVITY_COLLECTION_ID,
+  computeListenedBookOrder,
+  deriveActivityCollection,
+  filterEditorBooks,
+  orderedBooksFromIds,
+  syncVisibleBooks,
+} from './collection-detail-page.utils';
 
 @Component({
   selector: 'app-collection-detail-page',
@@ -144,15 +150,7 @@ export class CollectionDetailPageComponent implements OnInit {
     }
 
     this.editorFilterTimeout = setTimeout(() => {
-      const query = this.editorFilter.trim().toLowerCase();
-      if (!query) {
-        this.editorBooks.set(this.allBooks());
-        return;
-      }
-
-      this.editorBooks.set(
-        this.allBooks().filter((book) => `${book.title} ${book.author}`.toLowerCase().includes(query)),
-      );
+      this.editorBooks.set(filterEditorBooks(this.allBooks(), this.editorFilter));
     }, 180);
   }
 
@@ -180,7 +178,7 @@ export class CollectionDetailPageComponent implements OnInit {
     this.library.updateCollection(collection.id, { bookIds: this.selectedBookIds() }).subscribe({
       next: (updated) => {
         this.collection.set(updated);
-        this.syncVisibleBooks(updated.bookIds);
+        this.books.set(syncVisibleBooks(this.allBooks(), updated.bookIds));
         this.closeBooksEditor();
       },
       error: (error: unknown) => {
@@ -207,18 +205,10 @@ export class CollectionDetailPageComponent implements OnInit {
       progress: this.progress.listMineAll(100),
     }).subscribe({
       next: ({ booksResponse, progress }) => {
-        const orderedIds = this.computeListenedBookOrder(progress);
-        const byId = new Map(booksResponse.books.map((book) => [book.id, book]));
-        const orderedBooks = orderedIds
-          .map((id) => byId.get(id) ?? null)
-          .filter((book): book is Book => book !== null);
+        const orderedIds = computeListenedBookOrder(progress);
+        const orderedBooks = orderedBooksFromIds(orderedIds, booksResponse.books);
 
-        this.collection.set({
-          id: AUTO_ACTIVITY_COLLECTION_ID,
-          name: this.i18n.t('library.activityCollection'),
-          bookIds: orderedBooks.map((book) => book.id),
-          updatedAt: new Date().toISOString(),
-        });
+        this.collection.set(deriveActivityCollection(this.i18n.t('library.activityCollection'), orderedBooks));
         this.allBooks.set(booksResponse.books);
         this.books.set(orderedBooks);
         this.loading.set(false);
@@ -243,7 +233,7 @@ export class CollectionDetailPageComponent implements OnInit {
             next: (response) => {
               this.allBooks.set(response.books);
               this.editorBooks.set(response.books);
-              this.syncVisibleBooks(collection.bookIds);
+              this.books.set(syncVisibleBooks(response.books, collection.bookIds));
               this.loading.set(false);
             },
             error: (error: unknown) => {
@@ -254,7 +244,7 @@ export class CollectionDetailPageComponent implements OnInit {
           return;
         }
 
-        this.syncVisibleBooks(collection.bookIds);
+        this.books.set(syncVisibleBooks(this.allBooks(), collection.bookIds));
         this.loading.set(false);
       },
       error: (error: unknown) => {
@@ -264,33 +254,4 @@ export class CollectionDetailPageComponent implements OnInit {
     });
   }
 
-  private syncVisibleBooks(bookIds: string[]): void {
-    if (bookIds.length === 0) {
-      this.books.set([]);
-      return;
-    }
-
-    const selected = new Set(bookIds);
-    this.books.set(this.allBooks().filter((book) => selected.has(book.id)));
-  }
-
-  private computeListenedBookOrder(progress: Array<{ bookId: string; completed: boolean; positionSeconds: number; lastListenedAt: string | null }>): string[] {
-    const byLastListenedDesc = (a: { lastListenedAt: string | null }, b: { lastListenedAt: string | null }) => {
-      const aTime = a.lastListenedAt ? Date.parse(a.lastListenedAt) : 0;
-      const bTime = b.lastListenedAt ? Date.parse(b.lastListenedAt) : 0;
-      return bTime - aTime;
-    };
-
-    const inProgress = progress
-      .filter((item) => !item.completed && item.positionSeconds > 0)
-      .sort(byLastListenedDesc)
-      .map((item) => item.bookId);
-
-    const completed = progress
-      .filter((item) => item.completed)
-      .sort(byLastListenedDesc)
-      .map((item) => item.bookId);
-
-    return [...new Set([...inProgress, ...completed])];
-  }
 }

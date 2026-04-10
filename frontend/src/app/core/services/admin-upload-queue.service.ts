@@ -1,7 +1,15 @@
 import { Injectable, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-import { AdminJob, AdminService } from './admin.service';
+import { AdminService } from './admin.service';
+import type { AdminJob } from './admin.types';
+import {
+	allTrackedJobsTerminal,
+	createQueueItem,
+	mergeTrackedJobs,
+	patchQueueItem,
+	patchQueueItemById,
+} from './admin-upload-queue.utils';
 
 export interface Mp3QueueMetadata {
 	coverFile: File | null;
@@ -38,7 +46,7 @@ export class AdminUploadQueueService {
 		}
 
 		const queued = this.queue();
-		const next = files.map((file, index) => this.createQueueItem(file, index));
+		const next = files.map((file, index) => createQueueItem(file, index));
 		this.queue.set([...queued, ...next]);
 		this.error.set(null);
 	}
@@ -48,24 +56,13 @@ export class AdminUploadQueueService {
 	}
 
 	updateItemLanguage(itemId: string, language: 'fr' | 'en'): void {
-		this.queue.update((items) =>
-			items.map((item) => {
-				if (item.id !== itemId) {
-					return item;
-				}
-
-				return {
-					...item,
-					language,
-				};
-			}),
-		);
+		this.queue.update((items) => patchQueueItemById(items, itemId, (item) => ({ ...item, language })));
 	}
 
 	updateMp3Cover(itemId: string, coverFile: File | null): void {
 		this.queue.update((items) =>
-			items.map((item) => {
-				if (item.id !== itemId || item.type !== 'mp3' || !item.mp3) {
+			patchQueueItemById(items, itemId, (item) => {
+				if (item.type !== 'mp3' || !item.mp3) {
 					return item;
 				}
 
@@ -158,41 +155,7 @@ export class AdminUploadQueueService {
 	}
 
 	private updateQueueItem(index: number, patch: Partial<UploadQueueItem>): void {
-		const items = [...this.queue()];
-		const current = items[index];
-		if (!current) {
-			return;
-		}
-
-		items[index] = {
-			...current,
-			...patch,
-		};
-		this.queue.set(items);
-	}
-
-	private createQueueItem(file: File, index: number): UploadQueueItem {
-		const type: UploadQueueItem['type'] = file.name.toLowerCase().endsWith('.mp3') ? 'mp3' : 'audio';
-		const id = `${Date.now()}-${index}-${file.name}`;
-
-		if (type === 'mp3') {
-			return {
-				id,
-				file,
-				type,
-				status: 'queued',
-				mp3: { coverFile: null },
-				language: 'en',
-			};
-		}
-
-		return {
-			id,
-			file,
-			type,
-			status: 'queued',
-			language: 'en',
-		};
+		this.queue.set(patchQueueItem(this.queue(), index, patch));
 	}
 
 	private trackJob(jobId: string): void {
@@ -209,21 +172,9 @@ export class AdminUploadQueueService {
 
 		this.jobsStreamHandle = this.admin.startJobsStream({
 			onJobs: (jobs) => {
-				const tracked = new Set(this.trackedJobIds());
-				this.jobsById.update((current) => {
-					const next = { ...current };
-					for (const job of jobs) {
-						if (tracked.has(job.id)) {
-							next[job.id] = job;
-						}
-					}
-					return next;
-				});
+				this.jobsById.update((current) => mergeTrackedJobs(current, jobs, this.trackedJobIds()));
 
-				const allTerminal = this.trackedJobIds().every((trackedJobId) => {
-					const status = this.jobsById()[trackedJobId]?.status;
-					return status === 'done' || status === 'failed';
-				});
+				const allTerminal = allTrackedJobsTerminal(this.trackedJobIds(), this.jobsById());
 
 				if (allTerminal) {
 					this.jobsStreamHandle?.stop();

@@ -1,10 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, effect, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
 import { Subscription } from 'rxjs';
 
-import type { Book, Progress } from './core/models/api.models';
+import type { Book } from './core/models/api.models';
 import { AuthService } from './core/services/auth.service';
 import { LibraryProgressService } from './core/services/library-progress.service';
 import { LibraryService } from './core/services/library.service';
@@ -14,16 +13,15 @@ import { I18nService } from './core/services/i18n.service';
 import { RealtimeService } from './core/services/realtime.service';
 import { PlayerService } from './core/services/player.service';
 import { CoverTileComponent } from './shared/ui/cover-tile/cover-tile.component';
-
-interface InProgressBookItem {
-  book: Book;
-  progress: Progress;
-}
-
-interface ToastItem {
-  id: string;
-  text: string;
-}
+import { loadInProgressBooks, persistPreferredLocale } from './app.data';
+import type { InProgressBookItem, ToastItem } from './app.types';
+import {
+  buildInProgressBooks,
+  coverInitials,
+  coverUrl,
+  miniPlayerProgressPercent,
+  notificationId,
+} from './app.utils';
 
 @Component({
   selector: 'app-root',
@@ -117,51 +115,22 @@ export class App implements OnDestroy {
       return;
     }
 
-    await this.i18n.setLocale(locale);
-
-    if (!this.auth.isAuthenticated()) {
-      return;
-    }
-
     try {
-      await Promise.all([
-        firstValueFrom(this.settingsService.updateMyProfile({
-          profile: {
-            preferredLocale: locale,
-          },
-        })),
-        firstValueFrom(this.settingsService.updateMine({ locale })),
-      ]);
-
-      await this.auth.reloadCurrentUser();
-      this.loadInProgressBooks();
+      const persisted = await persistPreferredLocale(locale, this.i18n, this.auth, this.settingsService);
+      if (persisted) {
+        this.loadInProgressBooks();
+      }
     } catch {
       // Keep the local choice even if persistence fails.
     }
   }
 
   coverUrl(book: Book): string {
-    if (!book.coverPath) {
-      return '';
-    }
-
-    const token = this.auth.accessToken();
-    if (!token) {
-      return '';
-    }
-
-    return `/streaming/books/${book.id}/cover?access_token=${encodeURIComponent(token)}`;
+    return coverUrl(book, this.auth.accessToken());
   }
 
   coverInitials(book: Book): string {
-    const initials = (book.title ?? '')
-      .split(' ')
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() ?? '')
-      .join('');
-
-    return initials || 'BK';
+    return coverInitials(book);
   }
 
   isBookCompleted(bookId: string): boolean {
@@ -186,61 +155,22 @@ export class App implements OnDestroy {
   }
 
   miniPlayerProgressPercent(): number {
-    const duration = this.player.durationSeconds();
-    if (!Number.isFinite(duration) || duration <= 0) {
-      return 0;
-    }
-
-    const ratio = (this.player.currentSeconds() / duration) * 100;
-    return Math.max(0, Math.min(100, Math.round(ratio)));
+    return miniPlayerProgressPercent(this.player.currentSeconds(), this.player.durationSeconds());
   }
 
   private loadInProgressBooks(): void {
-    this.progressService.listMine(40, 0).subscribe({
-      next: (progressResponse) => {
-        const progressItems = [...progressResponse.progress]
-          .filter((progress) => !progress.completed && progress.positionSeconds > 0)
-          .sort((a, b) => {
-            const aTime = a.lastListenedAt ? Date.parse(a.lastListenedAt) : 0;
-            const bTime = b.lastListenedAt ? Date.parse(b.lastListenedAt) : 0;
-            return bTime - aTime;
-          });
-
-        if (progressItems.length === 0) {
-          this.inProgressBooks.set([]);
-          return;
-        }
-
-        this.libraryService.listBooks({ limit: 200, offset: 0 }).subscribe({
-          next: (booksResponse) => {
-            const byId = new Map(booksResponse.books.map((book) => [book.id, book]));
-            const merged = progressItems
-              .map((progress) => {
-                const book = byId.get(progress.bookId);
-                if (!book) {
-                  return null;
-                }
-
-                return { book, progress };
-              })
-              .filter((item): item is InProgressBookItem => item !== null)
-              .slice(0, 24);
-
-            this.inProgressBooks.set(merged);
-          },
-          error: () => {
-            this.inProgressBooks.set([]);
-          },
-        });
+    loadInProgressBooks(this.progressService, this.libraryService, {
+      onLoaded: (items) => {
+        this.inProgressBooks.set(items);
       },
-      error: () => {
+      onError: () => {
         this.inProgressBooks.set([]);
       },
     });
   }
 
   private pushNotification(text: string): void {
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const id = notificationId();
     this.notifications.update((items) => [...items, { id, text }].slice(-4));
     setTimeout(() => {
       this.notifications.update((items) => items.filter((item) => item.id !== id));

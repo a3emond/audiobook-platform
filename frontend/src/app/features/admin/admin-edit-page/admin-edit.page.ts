@@ -6,13 +6,8 @@ import { ActivatedRoute, Router } from '@angular/router';
 import type { Book } from '../../../core/models/api.models';
 import { AdminService } from '../../../core/services/admin.service';
 import { prepareCoverImageFile, prepareCoverImageFromUrl } from '../../../core/utils/image-upload';
-
-interface EditableChapter {
-	id: number;
-	title: string;
-	start: number;
-	end: number;
-}
+import type { EditableChapter } from './admin-edit-page.types';
+import { buildMetadataPayload, hydrateEditableChapters, nextChapterRow, validateChapterRows } from './admin-edit-page.utils';
 
 @Component({
 	selector: 'app-admin-edit-page',
@@ -70,21 +65,16 @@ export class AdminEditPage implements OnInit {
 		this.success.set(null);
 
 		this.admin
-			.updateBookMetadata(this.bookId, {
-				title: this.title.trim() || undefined,
-				author: this.author.trim() || undefined,
-				series: this.series.trim() || null,
+			.updateBookMetadata(this.bookId, buildMetadataPayload({
+				title: this.title,
+				author: this.author,
+				series: this.series,
 				seriesIndex: this.seriesIndex,
 				language: this.language,
-				genre: this.genre.trim() || null,
-				tags: this.tagsRaw
-					.split(',')
-					.map((v) => v.trim())
-					.filter(Boolean),
-				description: {
-					default: this.descriptionDefault.trim() || null,
-				},
-			})
+				genre: this.genre,
+				tagsRaw: this.tagsRaw,
+				descriptionDefault: this.descriptionDefault,
+			}))
 			.subscribe({
 				next: (book) => {
 					this.currentBook = book;
@@ -103,7 +93,7 @@ export class AdminEditPage implements OnInit {
 			return;
 		}
 
-		const validationError = this.validateChapterRows();
+		const validationError = validateChapterRows(this.chapterRows);
 		if (validationError) {
 			this.chapterValidationError.set(validationError);
 			this.error.set(validationError);
@@ -254,34 +244,11 @@ export class AdminEditPage implements OnInit {
 		this.language = book.language === 'fr' ? 'fr' : 'en';
 		this.tagsRaw = (book.tags ?? []).join(', ');
 		this.descriptionDefault = book.description?.default ?? '';
-		this.chapterRows = (book.chapters ?? []).map((chapter) => ({
-			id: this.chapterRowCounter++,
-			title: chapter.title,
-			start: chapter.start,
-			end: chapter.end,
-		}));
-
-		if (this.chapterRows.length === 0) {
-			this.chapterRows = [{
-				id: this.chapterRowCounter++,
-				title: 'Chapter 1',
-				start: 0,
-				end: 0,
-			}];
-		}
+		this.chapterRows = hydrateEditableChapters(book.chapters, () => this.chapterRowCounter++);
 	}
 
 	addChapterRow(): void {
-		const lastEnd = this.chapterRows.length > 0 ? Number(this.chapterRows[this.chapterRows.length - 1].end) : 0;
-		this.chapterRows = [
-			...this.chapterRows,
-			{
-				id: this.chapterRowCounter++,
-				title: `Chapter ${this.chapterRows.length + 1}`,
-				start: Number.isFinite(lastEnd) ? lastEnd : 0,
-				end: Number.isFinite(lastEnd) ? lastEnd : 0,
-			},
-		];
+		this.chapterRows = [...this.chapterRows, nextChapterRow(this.chapterRows, () => this.chapterRowCounter++)];
 	}
 
 	removeChapterRow(id: number): void {
@@ -292,38 +259,4 @@ export class AdminEditPage implements OnInit {
 		this.chapterRows = this.chapterRows.filter((chapter) => chapter.id !== id);
 	}
 
-	private validateChapterRows(): string | null {
-		if (this.chapterRows.length === 0) {
-			return 'At least one chapter is required';
-		}
-
-		for (let i = 0; i < this.chapterRows.length; i += 1) {
-			const chapter = this.chapterRows[i];
-			const title = chapter.title.trim();
-			const start = Number(chapter.start);
-			const end = Number(chapter.end);
-
-			if (!title) {
-				return `Chapter ${i + 1} requires a title`;
-			}
-			if (!Number.isFinite(start) || !Number.isFinite(end)) {
-				return `Chapter ${i + 1} must have valid numeric start/end values`;
-			}
-			if (start < 0 || end < 0) {
-				return `Chapter ${i + 1} start/end must be non-negative`;
-			}
-			if (end < start) {
-				return `Chapter ${i + 1} end must be greater than or equal to start`;
-			}
-
-			if (i > 0) {
-				const prevEnd = Number(this.chapterRows[i - 1].end);
-				if (start < prevEnd) {
-					return `Chapter ${i + 1} start must be >= previous chapter end`;
-				}
-			}
-		}
-
-		return null;
-	}
 }
