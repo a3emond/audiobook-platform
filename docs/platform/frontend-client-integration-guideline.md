@@ -10,11 +10,19 @@ Supported client targets:
 - Windows desktop
 - Linux desktop
 
+Related references:
+- [Web Frontend Technical Reference](./web-frontend-technical-reference.md)
+- [Native Platform Implementation Guide](./native-platform-implementation-guide.md)
+
 Primary goals:
 - Consistent appearance and interaction behavior across platforms
 - Consistent API usage and security posture
 - Predictable realtime and playback behavior
 - Shared feature parity and release quality standards
+
+Baseline policy:
+- The current web frontend is the minimum functionality reference implementation.
+- Other platforms should match this baseline for core listening/user functionality.
 
 ## 1. Product Scope and Capability Map
 
@@ -48,10 +56,13 @@ Required capabilities:
   - WebSocket connection to /ws
   - React to book added and other envelope events
 
-Admin capabilities are optional per client:
-- Admin upload and metadata workflows
-- Job monitoring views
-- User management views
+Admin capabilities are optional per client.
+
+Default strategy for non-web clients:
+- Use a direct link-out to the canonical web admin console:
+  - `https://audiobook.aedev.pro/admin/overview/`
+- Do not block platform release on native admin parity unless explicitly required.
+- If implemented, native admin support can be delivered as a later incremental scope.
 
 Admin upload UX requirement:
 - Prepared upload queues should survive admin route navigation within the same app session.
