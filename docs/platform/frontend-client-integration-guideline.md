@@ -3,6 +3,7 @@
 This document defines the implementation contract for all client applications that integrate with the Audiobook Platform API.
 
 Supported client targets:
+
 - Web browser
 - Android mobile
 - iOS mobile
@@ -11,60 +12,104 @@ Supported client targets:
 - Linux desktop
 
 Related references:
+
 - [Web Frontend Technical Reference](./web-frontend-technical-reference.md)
 - [Native Platform Implementation Guide](./native-platform-implementation-guide.md)
+- [Mobile Native MVVM Guide](./mobile-native-mvvm-guide.md)
+- [Windows Electron Guide](./windows-electron-implementation-guide.md)
+- [Apple Native Starter Guide](./apple-swift-starter-project-guide.md)
+- [Android Native Starter Guide](./android-kotlin-starter-project-guide.md)
 
 Primary goals:
+
 - Consistent appearance and interaction behavior across platforms
 - Consistent API usage and security posture
 - Predictable realtime and playback behavior
 - Shared feature parity and release quality standards
 
 Baseline policy:
+
 - The current web frontend is the minimum functionality reference implementation.
 - Other platforms should match this baseline for core listening/user functionality.
 
+Locked platform decisions:
+
+- Apple: Swift core library + SwiftUI app targets (iOS + macOS in one multiplatform project).
+- Android: Kotlin core library + Kotlin/Compose app.
+- Windows: Electron desktop app.
+- Kotlin Multiplatform and MAUI are not part of the current delivery plan.
+
 ## 1. Product Scope and Capability Map
 
-All clients should support the same user-facing capability set, unless a feature is explicitly marked as optional.
+### 1.1 Web Client (Full Feature Parity)
+
+Web clients should support all platform capabilities including admin features.
 
 Required capabilities:
-- Authentication
-  - Email and password login
-  - Email and password registration
-  - OAuth login with Google and Apple when configured
-  - Access and refresh token lifecycle
-- Library discovery
-  - List books
-  - Search and filtering
-  - Series browsing
-  - Collection browsing and collection details
-- Playback
-  - Resume playback
-  - Stream audio with range support
-  - View chapters
-  - Save progress and completion
-- User settings
-  - Locale and language preference
-  - Playback preferences and resume rewind
-  - Profile updates where supported by API
-- Discussions
-  - Language scoped channels (en, fr)
-  - Message list and send message
-  - Realtime message updates
-- Realtime updates
-  - WebSocket connection to /ws
-  - React to book added and other envelope events
 
-Admin capabilities are optional per client.
+- Authentication (full)
+- Library discovery (full)
+- Playback (full)
+- User settings (full)
+- Discussions (full)
+- Realtime updates (full)
+- Admin console (full)
 
-Default strategy for non-web clients:
-- Use a direct link-out to the canonical web admin console:
-  - `https://audiobook.aedev.pro/admin/overview/`
-- Do not block platform release on native admin parity unless explicitly required.
-- If implemented, native admin support can be delivered as a later incremental scope.
+### 1.2 Native Clients (iOS, Android, macOS) – 4-Feature MVP
+
+Native clients currently implement a focused 4-feature set to achieve rapid market delivery:
+
+**Required capabilities (MVP):**
+
+1. **Library**: Browse and filter books by language-aware catalog
+   - List books with filtering by language preference
+   - Display book metadata (title, author, description, cover)
+   - Select book to initiate playback
+
+2. **Player**: Stream audio and manage playback state
+   - Resume from saved progress
+   - Stream audio with full playback controls (play, pause, seek, skip)
+   - Navigate chapters and save progress
+   - Adjust playback rate
+   - Display now-playing metadata
+
+3. **Discussions (Chat)**: Language-scoped message browsing and composition
+   - List language-specific channels
+   - View message history per channel
+   - Send and receive messages
+   - Display sender and timestamp
+
+4. **Profile** (User Account)
+   - Display user account details
+   - Language preference toggle (English/Français)
+   - Auto-refresh library and discussions on language change
+   - Sign-out
+
+**Admin capabilities for native clients:**
+
+- Admin features are not implemented in native clients initially.
+- Admin users can access admin console via web redirect: `https://audiobook.aedev.pro/admin/overview/`
+- Web admin console remains the authoritative admin UI.
+
+**Future roadmap (not MVP):**
+
+- Search and advanced filtering
+- Series and collection browsing
+- User statistics and listening history
+- Playback settings customization
+- Sleep timer functionality
+- Download/offline playback
+
+### 1.3 Startup Flow (All Clients)
+
+Before auth or feature access:
+
+1. **Health gate**: Check `/api/v1/health` to verify API reachability
+2. **Error handling**: If unreachable, show offline message with retry option
+3. **Proceed**: On success, continue to auth or home flow
 
 Admin upload UX requirement:
+
 - Prepared upload queues should survive admin route navigation within the same app session.
 - A full browser reload may require re-selecting files, but per-item metadata choices should remain recoverable where feasible.
 
@@ -73,6 +118,7 @@ Admin upload UX requirement:
 ### 2.1 Base Paths
 
 Use these routes exactly:
+
 - API base: /api/v1
 - Streaming base: /streaming
 - Realtime WebSocket: /ws
@@ -82,6 +128,7 @@ Do not hardcode hostnames in code when the app can resolve relative paths from c
 ### 2.2 Authentication Endpoints
 
 From /api/v1/auth:
+
 - POST /login
 - POST /register
 - POST /refresh
@@ -93,6 +140,7 @@ From /api/v1/auth:
 - POST /change-email
 
 Token model:
+
 - accessToken is a JWT used in Authorization header
 - refreshToken is opaque and used for token rotation
 - On refresh success, replace both stored tokens
@@ -100,6 +148,7 @@ Token model:
 ### 2.3 Core User Endpoints
 
 Required endpoint groups:
+
 - Books: /api/v1/books
 - Series: /api/v1/series
 - Collections: /api/v1/collections
@@ -109,6 +158,7 @@ Required endpoint groups:
 - Discussions: /api/v1/discussions
 
 Streaming endpoints:
+
 - GET /streaming/books/:bookId/resume
 - GET /streaming/books/:bookId/audio
 - GET /streaming/books/:bookId/cover
@@ -118,10 +168,11 @@ Streaming endpoints:
 Assume API errors return this shape:
 
 {
-  "message": "error_code"
+"message": "error_code"
 }
 
 Client behavior rules:
+
 - 401 and 403 on protected endpoints:
   - Attempt one token refresh flow if refresh token exists
   - Retry original request once after successful refresh
@@ -138,6 +189,7 @@ Client behavior rules:
 ### 3.1 Transport and Secrets
 
 Required:
+
 - TLS only in production
 - Never log accessToken or refreshToken
 - Never log OAuth idToken
@@ -146,10 +198,12 @@ Required:
 ### 3.2 Token Storage by Platform
 
 Web:
+
 - Current web client stores tokens in localStorage
 - For other web clients, prefer secure cookie strategy if backend topology allows
 
 Mobile and desktop:
+
 - Android: EncryptedSharedPreferences or Keystore-backed secure store
 - iOS/macOS: Keychain
 - Windows: Credential Locker or DPAPI protected vault
@@ -158,6 +212,7 @@ Mobile and desktop:
 ### 3.3 Session Lifecycle
 
 Required behavior:
+
 - Refresh token rotation on /auth/refresh
 - Clear all auth state on refresh failure
 - Clear auth state on explicit logout
@@ -166,93 +221,142 @@ Required behavior:
 ## 4. Realtime Contract
 
 WebSocket endpoint:
+
 - ws://<host>/ws
 - wss://<host>/ws
 
 Envelope shape:
+
 - type: string
 - ts: ISO datetime string
 - payload: object
 
 Current event types:
+
 - system.connected
 - job.state.changed
 - catalog.book.added
 - discussion.message.created
 
 Realtime client rules:
+
 - Reconnect with backoff after close or error
 - Ignore malformed messages
 - Keep event handler routing by type
 - Avoid duplicate UI updates if same event is replayed
 
 Recommended reconnect policy:
+
 - Start at 2 seconds
 - Increase to max 30 seconds
 - Add jitter of plus or minus 20 percent
 
 ## 5. Localization and Content Language
 
-### 5.1 Locale Assets
+### 5.1 Locale Assets and Detection
 
-Locale dictionaries are served from:
+**Web and desktop clients:**
+
+Load locale dictionaries from:
+
 - /i18n/en.json
 - /i18n/fr.json
 
-Required behavior:
-- Load locale at startup
+**Native clients (iOS, Android, macOS):**
+
+Build-in translation service with fallback:
+
+1. Check device language (system locale)
+2. Fall back to user's saved preference (local storage)
+3. Default to English if neither available
+4. Load translations from `LocalizationService` (built-in strings, not external JSON)
+
+**All clients required behavior:**
+
+- Load locale at startup (before auth flow)
 - Persist locale choice locally
 - If authenticated, persist preferred locale to user settings and profile APIs
+- On language preference change, refresh all language-aware content (library, discussions)
 
 ### 5.2 Language-Aware Content Filtering
 
-Library and series queries should include language when not explicitly provided:
-- en locale defaults to language=en
-- fr locale defaults to language=fr
+**All API queries for language-sensitive content MUST include language parameter:**
 
-On locale switch:
-- Refresh library datasets
-- Refresh series and collection detail datasets
-- Keep route state when possible
+```
+GET /api/v1/books?language=en
+GET /api/v1/discussions/channels?language=en
+GET /api/v1/discussions/{channelId}/messages?language=en
+```
+
+**Behavior per locale:**
+
+- When locale is "en": append `?language=en` to library, series, and discussion queries
+- When locale is "fr": append `?language=fr` to same queries
+- Server filters content by language parameter, not by user's preferred locale header
+
+**On locale switch:**
+
+- Immediately refresh library datasets with new language parameter
+- Refresh discussion channels and messages with new language parameter
+- Keep other route state (selected book, scroll position) when possible
+- Show loading indicator during refresh to signal change is taking effect
 
 ### 5.3 Translation Rules
 
 Required:
+
 - No hardcoded user-facing strings in UI components
 - All copy must use key-based localization
 - Keep key naming stable across clients
 
 Suggested key namespace pattern:
-- app.*
-- nav.*
-- auth.*
-- library.*
-- series.*
-- collections.*
-- discussions.*
-- player.*
-- settings.*
-- common.*
+
+- app.\*
+- nav.\*
+- auth.\*
+- library.\*
+- series.\*
+- collections.\*
+- discussions.\*
+- player.\*
+- settings.\*
+- common.\*
 
 ## 6. UX Consistency Contract
 
 ### 6.1 Navigation Model
 
+**Web and desktop clients:**
+
 Expected top-level destinations:
+
 - Library
 - Activity (listened collection)
 - Discussions
 - Profile
 - Admin section for admin users
 
+**Native clients (iOS, Android, macOS):**
+
+Tab-based navigation (4 tabs, no admin):
+
+1. **Library** — Book listing and selection
+2. **Discussions** — Chat channels and messages
+3. **Profile** — User account and language toggle
+4. **Player** — Accessed via book selection (modal overlay, not tab)
+
 Behavior standards:
-- Keep nav item order consistent
-- Keep locale switch discoverable in top navigation region
+
+- Keep tab order consistent across platforms
+- Keep locale switch discoverable (in Profile tab)
 - Keep route naming and deep links stable across clients
+- Player opens as full-screen modal/overlay when book is selected
+- Maintain tab selection when switching between Library and Player
 
 ### 6.2 Visual Design Tokens
 
 Define and use a shared token catalog per client platform:
+
 - Colors
 - Typography scale
 - Spacing scale
@@ -261,6 +365,7 @@ Define and use a shared token catalog per client platform:
 - Motion timing and easing
 
 Required token behavior:
+
 - No per-screen ad hoc styling
 - Use semantic tokens for text, surface, border, accent, and error
 - Keep contrast accessible (minimum WCAG AA)
@@ -268,6 +373,7 @@ Required token behavior:
 ### 6.3 Interaction Patterns
 
 Standard interaction behaviors:
+
 - Loading states for all network calls
 - Empty states with clear call to action
 - Inline error messages for form and request failures
@@ -275,6 +381,7 @@ Standard interaction behaviors:
 - Destructive actions require confirmation
 
 Playback interaction standards:
+
 - Preserve current position frequently
 - Use server resume endpoint before playback start
 - Show completion badge and state consistently
@@ -284,13 +391,26 @@ Playback interaction standards:
 ### 7.1 Android and iOS
 
 Recommended stack properties:
+
 - Typed API layer with request and response models
 - Dedicated auth interceptor with refresh queue lock
 - Persistent secure token storage
 - Background friendly audio player integration
 - Local caching for list pages and cover images
 
+Architecture requirement:
+
+- MVVM is mandatory for all mobile feature modules.
+- View layer must remain passive and state-driven.
+- ViewModels own loading/empty/error/success states.
+- Repositories isolate API/DTO concerns from UI.
+
+Reference implementation guide:
+
+- [Mobile Native MVVM Guide](./mobile-native-mvvm-guide.md)
+
 Mobile-specific requirements:
+
 - Audio focus and interruption handling
 - Headphone and lock-screen media controls
 - Resume playback on app relaunch
@@ -298,12 +418,19 @@ Mobile-specific requirements:
 ### 7.2 Desktop (macOS, Windows, Linux)
 
 Recommended stack properties:
+
 - Shared API core used by all desktop targets where possible
 - Native secure credential storage
 - Adaptive layouts for wide and narrow windows
 - Keyboard navigation parity with web
 
+Windows-specific lock:
+
+- Windows desktop is implemented with Electron.
+- See [Windows Electron Guide](./windows-electron-implementation-guide.md).
+
 Desktop-specific requirements:
+
 - Robust window resize behavior
 - Global media keys where available
 - Local cache directory management with size limits
@@ -311,6 +438,7 @@ Desktop-specific requirements:
 ### 7.3 Web
 
 Recommended stack properties:
+
 - Relative API paths for reverse-proxy deployment
 - Reliable reconnect strategy for WebSocket
 - Graceful behavior when browser blocks autoplay
@@ -319,6 +447,7 @@ Recommended stack properties:
 ## 8. State Management Model
 
 Required state domains:
+
 - Auth state
 - User profile and settings state
 - Library and search state
@@ -327,6 +456,7 @@ Required state domains:
 - Discussion channel and message state
 
 Rules:
+
 - Keep API models separate from view models
 - Keep transient UI state local to view layer
 - Use immutable updates for predictable rendering
@@ -334,29 +464,34 @@ Rules:
 ## 9. Performance and Reliability
 
 Minimum targets:
+
 - Time to interactive under 3 seconds on mid-tier devices and stable network
 - Initial library render under 2 seconds after auth on warm API path
 - Smooth scrolling and interaction at 60 fps where possible
 
 Reliability controls:
+
 - Request timeout strategy
 - Retry with exponential backoff for idempotent GET requests
 - Do not auto retry non-idempotent POST and PATCH without user intent
 
 Caching guidance:
+
 - Cache covers aggressively with eviction policy
-- Cache dictionaries /i18n/*.json with version-aware invalidation
+- Cache dictionaries /i18n/\*.json with version-aware invalidation
 - Cache list responses briefly to improve navigation speed
 
 ## 10. Logging and Observability
 
 Client logs should include:
+
 - Request method, path, status, duration
 - Token refresh attempts and outcomes (without secrets)
 - WebSocket connection lifecycle
 - Locale load and switch outcomes
 
 Server-side diagnostics already available:
+
 - WebSocket upgrade and connect logs
 - WebSocket disconnect and error logs
 - Realtime broadcast debug logs in non-production mode
@@ -364,6 +499,7 @@ Server-side diagnostics already available:
 ## 11. Testing and Quality Gates
 
 Required automated checks per client:
+
 - Auth flow tests
 - Token refresh and forced logout tests
 - Library and filtering tests including language behavior
@@ -372,6 +508,7 @@ Required automated checks per client:
 - Locale switch tests and translation key coverage checks
 
 Release gate checklist:
+
 - No untranslated keys rendered in UI
 - No hardcoded UI strings outside dictionary files
 - No temporary debug toggles left enabled
@@ -381,12 +518,14 @@ Release gate checklist:
 ## 12. Compatibility and Versioning
 
 Client compatibility strategy:
+
 - Track API contract changes in docs/api
 - Prefer additive changes in responses
 - Tolerate unknown fields in responses and events
 - Guard optional fields with defaults
 
 For breaking API changes:
+
 - Announce migration notes
 - Version-gate features where needed
 - Keep old behavior behind compatibility adapters during transition
@@ -419,3 +558,5 @@ For breaking API changes:
 - docs/platform/api-functionality-coverage.md
 - docs/platform/api-worker-integration.md
 - docs/platform/architecture-build-specification.md
+- docs/platform/mobile-native-mvvm-guide.md
+- docs/platform/windows-electron-implementation-guide.md

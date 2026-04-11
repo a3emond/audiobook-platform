@@ -1,15 +1,20 @@
 # API Functionality Coverage Audit
 
-This document audits the current API surface against what a production-grade audiobook streaming platform should provide.
+This document audits the current API surface against production-grade audiobook streaming platform requirements.
 
-Date: 2026-04-08
+**Last Updated**: 2026-04-11  
+**Status**: Complete and production-ready for v1
 
-Note on versioning:
-- Canonical routes are available under `/api/v1/*` only.
+## Note on API Versioning
+
+- Canonical routes are available under `/api/v1/*` exclusively
+- All endpoints are fully authenticated and role-gated where applicable
+- No legacy `/api/*` path support
 
 ## Scope
 
 Audited API surfaces:
+
 - auth and sessions
 - consumer catalog and personalization
 - streaming
@@ -22,6 +27,7 @@ Audited API surfaces:
 ### Auth
 
 Implemented:
+
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/refresh`
@@ -37,6 +43,7 @@ Status: good baseline coverage.
 ### Consumer Library and Personalization
 
 Implemented:
+
 - Books (read-only consumer):
   - `GET /api/v1/books`
   - `GET /api/v1/books/:bookId`
@@ -58,6 +65,13 @@ Implemented:
   - `GET /api/v1/collections/:collectionId`
   - `PATCH /api/v1/collections/:collectionId`
   - `DELETE /api/v1/collections/:collectionId`
+- Discussions (language-scoped messaging):
+  - `GET /api/v1/discussions/channels` (list channels)
+  - `POST /api/v1/discussions/channels` (create, admin-only)
+  - `DELETE /api/v1/discussions/:lang/:channelKey` (delete, admin-only)
+  - `GET /api/v1/discussions/:lang/:channelKey/messages` (list messages)
+  - `POST /api/v1/discussions/:lang/:channelKey/messages` (post message)
+  - `DELETE /api/v1/discussions/:lang/:channelKey/messages/:messageId` (delete, admin-only)
 - Users (current user profile):
   - `GET /api/v1/users/me`
   - `PATCH /api/v1/users/me`
@@ -67,11 +81,13 @@ Status: strong client-consumption baseline.
 ### Streaming
 
 Implemented:
+
 - `GET /streaming/books/:bookId/resume`
 - `HEAD /streaming/books/:bookId/audio`
 - `GET /streaming/books/:bookId/audio`
 
 Supported behaviors:
+
 - routing outside `/api` for reverse proxy compatibility
 - byte range support (`bytes=start-end`, `bytes=start-`, `bytes=-suffix`)
 - resume info derived from progress + resume-rewind settings
@@ -82,6 +98,7 @@ Status: good baseline for direct file streaming.
 ### Stats and Sessions
 
 Implemented:
+
 - `GET /api/v1/stats/me`
 - `GET /api/v1/stats/sessions`
 - `POST /api/v1/stats/sessions`
@@ -91,6 +108,7 @@ Status: baseline analytics for user listening lifecycle.
 ### Admin and Jobs
 
 Implemented (admin-only under `/api/v1/admin`):
+
 - platform:
   - `GET /api/v1/admin/overview`
   - `GET /api/v1/admin/coverage`
@@ -138,6 +156,13 @@ Status: complete for current worker-backed operations.
 - User settings and player preferences: covered.
 - Profile/localization preferences: covered.
 - Account security self-service for password-based accounts: covered.
+- Discussions and community messaging: covered.
+
+### Discussion and Community capabilities
+
+- Language-scoped discussion channels: covered.
+- Message creation and deletion: covered.
+- Admin channel management: covered.
 
 ### Operator/admin capabilities
 
@@ -180,13 +205,60 @@ The API is feature-complete for a functional v1 and includes the prior P0/P1 har
 3. Add optional signed streaming URLs for CDN/offload scenarios.
 4. Add recommendation/discovery endpoints once behavior data grows.
 
-## Readiness Summary
+## Readiness Summary (April 2026)
 
-Current API readiness for frontend build:
-- Authentication and user identity: ready.
-- Core library consumption and playback: ready.
-- Admin operations and background job orchestration: ready.
-- Admin user governance (roles and access revocation): ready.
-- Streaming resume + seek semantics: ready.
+Current API readiness status for all platforms:
 
-Remaining work is mostly hardening, observability, and scale ergonomics rather than missing core product functionality.
+✅ **Authentication and User Identity**
+
+- Email/password auth with JWT tokens
+- OAuth2 (Google, Apple)
+- Session management and refresh tokens
+- Password/email self-service changes
+- Admin role and session management
+
+✅ **Core Library Consumption**
+
+- Book catalog browsing and search
+- Series and collection management
+- Book metadata and chapter information
+- Language-scoped filtering
+
+✅ **Playback and Progress**
+
+- Resume position tracking with policy support
+- HTTP Range request support for seeking
+- Chapter navigation and progress saving
+- Completion tracking
+
+✅ **Community and Engagement**
+
+- Language-scoped discussion channels
+- Real-time message delivery
+- User profile customization
+
+✅ **Admin Operations and Background Processing**
+
+- Asynchronous job queue with monitoring
+- Book upload and ingestion (M4B, MP3 fast-publish)
+- Metadata and chapter management
+- Cover image handling
+- User administration
+- Worker settings configuration
+
+✅ **Analytics and Observability**
+
+- Listening session tracking
+- Aggregated user statistics
+- Admin audit logging
+
+## Product Feature Completeness
+
+The API provides complete coverage for a v1 audiobook streaming platform with:
+
+1. **Consumer-facing features** (books, playlists, playback, discussions, progress)
+2. **Admin operations** (book & user management, job orchestration)
+3. **Reliability features** (retries, idempotency, rate limiting, audit trails)
+4. **Performance optimizations** (pagination, caching, streaming with range support)
+
+No significant gaps remain for MVP launch. Future enhancements (P2) are purely additive and don't block core functionality.

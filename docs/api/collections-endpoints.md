@@ -2,7 +2,7 @@
 
 This document is for client developers consuming collection management APIs.
 
-Base path: `/api/collections`
+Base path: `/api/v1/collections`
 
 Authentication: required on all endpoints.
 
@@ -15,6 +15,7 @@ Authorization: Bearer <accessToken>
 Collections are user-scoped named book lists.
 
 Current capabilities:
+
 - list collections
 - get one collection
 - create a collection
@@ -30,10 +31,7 @@ Current capabilities:
 {
   "id": "507f1f77bcf86cd799439011",
   "name": "Road Trip Queue",
-  "bookIds": [
-    "507f1f77bcf86cd799439101",
-    "507f1f77bcf86cd799439102"
-  ],
+  "bookIds": ["507f1f77bcf86cd799439101", "507f1f77bcf86cd799439102"],
   "cover": null,
   "createdAt": "2026-04-07T10:00:00.000Z",
   "updatedAt": "2026-04-07T10:10:00.000Z"
@@ -47,6 +45,7 @@ Current capabilities:
 List collections for the authenticated user.
 
 Query parameters:
+
 - `limit`: page size, default `20`, max `100`
 - `offset`: result offset, default `0`
 
@@ -76,9 +75,11 @@ Response:
 ```
 
 Behavior:
+
 - returns only the caller's own collections
 
 Common errors:
+
 - `400` `collection_invalid_limit`
 - `400` `collection_invalid_offset`
 
@@ -87,9 +88,11 @@ Common errors:
 Get one collection by id.
 
 Behavior:
+
 - returns only collections owned by the authenticated user
 
 Common errors:
+
 - `400` `collection_invalid_id`
 - `404` `collection_not_found`
 
@@ -106,11 +109,13 @@ Request body:
 ```
 
 Behavior:
+
 - trims collection names before saving
 - initializes with an empty `bookIds` array
 - automatically attaches the collection to the authenticated user
 
 Common errors:
+
 - `400` `collection_name_required`
 
 ### PATCH /:collectionId
@@ -122,20 +127,19 @@ Request body:
 ```json
 {
   "name": "Summer Listening",
-  "bookIds": [
-    "507f1f77bcf86cd799439101",
-    "507f1f77bcf86cd799439102"
-  ]
+  "bookIds": ["507f1f77bcf86cd799439101", "507f1f77bcf86cd799439102"]
 }
 ```
 
 Behavior:
+
 - accepts either `name`, `bookIds`, or both
 - validates each `bookIds` entry as a Mongo object id
 - rejects updates when any referenced book does not exist
 - replaces the entire `bookIds` set when provided
 
 Common errors:
+
 - `400` `collection_invalid_id`
 - `400` `collection_name_required`
 - `400` `collection_invalid_book_id`
@@ -148,9 +152,11 @@ Common errors:
 Delete a collection.
 
 Response:
+
 - `204 No Content` on success
 
 Common errors:
+
 - `400` `collection_invalid_id`
 - `404` `collection_not_found`
 

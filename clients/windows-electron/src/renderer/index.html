@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="icon" href="./assets/icon.png" />
+    <title>Audiobook Windows Client</title>
+    <style>
+      :root {
+        --color-bg: #070707;
+        --color-surface: #121212;
+        --color-border: #2a2a2a;
+        --color-text: #f4ecd9;
+        --color-text-muted: #b8ae97;
+        --color-accent: #ff8c00;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        font-family: "Outfit", "Segoe UI", sans-serif;
+        color: var(--color-text);
+        background:
+          radial-gradient(
+            circle at 15% -10%,
+            rgb(255 138 0 / 0.22) 0%,
+            transparent 34%
+          ),
+          linear-gradient(180deg, #0a0a0a 0%, var(--color-bg) 42%, #050505 100%);
+      }
+
+      .shell {
+        min-height: 100%;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+
+      .card {
+        width: min(560px, 100%);
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 16px;
+        padding: 28px;
+        text-align: center;
+      }
+
+      .logo {
+        width: 116px;
+        height: 116px;
+        object-fit: contain;
+      }
+
+      h1 {
+        margin: 12px 0 8px;
+        font-size: 1.8rem;
+      }
+
+      p {
+        margin: 0;
+        color: var(--color-text-muted);
+      }
+
+      .badge {
+        display: inline-block;
+        margin-top: 18px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgb(255 140 0 / 0.45);
+        color: var(--color-accent);
+        font-size: 0.82rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="card">
+        <img src="./assets/logo.png" alt="Audiobook" class="logo" />
+        <h1>Audiobook Platform</h1>
+        <p>Windows client shell with shared branding is ready.</p>
+        <span class="badge">Desktop UI bootstrap complete</span>
+      </section>
+    </main>
+  </body>
+</html>

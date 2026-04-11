@@ -7,26 +7,31 @@ Base path: `/api/v1/auth`
 ## Quick Flows
 
 ### Email/Password Login
+
 1. Call `POST /api/v1/auth/login`.
 2. Store `accessToken` and `refreshToken`.
 3. Send `Authorization: Bearer <accessToken>` for protected requests.
-4. When access token expires, call `POST /api/auth/refresh`.
+4. When access token expires, call `POST /api/v1/auth/refresh`.
 
 ### Registration
+
 1. Call `POST /api/v1/auth/register`.
 2. Receive tokens immediately.
 3. Use returned user payload as authenticated session.
 
 ### OAuth Login (Google/Apple)
+
 1. Obtain provider `idToken` on client.
 2. Call `POST /api/v1/auth/oauth/google` or `POST /api/v1/auth/oauth/apple`.
 3. Receive platform tokens and authenticated user.
 
 ### Logout
+
 1. Call `POST /api/v1/auth/logout` with current `refreshToken`.
 2. Delete local access/refresh tokens.
 
 ### Account Security
+
 1. Call `POST /api/v1/auth/change-password` to rotate a password-based account password.
 2. Call `POST /api/v1/auth/change-email` to change the login email on a password-based account.
 3. Refresh the local user state after a successful email change.
@@ -88,10 +93,12 @@ Request:
 ```
 
 Success:
+
 - `200 OK`
 - Body: Auth Success
 
 Common errors:
+
 - `400` `invalid_payload`
 - `400` `email_and_password_required`
 - `400` `invalid_email`
@@ -113,10 +120,12 @@ Request:
 ```
 
 Success:
+
 - `201 Created`
 - Body: Auth Success
 
 Common errors:
+
 - `400` `invalid_payload`
 - `400` `email_and_password_required`
 - `400` `invalid_email`
@@ -137,10 +146,12 @@ Request:
 ```
 
 Success:
+
 - `200 OK`
 - Body: Token Refresh Success
 
 Common errors:
+
 - `400` `invalid_payload`
 - `400` `missing_refresh_token`
 - `401` `invalid_session`
@@ -160,6 +171,7 @@ Request:
 ```
 
 Success:
+
 - `200 OK`
 
 ```json
@@ -169,6 +181,7 @@ Success:
 ```
 
 Common errors:
+
 - `400` `invalid_payload`
 - `400` `missing_refresh_token`
 
@@ -185,10 +198,12 @@ Request:
 ```
 
 Success:
+
 - `200 OK`
 - Body: Auth Success
 
 Common errors:
+
 - `400` `invalid_payload`
 - `400` `missing_id_token`
 - `401` `invalid_oauth_token`
@@ -207,10 +222,12 @@ Request:
 ```
 
 Success:
+
 - `200 OK`
 - Body: Auth Success
 
 Common errors:
+
 - `400` `invalid_payload`
 - `400` `missing_id_token`
 - `401` `invalid_oauth_token`
@@ -227,10 +244,12 @@ Authorization: Bearer <accessToken>
 ```
 
 Success:
+
 - `200 OK`
 - Body: user payload
 
 Common errors:
+
 - `401` `missing_token`
 - `401` `invalid_token`
 - `404` `user_not_found`
@@ -255,6 +274,7 @@ Request:
 ```
 
 Success:
+
 - `200 OK`
 
 ```json
@@ -264,6 +284,7 @@ Success:
 ```
 
 Common errors:
+
 - `400` `invalid_payload`
 - `400` `current_and_new_password_required`
 - `400` `invalid_new_password`
@@ -291,10 +312,12 @@ Request:
 ```
 
 Success:
+
 - `200 OK`
 - Body: user payload
 
 Common errors:
+
 - `400` `invalid_payload`
 - `400` `current_password_and_new_email_required`
 - `400` `invalid_email`

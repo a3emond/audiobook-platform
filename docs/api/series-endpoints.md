@@ -2,7 +2,7 @@
 
 This document is for client developers consuming app-level read-only series APIs.
 
-Base path: `/api/series`
+Base path: `/api/v1/series`
 
 Authentication: required on all endpoints.
 
@@ -15,6 +15,7 @@ Authorization: Bearer <accessToken>
 Series are derived from book metadata already stored on each book.
 
 Current capabilities:
+
 - list series discovered from books
 - filter series by partial title, author, series name, genre, language, or general query text
 - fetch one series and its ordered books
@@ -65,6 +66,7 @@ Series are not user-editable collections.
 List series discovered from books.
 
 Query parameters:
+
 - `q`: partial match across title, author, series, genre, and tags on member books
 - `title`: partial match against member book titles
 - `author`: partial match against member book authors
@@ -105,6 +107,7 @@ Response:
 Get one series and its ordered books.
 
 Notes:
+
 - `seriesName` is matched case-insensitively against the stored book `series` field
 - clients should URL-encode the series name in the path
 - optional `q`, `title`, `author`, `genre`, and `language` filters can narrow the returned books within that series
@@ -117,6 +120,7 @@ curl "http://localhost:3000/api/series/Classic%20Literature" \
 ```
 
 Common errors:
+
 - `400` `series_name_required`
 - `404` `series_not_found`
 

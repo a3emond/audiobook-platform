@@ -2,7 +2,7 @@
 
 This document is for client developers consuming listening stats APIs.
 
-Base path: `/api/stats`
+Base path: `/api/v1/stats`
 
 Authentication: required on all endpoints.
 
@@ -15,6 +15,7 @@ Authorization: Bearer <accessToken>
 Stats endpoints are scoped to the authenticated user.
 
 Current capabilities:
+
 - fetch aggregated lifetime and rolling stats
 - record listening sessions
 - list recorded listening sessions
@@ -52,6 +53,7 @@ Response:
 List listening sessions for the current user.
 
 Query parameters:
+
 - `bookId`: optional filter by book id
 - `limit`: page size, default `20`, max `100`
 - `offset`: result offset, default `0`
@@ -77,6 +79,7 @@ Response:
 ```
 
 Common errors:
+
 - `400` `session_invalid_limit`
 - `400` `session_invalid_offset`
 - `400` `book_invalid_id`
@@ -100,6 +103,7 @@ Request body:
 ```
 
 Common errors:
+
 - `400` `session_invalid_dates`
 - `400` `session_invalid_dates_order`
 - `400` `session_invalid_positions`

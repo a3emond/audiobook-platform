@@ -1,211 +1,262 @@
 # Native Platform Implementation Guide
 
 Purpose:
-- Define how to build Android, iOS, macOS, Windows, and Linux clients with the same core product behavior as the web baseline.
-- Specify platform-specific technical guidance while preserving API, UX, and design-token parity.
+
+- Lock the approved native platform strategy.
+- Define implementation boundaries and architecture ownership per platform.
+- Link to execution-level guides for mobile MVVM and Windows Electron.
 
 Scope:
-- Included: capability matrix, platform architecture recommendations, storage/security, media integration, admin strategy, packaging, and release criteria.
-- Excluded: detailed API endpoint shapes (see API docs), backend implementation details.
+
+- Included: platform decisions, module ownership, delivery phases, acceptance criteria.
+- Excluded: endpoint-level API payload details (see docs/api/\*).
 
 Related docs:
-- [Web Frontend Technical Reference](./web-frontend-technical-reference.md)
+
+- [Mobile Native MVVM Guide](./mobile-native-mvvm-guide.md)
+- [Apple Native Starter Guide](./apple-swift-starter-project-guide.md)
+- [Android Native Starter Guide](./android-kotlin-starter-project-guide.md)
+- [Windows Electron Guide](./windows-electron-implementation-guide.md)
 - [Frontend Client Integration Guideline](./frontend-client-integration-guideline.md)
+- [Web Frontend Technical Reference](./web-frontend-technical-reference.md)
 - [Frontend Client Certification Checklist](./frontend-client-certification-checklist.md)
 
-## 1. Product Parity Baseline
+## 1. Locked Strategy (Approved)
 
-Native clients must implement, at minimum:
-- Authentication and session lifecycle.
-- Library/catalog browsing and filtering.
-- Streaming playback with progress synchronization.
-- Discussions (language-scoped channels + send/listen updates).
-- Profile/settings including locale behavior.
+Approved architecture split:
 
-Admin functionality baseline:
-- Do not implement full admin UI by default in native clients.
-- Provide admin role users an action that opens the web admin console:
-  - `https://audiobook.aedev.pro/admin/overview/`
+1. Core library per ecosystem (API-consuming business logic).
+2. Platform-native frontend per ecosystem (UI and platform UX).
 
-## 2. Cross-Platform Shared Rules
+Locked platform choices:
 
-Network contracts:
-- API: `/api/v1`
-- Streaming: `/streaming`
-- Realtime: `/ws`
+- Apple: Swift core library + SwiftUI apps.
+- Android: Kotlin core library + Kotlin UI (Jetpack Compose).
+- Windows: Electron desktop app.
 
-Session rules:
-- Access token used as bearer token.
-- Refresh flow rotates tokens.
-- One retry max on failed protected call after refresh.
-- Refresh failure triggers full sign-out and state clear.
+Explicitly not chosen:
 
-Localization rules:
-- `en` and `fr` required.
-- Locale persistence is mandatory.
-- Locale switch must refresh language-sensitive content.
+- Kotlin Multiplatform for Apple + Android shared core.
+- MAUI/Blazor hybrid for mobile.
 
-Design portability rules:
-- Implement semantic design tokens (same roles as web), not pixel-perfect web CSS.
-- Preserve color intent, contrast, typographic hierarchy, and spacing rhythm.
+## 2. Apple Direction (iOS + macOS)
 
-## 3. Shared Client Architecture Recommendation
+Approved approach:
 
-Recommended layers for all native platforms:
-1. API Layer:
-- typed models, route groups, retry/timeout policy.
-2. Auth Layer:
-- token store, refresh coordinator, logout reset orchestration.
-3. Domain Layer:
-- library, playback, discussions, profile/settings modules.
-4. Presentation Layer:
-- platform-native screens/components.
-5. Realtime Layer:
-- websocket lifecycle + event router.
-6. Media Layer:
-- player service + OS media controls.
+- Use one Xcode SwiftUI Multiplatform project to target iOS and macOS together.
+- Keep one shared Swift core package consumed by both targets.
+- Keep platform adapters separate for lifecycle/media/input differences.
 
-Recommended module ownership:
-- Keep playback state and business rules in a shared domain module if using multiplatform strategy.
-- Keep platform-specific UI and secure storage adapters separated.
+Code ownership split:
 
-## 4. Android Specifics
+- Shared:
+  - API client, auth/session, repositories, DTO mapping, localization, caching policy.
+  - Reusable SwiftUI design system components and feature view models.
+- iOS-specific:
+  - Background audio session policy.
+  - Lock screen / remote control center behavior.
+  - Mobile navigation patterns.
+- macOS-specific:
+  - Multi-window behavior.
+  - Menu bar commands and keyboard-first interactions.
+  - Pointer and desktop affordances.
 
-Recommended stack:
-- Kotlin + Jetpack Compose.
-- Coroutines + Flow for state streams.
-- Media3/ExoPlayer for playback.
-- Secure token storage via EncryptedSharedPreferences or Keystore-backed mechanism.
+## 3. Android Direction
 
-Platform requirements:
-- Audio focus and interruption handling.
-- Headset controls and notification/lock-screen media controls.
-- Foreground service behavior for long playback sessions as required.
-- Download/cache policy with storage quota limits.
+Approved approach:
 
-Admin behavior:
-- Add `Open Admin Console` in profile or overflow menu for admin users.
-- Launch trusted browser intent; avoid passing credentials in URL.
+- Native Kotlin app with Jetpack Compose.
+- Dedicated Kotlin core library (no shared KMP dependency).
 
-## 5. iOS Specifics
+Code ownership split:
 
-Recommended stack:
-- Swift + SwiftUI.
-- Async/await + structured concurrency.
-- AVPlayer for streaming playback.
-- Keychain for secure token storage.
+- Core library:
+  - API client, auth/session, repositories, DTO mapping, caching policy, realtime routing.
+- Android app:
+  - Compose UI, navigation, media session integration, audio focus/interruption handling.
 
-Platform requirements:
-- Handle interruption and route-change events (calls, Bluetooth, headphones).
-- Configure lock-screen metadata and remote command center.
-- Background audio capability and lifecycle compliance.
+## 4. Windows Direction
 
-Admin behavior:
-- Show admin web entry point action.
-- Use `SFSafariViewController` or external browser per UX/security policy.
+Approved approach:
 
-## 6. macOS Specifics
+- Electron app for Windows desktop delivery.
+- Web UI stack optimized for desktop usage patterns.
 
-Recommended stack:
-- SwiftUI AppKit-hybrid where necessary.
-- Shared networking/auth core with iOS where feasible.
-- Keychain for secure credentials.
+Rules:
 
-Platform requirements:
-- Window-adaptive layout (sidebar + content behavior on resize).
-- Keyboard-first navigation parity with web.
-- Native menu/shortcut integration for playback controls where appropriate.
+- Keep secure token storage strategy explicit for desktop.
+- Preserve API/realtime contracts identical to mobile.
+- Prefer native shell integrations only where needed (deep links, media keys, file dialogs).
 
-Admin behavior:
-- Provide top-level menu item or settings action to open admin web console.
+## 5. Mobile Architecture Baseline
 
-## 7. Windows Specifics
+Required mobile pattern:
 
-Recommended stack options:
-- .NET MAUI (preferred for broad shared UI) or WinUI 3.
-- HttpClient with resilient pipeline.
-- Credential Locker or DPAPI-backed secure store.
+- MVVM across all feature modules.
 
-Platform requirements:
-- Media key support and transport control sync.
-- Scalable layout from compact to ultra-wide windows.
-- Installer/update strategy and signed package distribution.
+Required module layering:
 
-Admin behavior:
-- Admin deep action opens default browser at canonical admin URL.
+1. Network layer
+2. Auth/session layer
+3. Repository/domain layer
+4. MVVM presentation layer
+5. Platform media/realtime adapters
 
-## 8. Linux Specifics
+For full implementation details, use:
 
-Recommended stack options:
-- Flutter desktop, Tauri, or Electron with strong native integration constraints.
-- Secure storage via Secret Service API (GNOME Keyring/KWallet).
+- [Mobile Native MVVM Guide](./mobile-native-mvvm-guide.md)
 
-Platform requirements:
-- Runtime dependency validation across target distributions.
-- Media key support where desktop environment exposes controls.
-- Configurable cache location and size limits.
+## 6. Feature Scope Contract (v1 – MVP)
 
-Admin behavior:
-- Launch admin in external browser by default.
+**Web client:**
 
-## 9. Optional Shared-Webview Strategy
+- Full feature set: Auth, Library, Series, Collections, Discussions, Profile, Admin console.
 
-To minimize app size and implementation effort, clients may use webview-hybrid strategy for selected areas.
+**Mobile clients (4-Feature MVP):**
 
-Recommended minimum native-first areas:
-- Auth shell and session bootstrap.
-- Playback shell and OS media integration.
+- Auth (login/logout, OAuth where configured, token refresh)
+- Library (browse language-filtered books, select to play)
+- Player (streaming with ExoPlayer/AVPlayer, resume, progress, chapters, seek, skip, playback rate)
+- Discussions (language-scoped channels, message send/receive)
+- Profile (user info, language toggle, sign-out)
+- Localization (system language detection, LocalizationService, en/fr support)
 
-Allowed web-linked areas:
-- Full admin console.
-- Potentially advanced management screens that are not core listening experience.
+**Not in mobile MVP scope (Phase 2+):**
 
-Rules for webview use:
-- Keep host/domain allowlist strict.
-- Avoid injecting credentials in URLs.
-- Provide clear handoff between native and web context.
+- Series grouping
+- Collections curation
+- Activity/History timeline
+- Analytics dashboard
+- Admin console (link-out to web instead)
 
-## 10. Theme Transfer Checklist
+Admin baseline for mobile clients:
 
-For each platform, map web semantic tokens to native theme resources:
-- `bg`, `surface`, `surface-soft`, `surface-strong`, `surface-contrast`
-- `text`, `text-muted`
-- `primary`, `primary-dark`, `accent`, `accent-hover`
-- `border`, `danger`, `success`
-- `radius-sm`, `radius`, `radius-lg`
-- `shadow-sm`, `shadow`, `shadow-lg`
+- Do not implement full native admin UI in v1.
+- Provide "Open Admin Console" action linking to:
+  - https://yourdomain.app/admin/
+- Ensure users can authenticate via SSO if admin has access.
 
-Validation targets:
-- Normal and disabled controls.
-- Focus/pressed/selected affordances.
-- Text contrast and accessibility across screens.
+## 7. Delivery Phases
 
-## 11. Delivery Phasing Recommendation
+**Phase 1 (MVP – 4 core features):**
 
-Phase 1 (minimum viable parity):
-- Auth + library + playback + profile/settings + discussions.
-- Admin link-out only.
+- iOS + macOS shared Swift project bootstrapped (Xcode workspace structure).
+- Android app bootstrapped (Gradle module structure).
+- Windows Electron shell bootstrapped.
+- For mobiles: complete Auth → Library → Player → Discussions → Profile workflow.
+- LocalizationService implemented with system language detection on both iOS and Android.
+- All API queries include language parameter (`?language=en|fr`).
+- Health gate on startup (/api/v1/health).
+- MVVM architecture validated (no Views calling APIs directly).
+- TabView navigation (4 tabs) on mobile.
+- Certification checklist passed (see Frontend Client Certification Checklist).
 
-Phase 2 (native quality expansion):
-- Offline cache improvements.
-- Enhanced notifications and platform shortcuts.
-- Progressive performance optimization.
+**Phase 2 (Native Quality):**
 
-Phase 3 (optional advanced parity):
-- Evaluate native admin subset only if operationally justified.
+- Performance pass (startup time, list scroll, memory under long playback).
+- Better offline/cache and background resumption behavior.
+- Platform polish (keyboard shortcuts on macOS, media controls, lock-screen integration).
+- Stability testing on real devices.
 
-## 12. Acceptance Criteria
+**Phase 3 (Extended – Series, Collections, Activity):**
 
-A platform release is acceptable only if:
-- Core parity baseline is complete.
-- Session and security rules are validated.
-- Playback and progress sync behavior is stable.
-- Locale behavior and tokenized theming are implemented.
-- Admin link-out is present for admin users.
-- Certification checklist is passed.
+- Optional expansion if time and user demand justify.
+- Add Series detail and Collections browsing to mobile clients.
+- Maintain MVVM boundaries and architecture consistency.
 
-## 13. Change Notes
+**Phase 4+ (Desktop Features, Admin):**
 
-2026-04-10:
-- Added dedicated native platform implementation guidance.
-- Formalized admin web-link strategy to reduce native app footprint and scope risk.
+- Windows Electron admin UI (future consideration).
+- macOS admin feature subset (if justified).
+- Future lower-tier platforms (Linux, etc.).
+
+## 8. Acceptance Criteria (MVP Release Gate)
+
+A mobile platform is **release-ready** only when:
+
+**Architecture:**
+
+- MVVM boundaries are respected for all features (View, ViewModel, Repository separation).
+- Views do not call API clients directly.
+- Unit tests pass (auth, repository, ViewModel).
+- Integration tests pass (MockWebServer, auth refresh, locale switching).
+- UI tests pass (navigation, loading/error states, feature workflows).
+
+**API Compliance:**
+
+- Startup: GET /api/v1/health completes before auth/features (offline detection).
+- All protected routes send Authorization: Bearer header.
+- One-retry refresh on 401: invalid token triggers refresh, then one retry on success, logout on failure.
+- Language-aware queries: all Library, Discussions, and content queries include `?language=en|fr`.
+- Error handling: 4xx/5xx responses produce appropriate loading/error UI states.
+
+**Localization (i18n):**
+
+- LocalizationService detects system language (device locale) on first launch.
+- Fallback to saved user preference, default to "en".
+- Language toggle in Profile screen persists choice.
+- All UI strings are externalized (no hardcoded text in views).
+- Both en/fr translations complete (no missing keys).
+
+**Features (4-Feature MVP):**
+
+- ✅ Auth: login, token refresh, logout, secure storage.
+- ✅ Library: browse books, select to open Player.
+- ✅ Player: stream audio, resume, seek, chapters, progress tracking.
+- ✅ Discussions: channel list, message send/receive (language-scoped).
+- ✅ Profile: user info, language toggle, sign-out, admin link-out.
+
+**Platform-Specific:**
+
+- iOS: Keychain storage, background audio, lock-screen controls, AVPlayer integration.
+- Android: Keystore/SharedPreferences, MediaSession, audio focus, ExoPlayer integration.
+
+**Quality Gates:**
+
+- Certification checklist (docs/platform/frontend-client-certification-checklist.md) passed.
+- Memory profile acceptable (<200 MB during playback).
+- Startup time < 2.5 seconds (cold start to UI visible).
+- 60 FPS smooth scrolling on Library list.
+- Offline mode shows appropriate messaging (no broken UX).
+- No credentials, tokens, or PII in logs.
+
+**Delivery Artifacts:**
+
+- Platform-signed build (TestFlight for iOS, Play Store for Android).
+- Release notes with feature list.
+- Known limitations documented (Series, Collections not in MVP).
+- Link to post-release roadmap (Phase 2+).
+
+## 9. Change Log
+
+**2026-01-15 (Latest):**
+
+- Established 4-Feature MVP scope for mobile clients (Library, Player, Discussions, Profile, Auth).
+- Implemented LocalizationService on iOS (Swift) and Android (Kotlin) with system language detection.
+- Added mandatory health gate check (/api/v1/health) at app startup.
+- All language-sensitive API queries require `?language=en|fr` parameter.
+- Mobile clients link-out to web for admin tasks (no native admin UI in MVP).
+- Updated all acceptance criteria to reflect MVP scope and i18n requirements.
+- Added comprehensive MVVM testing strategy per platform.
+
+**2026-04-11:**
+
+- Locked strategy to Swift core (Apple), Kotlin core (Android), Electron (Windows).
+- Confirmed Apple implementation should be one SwiftUI Multiplatform project with platform adapters.
+- Established MVVM as mandatory mobile architecture baseline.
+- Added complete Apple and Android starter project guides.
+- Added in-repo client workspace scaffolds under `clients/apple`, `clients/android`, and `clients/windows-electron`.
+
+## 10. Workspace Bootstrap Status
+
+Current repo workspace paths:
+
+- `clients/apple`
+- `clients/android`
+- `clients/windows-electron`
+
+Quick start:
+
+1. Apple: open `clients/apple` in Xcode and wire iOS/macOS targets to `Packages/AudiobookCore`.
+2. Android: open `clients/android` in Android Studio and run Gradle sync.
+3. Windows Electron: run `npm install` then `npm start` in `clients/windows-electron`.

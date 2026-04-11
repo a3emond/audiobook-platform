@@ -2,861 +2,822 @@
 
 ## Overview
 
-The **Worker Service** is a job queue system for long-running, computationally intensive tasks. It uses MongoDB as a persistent job store, enabling distributed processing, automatic retries, graceful failure handling, and a DB-backed scheduling policy for heavy jobs.
+The **Worker Service** is a background job queue system for long-running, CPU-intensive audio processing tasks. It uses MongoDB as a persistent job store, enabling distributed processing, automatic retries, graceful failure handling, and configurable scheduling policies.
 
 ### Key Responsibilities
 
-- **Job Processing**: Poll the MongoDB queue, claim and execute jobs with configurable concurrency
-- **Audio Ingestion**: Probe files, extract metadata/chapters, compute checksums, create book records
-- **MP3 Fast-Publish**: Ingest an MP3 immediately as-is, then schedule a deferred M4B conversion
-- **File Operations**: Safe atomic writes, file moving, deletion with error recovery
-- **FFmpeg Integration**: Wraps FFmpeg for audio probing, metadata extraction, M4B encoding, cover extraction
-- **Metadata Handling**: Parse and generate ffmetadata format for chapter information
-- **Queue Scheduling**: Per-type job priority, configurable delay for heavy jobs, optional time-window gating
-- **Reliability**: Exponential backoff retries, distributed locking via `lockedBy`/`lockedAt`, graceful shutdown
+- **Job Queue Management**: Poll MongoDB queue, atomically claim jobs with configurable concurrency
+- **Audio Processing**: Ingest audiobook files (M4A, M4B, MP3, OGG, WAV), extract metadata/chapters
+- **MP3 Fast-Publish**: Publish MP3 immediately for playback, defer M4B conversion to background
+- **Metadata Handling**: Parse/generate FFmetadata format, embed chapters into audio files
+- **Cover Art**: Extract from embedded images, replace covers, optimize for storage
+- **File Operations**: Atomic writes, safe deletions, error recovery
+- **FFmpeg Integration**: Probe files, encode formats, extract metadata
+- **Reliability**: Exponential backoff retries, distributed locking, graceful shutdown
 
 ---
 
 ## Architecture
 
-### System Design
+### High-Level System Design
 
 ```
-┌─────────────────┐
-│   API Server    │
-│   (routes)      │
-├─────────────────┤
-│  Creates jobs → │ (POST /jobs/enqueue)
-│  Polls status ← │ (GET /jobs/{id})
-└────────┬────────┘
+┌────────────────────┐
+│   API Server       │
+│  (admin routes)    │
+└────────┬───────────┘
          │
-         │ MongoDB
+         │ POST /api/v1/admin/jobs/enqueue
+         │ GET  /api/v1/admin/jobs/:jobId
          │
-┌────────▼────────┐
-│  Job Queue DB   │ (books.jobs collection)
-│  ├─ queued      │
-│  ├─ running     │
-│  ├─ retrying    │
-│  ├─ done        │
-│  └─ failed      │
-└────────▲────────┘
+┌────────▼──────────────────┐
+│   MongoDB (books.jobs)     │
+│  ┌─ queued jobs           │
+│  ├─ running jobs          │
+│  ├─ retrying jobs         │
+│  ├─ completed jobs        │
+│  └─ failed jobs           │
+└────────▲──────────────────┘
          │
          │ Polls every WORKER_POLL_MS
          │
-┌────────┴────────┐
-│ Worker Service  │
-├─────────────────┤
-│ JobRunner       │ (concurrency control)
-│ ├─ JobProcessor │ (state machine)
-│ └─ Job Handlers │
-│    ├─ ingest    │
-│    ├─ ingest-mp3-as-m4b
-│    ├─ extract-cover
-│    ├─ replace-cover
-│    ├─ write-metadata
-│    ├─ rescan    │
-│    ├─ replace-file
-│    └─ delete-book
-├─────────────────┤
-│ Services        │
-│ ├─ FFmpegService
-│ ├─ FileService  │
-│ ├─ MetadataService
-│ └─ ChecksumService
-└─────────────────┘
+┌────────┴──────────────────┐
+│    Worker Service         │
+├───────────────────────────┤
+│ JobRunner                 │
+│  ├─ Claim jobs (atomic)   │
+│  └─ Execute handlers      │
+├───────────────────────────┤
+│ Job Handlers              │
+│  ├─ INGEST                │
+│  ├─ INGEST_MP3_AS_M4B    │
+│  ├─ SANITIZE_MP3_TO_M4B  │
+│  ├─ WRITE_METADATA        │
+│  ├─ EXTRACT_COVER         │
+│  ├─ REPLACE_COVER         │
+│  ├─ REPLACE_FILE          │
+│  ├─ RESCAN                │
+│  ├─ SYNC_TAGS             │
+│  └─ DELETE_BOOK           │
+├───────────────────────────┤
+│ Services                  │
+│  ├─ FFmpegService         │
+│  ├─ FileService           │
+│  ├─ MetadataService       │
+│  ├─ MP3MetadataService    │
+│  ├─ ChecksumService       │
+│  ├─ ParitySchedulerService│
+│  └─ TagSyncSchedulerService│
+├───────────────────────────┤
+│ Storage                   │
+│  ├─ /uploads/             │
+│  └─ /data/audiobooks/     │
+└───────────────────────────┘
 ```
 
-### Job Lifecycle
-
-Each job transitions through states with automatic retry logic:
+### Job Lifecycle State Machine
 
 ```
-CREATED
-  │
-  ├─→ queued (waiting for worker to claim)
-  │     │
-  │     ├─→ running (claimed and executing)
-  │     │     │
-  │     │     ├─→ done (success) [TERMINAL]
-  │     │     │
-  │     │     └─→ error (handled by processor)
-  │     │           │
-  │     │           ├─→ retrying (exponential backoff, attempt < maxAttempts)
-  │     │           │     │
-  │     │           │     └─→ [back to queued after runAfter time]
-  │     │           │
-  │     │           └─→ failed (max retries exceeded) [TERMINAL]
-  │
-  └─→ [direct failure path for validation errors]
+[CREATED]
+   │
+   ▼
+[QUEUED] ─────────────────────┐
+   │                          │
+   │ (worker claims)          │
+   ▼                          │
+[RUNNING]                     │
+   │                          │
+   ├─ (success) ───────────> [DONE] ✓
+   │
+   └─ (error)
+       │
+       ├─ (attempt < max)
+       │   └──────────────> [RETRYING] ──┐
+       │                                  │
+       │                                  │ (after backoff)
+       │                                  │
+       │                                  └───> [QUEUED]
+       │
+       └─ (attempt >= max)
+           └──────────────> [FAILED] ✗
 ```
 
-### State Machine Logic
-
-**JobProcessor.claim()**: 
-- Atomically updates job: `status="queued"` → `status="running"`, `lockedBy=workerId`, `lockedAt=now`
-- Uses MongoDB one-atomic operation to prevent two workers claiming same job
-- Returns true if claim succeeded, false if already claimed by another worker
-
-- Captures stdout/stderr and handler exceptions
-
-- Sets `runAfter` timestamp to current time + backoff
-- Updates `status="retrying"`
-- No further attempts
-
-
----
-
-Wraps FFmpeg binary with spawned child processes. All FFmpeg operations are isolated and can timeout.
-
-**Constructor**:
-```typescript
-new FFmpegService(timeoutMs?: number) // Default: 5 minutes (300000 ms)
-```
-
-**Methods**:
-
-#### `probeFile(filePath: string): Promise<ProbeInfo>`
-Extracts technical metadata about audio file (duration, format, bitrate).
+**Atomic Claim Operation**: When a worker claims a job:
 
 ```typescript
-const probe = await ffmpeg.probeFile("/data/audiobooks/abc123/audio.m4b");
-console.log(probe.duration);   // seconds (float)
-console.log(probe.format);     // "m4a", "mp3", etc.
-console.log(probe.bitrate);    // kbps (number)
-console.log(probe.channels);   // 1 (mono), 2 (stereo), etc.
-```
-
-#### `extractMetadata(inputPath: string, outputPath: string): Promise<void>`
-Dumps FFmpeg metadata tags to text file in ffmetadata format.
-
-```typescript
-await ffmpeg.extractMetadata(
-  "/data/audiobooks/abc123/audio.m4b",
-  "/tmp/metadata.txt"
+db.jobs.findOneAndUpdate(
+  { _id: jobId, status: "queued" },
+  {
+    $set: {
+      status: "running",
+      lockedBy: workerId,
+      lockedAt: now,
+    },
+  },
 );
-// Writes ffmetadata format file with: ;FFMETADATA1, title=, artist=, album=, [CHAPTER] sections
 ```
 
-#### `extractCover(inputPath: string, outputPath: string): Promise<void>`
-Extracts first attached image from M4B as JPEG.
-
-```typescript
-await ffmpeg.extractCover(
-  "/data/audiobooks/abc123/audio.m4b",
-  "/data/audiobooks/abc123/cover.jpg"
-);
-// Throws if no cover image attached
-```
-
-#### `remuxWithMetadata(inputPath: string, outputPath: string, metadataPath: string): Promise<void>`
-Remuxes audio file while adding chapter information (used for write-metadata job).
-
-```typescript
-await ffmpeg.remuxWithMetadata(
-  "/data/audiobooks/abc123/audio.m4b",
-  "/tmp/audio-with-chapters.m4b",
-  "/tmp/ffmetadata.txt"
-);
-// Outputs new file with embedded metadata/chapters
-```
+This ensures only one worker can claim the same job.
 
 ---
 
-### FileService
+## Job Types
 
-Safe file operations with error handling and atomic write support.
+### INGEST
 
-**Methods**:
-
-#### `exists(filePath: string): Promise<boolean>`
-Check if file or directory exists.
-
-#### `createDirIfNeeded(dirPath: string): Promise<void>`
-Recursively create directory (equivalent to `mkdir -p`).
-
-#### `copyFile(source: string, target: string): Promise<void>`
-
-#### `deleteFile(filePath: string): Promise<void>`
-Recursively delete directory and all contents.
-
----
-
-Parse and generate FFmpeg metadata format (required for chapter information).
-
-**Format Reference**:
-```
-;FFMETADATA1
-title=Book Title Here
-artist=Author Name
-album=Series Name
-[CHAPTER]
-TIMEBASE=1/1000
-START=0
-END=120000
-title=Chapter 1
-[CHAPTER]
-TIMEBASE=1/1000
-START=120000
-END=300000
-title=Chapter 2
-```
-
-
-#### `parseFFmetadata(filePath: string): Promise<FFmetadata>`
-Parse FFmetadata text file and return structured object.
-
-```typescript
-const metadata = await metadataService.parseFFmetadata("/tmp/metadata.txt");
-// Result:
-// {
-//   title: "Book Title",
-//   artist: "Author Name",
-//   album: "Series Name",
-//   chapters: [
-//     { title: "Chapter 1", startMs: 0, endMs: 120000 },
-//     { title: "Chapter 2", startMs: 120000, endMs: 300000 }
-//   ]
-// }
-```
-
-#### `generateFFmetadata(data: FFmetadataInput): Promise<string>`
-Generate FFmetadata format string from structured object.
-
-```typescript
-const ffmetadataText = await metadataService.generateFFmetadata({
-  title: "The Great Gatsby",
-  artist: "F. Scott Fitzgerald",
-  album: null,
-  chapters: [
-    { title: "Chapter 1", startMs: 0, endMs: 120000 },
-    { title: "Chapter 2", startMs: 120000, endMs: 240000 }
-  ]
-});
-// Returns full ;FFMETADATA1 format string
-```
-
-#### `writeFFmetadata(filePath: string, data: FFmetadataInput): Promise<void>`
-Write FFmetadata format file to disk.
-
----
-
-### ChecksumService
-
-Compute SHA256 checksums for file integrity verification.
-
-**Functions**:
-
-#### `computeFileSha256(filePath: string): Promise<string>`
-Stream-based SHA256 computation (memory-efficient for large files).
-
-```typescript
-const hexDigest = await computeFileSha256("/data/audiobooks/abc123/audio.m4b");
-// Returns: "a1b2c3d4e5f6..." (64-char hex string)
-```
-
-#### `formatSha256(hexDigest: string): string`
-Format SHA256 hex as `sha256:` notation for consistency.
-
-```typescript
-const formatted = formatSha256(hexDigest);
-// Input:  "a1b2c3d4e5f6..."
-// Output: "sha256:a1b2c3d4e5f6..."
-```
-
----
-
-## Job Types and Handlers
-
-### Job Document Schema
-
-```typescript
-interface JobDocument {
-  _id: ObjectId;
-  type:
-    | "INGEST"
-    | "INGEST_MP3_AS_M4B"
-    | "EXTRACT_COVER"
-    | "REPLACE_COVER"
-    | "WRITE_METADATA"
-    | "RESCAN"
-    | "REPLACE_FILE"
-    | "DELETE_BOOK";
-  payload: Record<string, unknown>;
-  status: "queued" | "running" | "retrying" | "done" | "failed";
-  attempt: number;
-  maxAttempts: number;
-  runAfter: Date;           // When job can be claimed (for retries)
-  lockedBy: string | null;  // Worker ID holding the lock
-  lockedAt: Date | null;    // When lock was acquired
-  error: string | null;     // Last error message
-  output: Record<string, unknown> | null;
-  createdAt: Date;
-  updatedAt: Date;
-  completedAt: Date | null;
-}
-```
-
-### Ingest Job
-
-**Purpose**: Upload and process new audiobook file
+**Purpose**: Process native M4B/M4A audiobook files
 
 **Payload**:
-```typescript
+
+```json
 {
-  sourcePath: string;  // Full path to M4B file
+  "sourcePath": "/uploads/mybook.m4b",
+  "language": "en"
 }
 ```
 
-**Process**:
-1. Probe file for duration and format
-2. Compute SHA256 checksum
-3. Extract metadata (title, artist, album, chapters)
-4. Create Book document in MongoDB (initial state)
-5. Create audiobooks directory for book
-6. Atomic copy audio file to final location
-7. Extract and save cover image (if present)
-8. Update Book document with file paths and completion status
+**Process Flow**:
+
+1. Validate source file exists
+2. Probe audio file (duration, format, bitrate)
+3. Compute SHA256 checksum
+4. Extract FFmetadata (title, artist, album)
+5. Parse ffmetadata to extract chapters
+6. Create Book document in MongoDB
+7. Copy audio file to `/data/audiobooks/{bookId}/audio.m4b`
+8. Extract and save cover image (if present)
+9. Verify file sync status
+10. Update Book with all metadata
 
 **Success Output**:
-```typescript
+
+```json
 {
-  bookId: "507f1f77bcf86cd799439011",
-  audioPath: "/data/audiobooks/507f1f77bcf86cd799439011/audio.m4b",
-  coverPath: "/data/audiobooks/507f1f77bcf86cd799439011/cover.jpg",
-  checksum: "sha256:a1b2c3d4e5f6...",
-  metadata: {
-    title: "The Great Gatsby",
-    artist: "F. Scott Fitzgerald",
-    duration: 86400  // seconds
+  "bookId": "507f1f77bcf86cd799439011",
+  "filePath": "/data/audiobooks/507f1f77bcf86cd799439011/audio.m4b",
+  "coverPath": "/data/audiobooks/507f1f77bcf86cd799439011/cover.jpg",
+  "checksum": "sha256:a1b2c3d4e5f6...",
+  "duration": 86400,
+  "title": "The Great Gatsby",
+  "author": "F. Scott Fitzgerald",
+  "chapters": 42
+}
+```
+
+**Error Codes**:
+
+- `ingest_source_not_found` - Source file doesn't exist
+- `ingest_payload_invalid` - Missing sourcePath or language
+- `ingest_probe_failed` - FFmpeg couldn't probe file
+- `ingest_metadata_parse_failed` - Couldn't read embedded metadata
+
+**Priority**: 80  
+**Heavy**: No
+
+---
+
+### INGEST_MP3_AS_M4B
+
+**Purpose**: Publish MP3 immediately (fast-path), enqueue deferred M4B conversion
+
+**Payload**:
+
+```json
+{
+  "sourcePath": "/uploads/audiobook.mp3",
+  "coverPath": "/uploads/cover.jpg",
+  "language": "en",
+  "title": "My Audiobook",
+  "author": "Some Author",
+  "series": null,
+  "genre": "Spoken Word"
+}
+```
+
+**Process Flow**:
+
+1. Validate MP3 file and probe duration
+2. Create Book document with `processingState: "pending_sanitize"`
+3. Copy MP3 to `/data/audiobooks/{bookId}/audio.mp3`
+4. Save cover image if provided (or skip)
+5. Return immediately (don't wait for encoding)
+6. Enqueue `SANITIZE_MP3_TO_M4B` job with priority 20 for later encode
+7. Book is immediately available for streaming via MP3 fallback
+
+**Success Output**:
+
+```json
+{
+  "bookId": "507f1f77bcf86cd799439011",
+  "filePath": "/data/audiobooks/507f1f77bcf86cd799439011/audio.mp3",
+  "coverPath": "/data/audiobooks/507f1f77bcf86cd799439011/cover.jpg",
+  "checksum": "sha256:...",
+  "duration": 14400,
+  "title": "My Audiobook",
+  "author": "Some Author",
+  "processingState": "pending_sanitize"
+}
+```
+
+**Book Processing State Transitions**:
+
+```
+INGEST_MP3_AS_M4B done
+  └─> Book.processingState = "pending_sanitize"
+        └─> SANITIZE job starts
+              └─> Book.processingState = "sanitizing"
+                    ├─ (success) ──> Book.processingState = "ready"
+                    └─ (failure) ──> Book.processingState = "sanitize_failed"
+                                     (MP3 still playable)
+```
+
+**Priority**: 80  
+**Heavy**: No
+
+---
+
+### SANITIZE_MP3_TO_M4B
+
+**Purpose**: Encode MP3 to M4B format and swap files (background job)
+
+**Payload**:
+
+```json
+{
+  "bookId": "507f1f77bcf86cd799439011"
+}
+```
+
+**Process Flow**:
+
+1. Load Book document, validate MP3 file exists
+2. Encode MP3 → M4B to temporary file (CPU-intensive)
+3. Compute checksum of new M4B
+4. Move M4B to final location
+5. Delete temporary files
+6. Delete old MP3
+7. Update Book with M4B path, checksum, `processingState: "ready"`
+
+**Success Output**:
+
+```json
+{
+  "bookId": "507f1f77bcf86cd799439011",
+  "filePath": "/data/audiobooks/507f1f77bcf86cd799439011/audio.m4b",
+  "checksum": "sha256:...",
+  "duration": 14402
+}
+```
+
+**Auto-Enqueued By**: `INGEST_MP3_AS_M4B`  
+**Priority**: 20  
+**Heavy**: Yes (Subject to time-window scheduling if configured)
+
+---
+
+### WRITE_METADATA
+
+**Purpose**: Embed metadata and chapters into audio file via remux
+
+**Payload**:
+
+```json
+{
+  "bookId": "507f1f77bcf86cd799439011",
+  "title": "Updated Title",
+  "author": "Updated Author",
+  "series": "Series Name",
+  "genre": "Fiction",
+  "chapters": [
+    {
+      "index": 0,
+      "title": "Prologue",
+      "start": 0,
+      "end": 1800
+    },
+    {
+      "index": 1,
+      "title": "Chapter 1",
+      "start": 1800,
+      "end": 3600
+    }
+  ]
+}
+```
+
+**Process Flow**:
+
+1. Load Book document
+2. Generate FFmetadata file from provided chapters
+3. Remux audio with new metadata using FFmpeg
+4. Move remuxed file to temporary location
+5. Compute checksum of new file
+6. Atomically replace original audio file
+7. Update Book metadata fields
+8. Update chapter list
+9. Update file sync timestamps
+
+**Success Output**:
+
+```json
+{
+  "bookId": "507f1f77bcf86cd799439011",
+  "filePath": "/data/audiobooks/507f1f77bcf86cd799439011/audio.m4b",
+  "title": "Updated Title",
+  "author": "Updated Author",
+  "series": "Series Name",
+  "genre": "Fiction",
+  "chapters": 2
+}
+```
+
+**Priority**: 35  
+**Heavy**: No
+
+---
+
+### EXTRACT_COVER
+
+**Purpose**: Extract cover image from embedded audio metadata
+
+**Payload**:
+
+```json
+{
+  "bookId": "507f1f77bcf86cd799439011",
+  "force": false
+}
+```
+
+**Process Flow**:
+
+1. Load Book document
+2. Check if cover already exists (unless `force: true`)
+3. Extract first attached image using FFmpeg
+4. Save as JPEG to `/data/audiobooks/{bookId}/cover.jpg`
+5. Update Book `coverPath` field
+6. Mark file as in-sync
+
+**Success Output**:
+
+```json
+{
+  "bookId": "507f1f77bcf86cd799439011",
+  "coverPath": "/data/audiobooks/507f1f77bcf86cd799439011/cover.jpg",
+  "skipped": false
+}
+```
+
+**Skipped Output** (cover exists):
+
+```json
+{
+  "bookId": "507f1f77bcf86cd799439011",
+  "coverPath": "/data/audiobooks/507f1f77bcf86cd799439011/cover.jpg",
+  "skipped": true,
+  "reason": "cover_already_exists"
+}
+```
+
+**Priority**: 50  
+**Heavy**: No
+
+---
+
+### REPLACE_COVER
+
+**Purpose**: Replace embedded cover and remux audio file
+
+**Payload**:
+
+```json
+{
+  "bookId": "507f1f77bcf86cd799439011",
+  "sourcePath": "/uploads/newcover.jpg"
+}
+```
+
+**Process Flow**:
+
+1. Load Book document
+2. Validate source cover file exists
+3. Remux audio with new cover using FFmpeg
+4. Atomically replace original audio file
+5. Replace cover.jpg on disk
+6. Update file sync timestamps
+
+**Success Output**:
+
+```json
+{
+  "bookId": "507f1f77bcf86cd799439011",
+  "filePath": "/data/audiobooks/507f1f77bcf86cd799439011/audio.m4b",
+  "coverPath": "/data/audiobooks/507f1f77bcf86cd799439011/cover.jpg"
+}
+```
+
+**Priority**: 50  
+**Heavy**: No
+
+---
+
+### REPLACE_FILE
+
+**Purpose**: Swap audio file for a book and update metadata
+
+**Payload**:
+
+```json
+{
+  "bookId": "507f1f77bcf86cd799439011",
+  "sourcePath": "/uploads/replacement.m4b",
+  "extractCover": true
+}
+```
+
+**Process Flow**:
+
+1. Load Book document
+2. Validate replacement file exists
+3. Probe new file (duration, format)
+4. Compute SHA256 checksum
+5. Atomically replace original audio file
+6. Extract cover from new file (if `extractCover: true`)
+7. Update Book with new duration, checksum, chapter list
+8. Mark file as in-sync
+
+**Success Output**:
+
+```json
+{
+  "bookId": "507f1f77bcf86cd799439011",
+  "filePath": "/data/audiobooks/507f1f77bcf86cd799439011/audio.m4b",
+  "sourcePath": "/uploads/replacement.m4b",
+  "checksum": "sha256:...",
+  "duration": 87211,
+  "chapters": 44,
+  "coverPath": "/data/audiobooks/507f1f77bcf86cd799439011/cover.jpg"
+}
+```
+
+**Priority**: 20  
+**Heavy**: Yes
+
+---
+
+### RESCAN
+
+**Purpose**: Verify library files and sync database state
+
+**Payload**:
+
+```json
+{
+  "force": false
+}
+```
+
+**Process Flow**:
+
+1. Query books from MongoDB
+2. If `force: false`, only check books where `fileSync.status !== "in_sync"`
+3. For each book:
+   - Verify file exists on disk
+   - Recompute duration and checksum
+   - Compare with database values
+   - Update sync status and timestamps
+4. Collect statistics (scanned, updated, missing, errors)
+
+**Success Output**:
+
+```json
+{
+  "force": false,
+  "targetCount": 127,
+  "scanned": 127,
+  "updated": 12,
+  "missing": 2,
+  "errors": 1
+}
+```
+
+**Priority**: 50  
+**Heavy**: No
+
+---
+
+### SYNC_TAGS
+
+**Purpose**: Synchronize taxonomy/tag data across books.
+
+**Payload**:
+
+```json
+{
+  "force": false
+}
+```
+
+**Process Flow**:
+
+1. Load taxonomy settings from worker settings
+2. Scan eligible books for tag normalization/sync
+3. Normalize and merge tag/category values
+4. Persist updated tag fields where needed
+5. Return aggregate sync counters
+
+**Success Output**:
+
+```json
+{
+  "force": false,
+  "targetCount": 127,
+  "updated": 19,
+  "skipped": 108,
+  "errors": 0
+}
+```
+
+**Priority**: 40  
+**Heavy**: No
+
+---
+
+### DELETE_BOOK
+
+**Purpose**: Remove book record and files
+
+**Payload**:
+
+```json
+{
+  "bookId": "507f1f77bcf86cd799439011"
+}
+```
+
+**Process Flow**:
+
+1. Load Book document
+2. Delete book record from MongoDB
+3. Delete entire audiobook directory
+4. Clean up related progress, collection entries
+
+**Success Output**:
+
+```json
+{
+  "bookId": "507f1f77bcf86cd799439011",
+  "deleted": true,
+  "filesDeleted": true
+}
+```
+
+**Priority**: 50  
+**Heavy**: No
+
+---
+
+## Configuration
+
+### Environment Variables
+
+```bash
+# MongoDB Connection
+MONGO_URI=mongodb://mongo:27017/audiobook
+
+# Worker Queue Settings
+WORKER_POLL_MS=1500                 # Polling interval (milliseconds)
+WORKER_CONCURRENCY_HEAVY=1          # Heavy lane concurrency
+WORKER_CONCURRENCY_FAST=0           # Fast lane concurrency
+# Optional legacy fallback read by runner:
+WORKER_CONCURRENCY=0
+
+# Locking / recovery
+WORKER_JOB_LOCK_TIMEOUT_MS=600000   # Reclaim stale lock timeout (10 min)
+WORKER_LOCK_RECLAIM_INTERVAL_MS=300000 # Lock reclaim sweep interval (5 min)
+
+# Retry Configuration
+WORKER_RETRY_BASE_MS=2000           # Initial backoff (2 seconds)
+WORKER_RETRY_MAX_MS=60000           # Max backoff (60 seconds)
+
+# FFmpeg
+FFMPEG_TIMEOUT_MS=300000            # Timeout (5 minutes)
+
+# Storage
+AUDIOBOOKS_PATH=/data/audiobooks    # Final audiobook storage
+```
+
+### Worker Settings Document
+
+Stored in MongoDB `worker_settings` collection with dynamic configuration:
+
+```json
+{
+  "key": "worker",
+  "queue": {
+    "heavyJobTypes": ["SANITIZE_MP3_TO_M4B", "REPLACE_FILE"],
+    "heavyJobDelayMs": 0,
+    "heavyWindowEnabled": false,
+    "heavyWindowStart": "03:00",
+    "heavyWindowEnd": "05:00",
+    "heavyConcurrency": 1,
+    "fastConcurrency": 0
+  },
+  "parity": {
+    "enabled": true,
+    "intervalMs": 3600000
+  },
+  "taxonomy": {
+    "enabled": true,
+    "intervalMs": 3600000
   }
 }
 ```
 
-**Error Scenarios**:
-- `ingest_source_not_found`: Source file doesn't exist
-- `ingest_payload_invalid`: Missing sourcePath
-- `ingest_metadata_parse_failed`: Can't read FFMetadata
+**Field Descriptions**:
 
-### Ingest MP3 as M4B Job
-
-**Purpose**: Build a new M4B from uploaded MP3 with admin-provided metadata and optional cover art.
-
-**Payload**:
-```typescript
-{
-  sourcePath: string;
-  coverPath?: string | null;
-  cleanupSource?: boolean;
-  cleanupCover?: boolean;
-  metadata?: {
-    title?: string;
-    author?: string;
-    series?: string | null;
-    genre?: string | null;
-  };
-}
-```
-
-### Replace Cover Job
-
-**Purpose**: Replace the embedded cover image in an existing audiobook file and remux metadata without re-encoding audio.
-
-**Payload**:
-```typescript
-{
-  bookId: string;
-  sourcePath: string;
-  cleanupSource?: boolean;
-}
-```
-- FFmpeg timeout: File too large or corrupted
-
-### Extract Cover Job
-
-**Payload**:
-```typescript
-{
-  bookId: string;
-### `EXTRACT_COVER` — Extract Embedded Cover
-  force?: boolean;
-}
-```
+- `heavyJobTypes`: Jobs subject to time-window scheduling
+- `heavyJobDelayMs`: Extra delay added to `runAfter` for heavy jobs
+- `heavyWindowEnabled`: If true, restrict heavy jobs to time window
+- `heavyWindowStart`/`heavyWindowEnd`: When heavy jobs can run (HH:MM format)
+- `heavyConcurrency`: Max slots for "any" lane (all job types)
+- `fastConcurrency`: Max slots for "fast" lane (lightweight jobs only)
+- `parity.enabled`/`parity.intervalMs`: Controls scheduled RESCAN enqueue cadence
+- `taxonomy.enabled`/`taxonomy.intervalMs`: Controls scheduled SYNC_TAGS enqueue cadence
 
 **Behavior**:
-- Loads the book record and validates `filePath`
-- Skips if a cover already exists unless `force=true`
-- Extracts cover with FFmpeg and writes `cover.jpg`
-- Updates `coverPath` and file sync status
 
-**Output**:
-```typescript
-{
-  bookId: string;
-  coverPath: string | null;
-  skipped: boolean;
-  reason?: "cover_already_exists";
-}
-```
-
-### Write Metadata Job
-
-**Payload**:
-```typescript
-{
-  bookId: string;
-### `WRITE_METADATA` — Embed Metadata & Chapters
-  title?: string;
-  author?: string;
-  series?: string | null;
-  genre?: string | null;
-  chapters?: Array<{
-    title: string;
-    startMs: number;
-    endMs: number;
-  }>;
-}
-```
-
-**Behavior**:
-- Extracts existing ffmetadata from audio
-- Merges incoming metadata fields
-- Remuxes audio with updated metadata/chapters
-- Atomically replaces the original file
-- Updates book metadata, chapter list, version, and sync timestamps
-
-**Output**:
-```typescript
-{
-  bookId: string;
-  filePath: string;
-  title: string;
-  author: string;
-  series: string | null;
-  genre: string | null;
-  chapters: number;
-}
-```
-
-### Replace File Job
-
-**Payload**:
-```typescript
-{
-```
-### `REPLACE_FILE` — Swap Audio File
-
-**Behavior**:
-- Validates replacement source file
-- Re-probes duration, checksum, and metadata
-- Atomically replaces canonical `audio.m4b`
-- Attempts cover extraction and updates book fields
-
-**Output**:
-```typescript
-{
-  bookId: string;
-  filePath: string;
-  sourcePath: string;
-  checksum: string;
-  duration: number;
-  chapters: number;
-  coverPath: string | null;
-}
-```
-## Job Types and Handlers
-
-### Rescan Job
-
-**Payload**:
-```typescript
-{
-  force?: boolean;
-### `RESCAN` — Library Rescan
-}
-```
-
-**Behavior**:
-- Scans books from MongoDB (all when `force=true`, otherwise non-in-sync records)
-- Verifies file existence
-- Recomputes duration/checksum
-- Updates sync status and scan timestamps
-
-**Output**:
-```typescript
-{
-  force: boolean;
-  targetCount: number;
-  scanned: number;
-  updated: number;
-  missing: number;
-  errors: number;
-}
-```
-
-### Delete Book Job
-
-**Payload**:
-```typescript
-{
-  bookId: string;
-### `DELETE_BOOK` — Delete Book
-  deleteFiles?: boolean;
-}
-```
-
-**Behavior**:
-- Deletes book document from MongoDB
-- Optionally deletes on-disk audiobook folder
-
-**Output**:
-```typescript
-  bookId: string;
-  deleted: boolean;
-  filesDeleted: boolean;
-}
-```
-
-All job handlers are implemented and return structured `output` payloads persisted on the job document when status is `done`.
+- When time-window is enabled and current time is outside window, heavy jobs are excluded from polling
+- Fast lane allows non-heavy jobs to continue flowing while heavy jobs wait
+- Reloaded every 15 seconds and applied on next poll cycle
 
 ---
 
-## Configuration & Environment
+## Retry Logic
 
-### Required Environment Variables
+### Backoff Formula
 
-```bash
-# MongoDB
-MONGO_URL=mongodb://mongo:27017/audiobook
-
-# Worker Queue
-WORKER_POLL_MS=5000                 # How often to check for new jobs (milliseconds)
-WORKER_CONCURRENCY=2                # Max concurrent jobs to process
-WORKER_RETRY_BASE_MS=2000           # Initial retry backoff (exponential: 2s, 4s, 8s, ...)
-WORKER_RETRY_MAX_MS=60000           # Max retry backoff (1 minute cap)
-
-# File System
-### `REPLACE_COVER` — Replace Cover Image
+```
+backoff_ms = min(
+  WORKER_RETRY_BASE_MS * 2^(attempt - 1),
+  WORKER_RETRY_MAX_MS
+)
 ```
 
-### Optional Configuration
+**Example with defaults** (BASE=2s, MAX=60s):
 
-```bash
-# FFmpeg timeout (if customizing)
-FFMPEG_TIMEOUT_MS=300000            # 5 minutes default
-```
+| Attempt | Backoff | Retry After |
+| ------- | ------- | ----------- |
+| 1       | 2 s     | now + 2s    |
+| 2       | 4 s     | now + 4s    |
+| 3       | 8 s     | now + 8s    |
+| 4       | 16 s    | now + 16s   |
+| 5       | 32 s    | now + 32s   |
+| 6       | 60 s    | now + 60s   |
+| 7+      | 60 s    | now + 60s   |
+| max (3) | —       | FAILED      |
 
 ---
 
+## Running the Worker
 
 ### Development
 
 ```bash
+cd worker
+
 # Install dependencies
 npm install
 
-# Build TypeScript
-npm run build
-
-# Run with nodemon (auto-reload on changes)
+# Run with live reload (uses nodemon)
 npm run dev
 
 # Output:
-## Configuration & Environment
 # > worker@1.0.0 dev
 # > nodemon --exec ts-node src/worker.ts
-# [worker] connecting to mongodb://localhost:27017/audiobook
-# [worker] job runner started with concurrency=2, pollMs=5000
+# ✓ Connected to MongoDB
+# ✓ Job runner started (heavy=1, fast=0, pollMs=1500)
 ```
 
-### Production
+### Production Build
 
 ```bash
-# Build
+# Compile TypeScript
 npm run build
 
 # Run compiled code
 npm start
 
-# With environment variables
-MONGO_URL="mongodb://mongo:27017/audiobook" \
-WORKER_CONCURRENCY=4 \
+# With environment overrides
+WORKER_CONCURRENCY_HEAVY=2 \
+WORKER_CONCURRENCY_FAST=2 \
 WORKER_POLL_MS=3000 \
 npm start
 ```
 
-### Docker Compose
-
-```yaml
-services:
-  worker:
-    build: ./worker
-    environment:
-      MONGO_URL: mongodb://mongo:27017/audiobook
-      WORKER_POLL_MS: 5000
-      WORKER_CONCURRENCY: 2
-      WORKER_RETRY_BASE_MS: 2000
-      WORKER_RETRY_MAX_MS: 60000
-      AUDIOBOOKS_PATH: /data/audiobooks
-    volumes:
-      - audiobooks:/data/audiobooks
-    depends_on:
-      - mongo
-```
-
----
-
-## Job Processing Flow
-
-### Step-by-Step Execution
-
-**1. Bootstrap (worker.ts)**
-// 1. Connect to MongoDB
-await mongoose.connect(MONGO_URL);
-
-// 2. Create JobRunner with config
-const runner = new JobRunner({
-  concurrency: WORKER_CONCURRENCY,    // 2
-  pollIntervalMs: WORKER_POLL_MS,     // 5000
-  retryBaseMs: WORKER_RETRY_BASE_MS,  // 2000
-  retryMaxMs: WORKER_RETRY_MAX_MS,    // 60000
-});
-
-// 3. Register job handlers
-runner.registerHandler("ingest", handleIngestJob);
-runner.registerHandler("extract-cover", handleExtractCoverJob);
-// ... etc
-
-// 4. Start processing
-runner.start();
-
-// 5. Handle graceful shutdown
-process.on("SIGTERM", () => {
-  console.info("SIGTERM received, shutting down gracefully");
-  runner.stop(); // Allow in-flight jobs to complete
-});
-```
-
-**2. JobRunner.start() Loop**
-```
-Every WORKER_POLL_MS:
-  1. Query: SELECT * FROM jobs WHERE status='queued' AND runAfter <= now LIMIT concurrency
-  2. For each available job:
-     a. Try to claim: status='queued' → 'running' (atomic)
-     b. If claimed successfully:
-        - Get handler function
-        - On success: mark as 'done'
-        - On error: check retry logic
-          - If attempt < maxAttempts: mark 'retrying', calculate backoff, schedule runAfter
-          - If attempt >= maxAttempts: mark 'failed'
-     c. If claim failed: another worker got it (skip)
-```
-
-**3. Error Handling**
-```
-Handler throws error:
-  ├─ Serialize error to string
-  ├─ Check: attempt < maxAttempts?
-  │   ├─ YES: exponential backoff retry
-  │   │   └─ status='retrying', runAfter=now+backoff, updatedAt=now
-  │   └─ NO: final failure
-  │       └─ status='failed', completedAt=now
-  └─ Log error with context
-```
-
-**4. Retry Backoff Calculation**
-```
-Attempt 1 fails:
-  └─ backoff = 2000ms (2 seconds)
-  └─ Retry at: now + 2s
-
-Attempt 2 fails:
-  └─ backoff = 2000 * 2^(2-1) = 4000ms (4 seconds)
-  └─ Retry at: now + 4s
-
-Attempt 3 fails:
-  └─ backoff = 2000 * 2^(3-1) = 8000ms (8 seconds)
-  └─ Retry at: now + 8s
-
-Attempt 4 fails:
-  └─ backoff = min(32000, 60000) = 32000ms (32 seconds)
-  └─ Retry at: now + 32s
-
-Attempt 5 fails (maxAttempts=5):
-  └─ status='failed' (no more retries)
-```
-
----
-
-## Development Workflow
-
-### Adding a New Job Handler
-
-1. **Create handler file** in `src/jobs/your-job.ts`:
-```typescript
-import type { JobDocument } from "../queue/job.types.js";
-
-export interface YourJobPayload {
-  param1: string;
-  param2?: number;
-}
-
-export async function handleYourJob(job: JobDocument): Promise<void> {
-  const payload = job.payload as YourJobPayload;
-
-  // Validate
-  if (!payload.param1) {
-    throw new Error("your_job_payload_invalid: missing param1");
-  }
-
-  console.info("your job started", {
-    jobId: String(job._id),
-    param1: payload.param1,
-  });
-
-  // Do work here
-  // Use services: FFmpegService, FileService, MetadataService, etc.
-
-  console.info("your job completed", {
-    jobId: String(job._id),
-  });
-}
-```
-
-2. **Register in worker.ts**:
-```typescript
-import { handleYourJob } from "./jobs/your-job.js";
-
-// In bootstrap function:
-runner.registerHandler("your-job", handleYourJob);
-```
-
-3. **Test locally**:
-```bash
-npm run dev
-# In separate terminal, manually insert job into MongoDB:
-# db.jobs.insertOne({
-#   type: "your-job",
-#   payload: { param1: "test" },
-#   status: "queued",
-#   attempt: 0,
-#   maxAttempts: 3,
-#   runAfter: new Date(),
-#   createdAt: new Date(),
-#   updatedAt: new Date()
-# })
-```
-
----
-
-## Debugging
-
-### Enable Detailed Logging
-
-Worker uses standard `console.info/warn/error`. To see logs:
+### Docker
 
 ```bash
-# Development (nodemon)
-npm run dev
-
-# Production (add logging middleware if desired)
-LOG_LEVEL=debug npm start
+docker build -t audiobook-worker .
+docker run -e MONGO_URI=mongodb://mongo:27017/audiobook \
+           -e WORKER_CONCURRENCY_HEAVY=2 \
+           -e WORKER_CONCURRENCY_FAST=2 \
+           -v /data/audiobooks:/data/audiobooks \
+           audiobook-worker
 ```
 
-### Check Job Status
+---
 
-Query MongoDB directly:
+## Monitoring & Debugging
+
+### View Job Status
 
 ```javascript
-// See all jobs
+// All jobs
 db.jobs.find().pretty();
 
-// See running jobs
-db.jobs.find({ status: "running" }).pretty();
+// Running now
+db.jobs.find({ status: "running" }).count();
 
-// See failed jobs
+// Failed jobs
 db.jobs.find({ status: "failed" }).pretty();
 
-// See job with specific ID
-db.jobs.findOne({ _id: ObjectId("...") });
+// Retrying soon
+db.jobs.find({ status: "retrying", runAfter: { $lte: new Date() } }).count();
 
-// See retry attempts
-db.jobs.find({ status: "retrying" }).pretty();
+// Stuck jobs (locked, but not updating)
+db.jobs
+  .find({
+    status: "running",
+    lockedAt: { $lt: new Date(Date.now() - 30 * 60000) }, // Older than 30 min
+  })
+  .pretty();
+```
 
-// See jobs locked by specific worker
-db.jobs.find({ lockedBy: "worker-123" }).pretty();
+### Manual Job Recovery
+
+```javascript
+// Unlock a stuck job
+db.jobs.updateOne(
+  { _id: ObjectId("...") },
+  { $set: { status: "queued", lockedBy: null, lockedAt: null } },
+);
+
+// Retry a failed job
+db.jobs.updateOne(
+  { _id: ObjectId("...") },
+  {
+    $set: {
+      status: "queued",
+      attempt: 1,
+      maxAttempts: 3,
+      runAfter: new Date(),
+    },
+  },
+);
+
+// Cancel a queued job
+db.jobs.deleteOne({ _id: ObjectId("...") });
 ```
 
 ### Common Issues
 
-**Worker not picking up jobs**:
-- Check `MONGO_URL` is correct and accessible
-- Check `WORKER_POLL_MS` (default 5s, so wait up to 5s)
-- Check `status='queued'` and `runAfter <= now` in job document
-- Verify no syntax errors with `npm run build`
-
-**Job stuck in "running"**:
-- Check `lockedBy` and `lockedAt` fields
-- Worker may have crashed without unlocking (no auto-unlock implemented)
-- Manually fix: `db.jobs.updateOne({ _id: "..." }, { $set: { status: "queued", lockedBy: null, lockedAt: null } })`
-
-**Job stuck in "retrying"**:
-- Check `runAfter` timestamp hasn't passed yet
-- Wait for timestamp or manually set to past: `db.jobs.updateOne({ _id: "..." }, { $set: { runAfter: new Date(0) } })`
+| Problem                 | Check                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------ |
+| Jobs not progressing    | Is worker running? Check `MONGO_URI` connectivity                                          |
+| Long poll intervals     | Check `WORKER_POLL_MS` setting (default 1.5s)                                              |
+| Jobs stuck in "running" | Check `lockedAt` timestamp; worker may have crashed                                        |
+| High CPU                | Limit `WORKER_CONCURRENCY_HEAVY` / `WORKER_CONCURRENCY_FAST` or increase `heavyJobDelayMs` |
+| Disk full               | Monitor `/data/audiobooks/` and `/uploads/` sizes                                          |
 
 ---
 
-## Performance Considerations
+## Architecture Notes
 
-### Memory Usage
+### Atomic Operations
 
-- **FFmpeg**: Each probe/extraction spawns a child process (not peak memory intensive)
-- **File copying**: Streams data (constant memory regardless of file size)
-- **Checksum**: Streams SHA256 computation (constant memory)
+All critical operations use MongoDB atomic updates to prevent race conditions:
 
-### Concurrency Tuning
+- Job claiming (`findOneAndUpdate`)
+- Status transitions (using `$set` with multiple fields)
+- File operations (atomic rename after safe write)
 
-For the audiobook platform:
-- **WORKER_CONCURRENCY=2**: Good starting point (avoid audio processing contention)
-- **WORKER_CONCURRENCY=4**: For multi-core machines with SSD storage
-- **WORKER_CONCURRENCY=1**: For resource-constrained environments
+### Memory Efficiency
 
-### Retry Backoff Tuning
+- FFmpeg processes spawn and exit (don't accumulate)
+- File streaming avoids loading entire files into memory
+- SHA256 computed via stream hash (constant memory)
 
-Current defaults are conservative:
-- **WORKER_RETRY_BASE_MS=2000**: Wait 2s before first retry
-- **WORKER_RETRY_MAX_MS=60000**: Cap at 60s (don't hammer on persistent failures)
+### Error Handling
 
-Adjust based on infrastructure:
-- High-frequency failures: Reduce BASE_MS to 500ms
-- Avoid load spikes: Increase MAX_MS to 300000ms (5 minutes)
-
----
-
-## Security Notes
-
-### File Operations
-
-- All file paths validated before operations
-- Atomic writes prevent partial/corrupted files
-- File cleanup on error prevents disk leaks
-
-### MongoDB Access
-
-- Worker has full read/write to `books.jobs` collection
-- Creates documents in `books` collection (for book records)
-- Should restrict to app-specific database (not admin)
-
-### FFmpeg
-
-- Spawned with strict timeout (5 minutes default)
-- Child process killed on timeout
-- stderr captured but not logged (potential info disclosure)
-- Consider scanning output for sensitive data before logging
+- All errors serialized to strings and stored in `job.error`
+- Unhandled exceptions caught and converted to job failures
+- Graceful shutdown waits for in-flight jobs to complete
 
 ---
 
 ## Related Documentation
 
-- [API Integration Points](../api/src/modules/jobs/job.model.ts) — Job document schema
-- [Architecture Guide](../docs/Audiobook%20Platform%20—%20Architecture%20&%20Build%20Specification.md)
-- [FFmpeg Integration](../docs/M4B%20Metadata%20&%20Chapters%20—%20FFmpeg%20Guide.md)
+- [Job Queue API Endpoints](../api/jobs-endpoints.md)
+- [API & Worker Integration](../platform/api-worker-integration.md)
+- [FFmpeg Metadata Guide](../ffmpeg/metadata-chapters-guide.md)

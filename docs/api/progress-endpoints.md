@@ -2,7 +2,7 @@
 
 This document is for client developers consuming playback progress APIs.
 
-Base path: `/api/progress`
+Base path: `/api/v1/progress`
 
 Authentication: required on all endpoints.
 
@@ -15,6 +15,7 @@ Authorization: Bearer <accessToken>
 Progress is user-scoped and stored per book.
 
 Current capabilities:
+
 - list current user progress entries
 - get progress for one book
 - save current playback position
@@ -48,6 +49,7 @@ Current capabilities:
 List all progress entries for the authenticated user.
 
 Query parameters:
+
 - `limit`: page size, default `20`, max `100`
 - `offset`: result offset, default `0`
 
@@ -76,6 +78,7 @@ Response:
 ```
 
 Common errors:
+
 - `401` `missing_token`
 - `401` `invalid_token`
 - `400` `progress_invalid_limit`
@@ -86,6 +89,7 @@ Common errors:
 Get progress for the authenticated user on one book.
 
 Common errors:
+
 - `400` `book_invalid_id`
 - `404` `progress_not_found`
 
@@ -105,12 +109,14 @@ Request body:
 ```
 
 Behavior:
+
 - Upserts progress for `(userId, bookId)`
 - Copies current book checksum/version into the saved record
 - Updates `lastListenedAt`
 - Automatically marks `completed=true` when `positionSeconds >= durationAtSave - 20`
 
 Common errors:
+
 - `400` `book_invalid_id`
 - `400` `progress_invalid_position`
 - `404` `book_not_found`
@@ -128,12 +134,14 @@ Request body:
 ```
 
 Behavior:
+
 - Requires an existing progress record
 - Sets `completed=true`
 - Sets `completedAt`
 - Stores whether completion was manual
 
 Common errors:
+
 - `400` `book_invalid_id`
 - `404` `progress_not_found`
 
@@ -142,12 +150,14 @@ Common errors:
 Reset completion state to incomplete.
 
 Behavior:
+
 - Requires an existing progress record
 - Clears `completedAt`
 - Sets `completed=false`
 - Resets `manualCompletion=false`
 
 Common errors:
+
 - `400` `book_invalid_id`
 - `404` `progress_not_found`
 
