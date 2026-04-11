@@ -147,27 +147,18 @@
         </section>
       }
 
-      <div class="series-pagination">
-        <button
-          type="button"
-          class="btn btn-secondary"
-          [disabled]="seriesLoading() || seriesOffset() === 0"
-          (click)="seriesPrevPage()"
-        >
-          Prev rows
-        </button>
-        <span>
-          Rows page {{ seriesCurrentPage() }} of {{ seriesTotalPages() }}
-        </span>
-        <button
-          type="button"
-          class="btn btn-secondary"
-          [disabled]="seriesLoading() || !seriesHasMore()"
-          (click)="seriesNextPage()"
-        >
-          Next rows
-        </button>
-      </div>
+      @if (seriesHasMore()) {
+        <div class="series-load-more">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            [disabled]="seriesLoading()"
+            (click)="loadMoreSeries()"
+          >
+            {{ seriesLoading() ? 'Loading...' : 'Load more series rows (' + seriesLoadedCount() + ' / ' + seriesTotal() + ')' }}
+          </button>
+        </div>
+      }
     }
 
     <section class="row-block">

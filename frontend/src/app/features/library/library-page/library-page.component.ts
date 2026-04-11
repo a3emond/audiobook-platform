@@ -46,7 +46,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly latestBooks = signal<Book[]>([]);
   readonly seriesRails = signal<SeriesRail[]>([]);
   readonly seriesPageSize = 6;
-  readonly seriesOffset = signal(0);
+  readonly seriesLoadedCount = signal(0);
   readonly seriesTotal = signal(0);
   readonly seriesHasMore = signal(false);
   readonly seriesLoading = signal(false);
@@ -144,7 +144,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.seriesFilterBooks = filterBooks;
 
         this.latestBooks.set(filterBooks(booksResponse.books).slice(0, LATEST_BOOKS_LIMIT));
-        this.loadSeriesPage(0, filterBooks, () => this.loadCollections());
+        this.loadSeriesChunk(0, filterBooks, false, () => this.loadCollections());
       },
       error: (error: unknown) => {
         this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.load'));
@@ -208,9 +208,10 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  private loadSeriesPage(
+  private loadSeriesChunk(
     offset: number,
     filterBooks: (books: Book[]) => Book[],
+    append: boolean,
     onDone?: () => void,
   ): void {
     this.seriesLoading.set(true);
@@ -225,12 +226,14 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
       })
       .subscribe({
         next: (seriesResponse) => {
-          this.seriesOffset.set(offset);
+          this.seriesLoadedCount.set(Math.min(seriesResponse.total, offset + seriesResponse.series.length));
           this.seriesTotal.set(seriesResponse.total);
           this.seriesHasMore.set(seriesResponse.hasMore);
 
           if (seriesResponse.series.length === 0) {
-            this.seriesRails.set([]);
+            if (!append) {
+              this.seriesRails.set([]);
+            }
             this.seriesLoading.set(false);
             onDone?.();
             return;
@@ -238,7 +241,8 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
           forkJoin(seriesResponse.series.map((series) => this.library.getSeries(series.name))).subscribe({
             next: (seriesDetails) => {
-              this.seriesRails.set(mapSeriesRails(seriesDetails, filterBooks));
+              const nextRails = mapSeriesRails(seriesDetails, filterBooks);
+              this.seriesRails.update((current) => (append ? [...current, ...nextRails] : nextRails));
               this.seriesLoading.set(false);
               this.scheduleRailSync();
               onDone?.();
@@ -258,29 +262,12 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
       });
   }
 
-  seriesPrevPage(): void {
-    if (this.seriesLoading() || this.seriesOffset() === 0 || !this.seriesFilterBooks) {
-      return;
-    }
-
-    const nextOffset = Math.max(0, this.seriesOffset() - this.seriesPageSize);
-    this.loadSeriesPage(nextOffset, this.seriesFilterBooks);
-  }
-
-  seriesNextPage(): void {
+  loadMoreSeries(): void {
     if (this.seriesLoading() || !this.seriesHasMore() || !this.seriesFilterBooks) {
       return;
     }
 
-    this.loadSeriesPage(this.seriesOffset() + this.seriesPageSize, this.seriesFilterBooks);
-  }
-
-  seriesCurrentPage(): number {
-    return Math.floor(this.seriesOffset() / this.seriesPageSize) + 1;
-  }
-
-  seriesTotalPages(): number {
-    return Math.max(1, Math.ceil(this.seriesTotal() / this.seriesPageSize));
+    this.loadSeriesChunk(this.seriesLoadedCount(), this.seriesFilterBooks, true);
   }
 
   openCreateCollectionModal(): void {

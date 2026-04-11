@@ -8,7 +8,7 @@
   position: relative;
   isolation: isolate;
   background:
-    radial-gradient(circle at 50% 10rem, rgb(126 73 18 / 0.22) 0%, rgb(94 54 14 / 0.16) 24%, transparent 54%),
+    radial-gradient(circle at 50% 10rem, rgb(126 73 18 / 0.12) 0%, rgb(94 54 14 / 0.08) 24%, transparent 54%),
     linear-gradient(90deg, rgb(58 34 8 / 0.24) 0%, rgb(88 51 12 / 0.16) 18%, transparent 34%, transparent 66%, rgb(88 51 12 / 0.16) 82%, rgb(58 34 8 / 0.24) 100%);
 }
 
@@ -21,7 +21,7 @@
     radial-gradient(circle at center, rgb(255 158 42 / 0.14) 0%, rgb(152 89 22 / 0.09) 36%, transparent 68%),
     linear-gradient(90deg, rgb(63 37 9 / 0.52) 0%, rgb(100 58 15 / 0.4) 22%, rgb(112 66 17 / 0.34) 50%, rgb(100 58 15 / 0.4) 78%, rgb(63 37 9 / 0.52) 100%),
     url('/logo.png') center top / min(78vw, 46rem) no-repeat;
-  opacity: 0.12;
+  opacity: 0.08;
   filter: saturate(0.92) contrast(1.02) blur(0.2px);
   mask-image: radial-gradient(circle at center, rgb(0 0 0 / 1) 0%, rgb(0 0 0 / 0.94) 48%, rgb(0 0 0 / 0.72) 68%, transparent 92%);
   pointer-events: none;
@@ -32,7 +32,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, #0000 0, #0000 26rem, rgb(7 7 7 / .42) 52rem, rgb(5 5 5 / .7) 100%);
+  background: linear-gradient(180deg, rgb(3 3 3 / .52) 0, rgb(4 4 4 / .26) 11rem, #0000 27rem, rgb(7 7 7 / .42) 52rem, rgb(5 5 5 / .72) 100%);
   pointer-events: none;
   z-index: -1;
 }
@@ -54,7 +54,7 @@
 
 .progress-strip {
   background: linear-gradient(180deg, var(--color-surface-soft) 0%, var(--color-bg) 100%);
-  border-top: 1px solid rgb(255 138 0 / 0.22);
+  border-top: none;
   border-bottom: 1px solid rgb(255 138 0 / 0.16);
   overflow: hidden;
 }
@@ -164,37 +164,38 @@
 .progress-strip-inner {
   max-width: 1120px;
   margin: 0 auto;
-  padding: 0.5rem 0.85rem 0.65rem;
+  padding: 0 0.85rem 0.34rem;
 }
 
 .strip-title {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--color-text-muted);
-  margin: 0 0 0.45rem;
+  margin: 0 0 0.1rem;
 }
 
 .progress-rail {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 78px;
-  gap: 0.5rem;
+  gap: 0.45rem;
   overflow-x: auto;
   overflow-y: hidden;
   scroll-snap-type: x proximity;
   scrollbar-width: thin;
   justify-content: start;
-  padding: 0.22rem 0.12rem 0.35rem;
+  padding: 0 0.12rem 0.24rem;
 }
 
 .progress-item {
+  display: block;
   position: relative;
   width: 78px;
   height: 78px;
-  border-radius: 0.72rem;
+  border-radius: 0.5rem;
   overflow: hidden;
-  border: 1px solid rgb(255 138 0 / 0.25);
+  border: 1px solid rgb(255 138 0 / 0.36);
   box-shadow: 0 6px 16px rgb(2 6 23 / 0.35);
   transform: scale(1);
   transition: transform 0.18s ease, box-shadow 0.18s ease;
@@ -205,23 +206,31 @@
 .progress-item-wrap {
   position: relative;
   width: 78px;
-  display: grid;
-  gap: 0.28rem;
-  align-content: start;
+  height: 78px;
+  display: block;
+  overflow: hidden;
+  border-radius: 0;
+  line-height: 0;
 }
 
 .progress-edit {
-  position: static;
-  justify-self: center;
+  position: absolute;
+  right: 0.24rem;
+  top: 0.24rem;
+  left: auto;
+  bottom: auto;
+  transform: none;
+  z-index: 4;
   border: 1px solid rgb(255 138 0 / 0.45);
-  background: var(--color-overlay);
+  background: rgb(12 12 12 / 0.82);
   color: var(--color-warning);
   border-radius: 999px;
-  font-size: 0.55rem;
-  letter-spacing: 0.03em;
+  font-size: 0.51rem;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   font-weight: 700;
-  padding: 0.14rem 0.3rem;
+  line-height: 1;
+  padding: 0.16rem 0.28rem;
   text-decoration: none;
 }
 
@@ -234,6 +243,9 @@
   display: block;
   width: 100%;
   height: 100%;
+  --cover-fit: cover;
+  --cover-position: 50% 40%;
+  --cover-radius: 0;
 }
 
 .progress-title {
@@ -241,10 +253,10 @@
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 0.3rem 0.35rem;
+  padding: 0.22rem 0.3rem 0.2rem;
   background: linear-gradient(180deg, rgb(12 12 12 / 0) 0%, rgb(12 12 12 / 0.96) 100%);
   color: #f8fafc;
-  font-size: 0.62rem;
+  font-size: 0.57rem;
   line-height: 1.25;
   white-space: nowrap;
   overflow: hidden;
@@ -255,7 +267,7 @@
 }
 
 .progress-item:hover {
-  transform: scale(1.08);
+  transform: scale(1.04);
   box-shadow: 0 12px 24px rgb(2 6 23 / 0.5);
   z-index: 2;
 }
@@ -580,6 +592,18 @@
   .progress-item {
     width: 70px;
     height: 70px;
+  }
+
+  .progress-item-wrap {
+    width: 70px;
+    height: 70px;
+  }
+
+  .progress-edit {
+    right: 0.18rem;
+    top: 0.18rem;
+    font-size: 0.49rem;
+    padding: 0.16rem 0.24rem;
   }
 
   .toast-stack {

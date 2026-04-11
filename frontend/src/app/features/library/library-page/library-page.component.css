@@ -69,17 +69,12 @@
   gap: 0.65rem;
 }
 
-.series-pagination {
+.series-load-more {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 0.6rem;
   margin-top: 0.2rem;
-}
-
-.series-pagination span {
-  color: var(--color-text-muted);
-  font-size: 0.85rem;
 }
 
 .empty-state {
@@ -193,6 +188,7 @@
 .collection-rail {
   display: grid;
   grid-auto-flow: column;
+  justify-content: start;
   gap: 0.72rem;
   overflow-x: auto;
   overflow-y: visible;
@@ -239,7 +235,7 @@
 }
 
 .media-rail {
-  grid-auto-columns: minmax(190px, 220px);
+  grid-auto-columns: 220px;
   padding-inline: 2.5rem;
 }
 
@@ -251,6 +247,10 @@
 .media-cell,
 .collection-cell {
   min-width: 0;
+}
+
+.media-cell {
+  width: 220px;
 }
 
 .modal-backdrop {
@@ -285,8 +285,12 @@
   }
 
   .media-rail {
-    grid-auto-columns: minmax(165px, 185px);
+    grid-auto-columns: 185px;
     padding-inline: 0.1rem;
+  }
+
+  .media-cell {
+    width: 185px;
   }
 
   .collection-rail {

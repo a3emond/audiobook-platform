@@ -16,6 +16,11 @@
   transition: transform 130ms ease, box-shadow 130ms ease;
 }
 
+.cover-trigger app-cover-tile {
+  --cover-fit: contain;
+  --cover-position: 50% 88%;
+}
+
 .cover-trigger:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 24px rgb(15 23 42 / 0.24);
