@@ -103,6 +103,8 @@ export async function handleIngestJob(
 	      series: normalizeOptionalText(extractedMetadata.album),
       duration: Math.round(probeInfo.duration),
       chapters: extractedMetadata.chapters,
+      tags: [],
+      normalizedTags: [],
       genre: "Audiobook",
       language,
       description: {

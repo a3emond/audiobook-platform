@@ -5,7 +5,7 @@ import mongoose, {
   type Model,
 } from "mongoose";
 
-import { normalizeOptionalText } from "../../utils/normalize.js";
+import { normalizeOptionalText, normalizeTagList } from "../../utils/normalize.js";
 
 export const FILE_SYNC_STATUSES = [
   "in_sync",
@@ -183,6 +183,12 @@ const bookSchema = new Schema(
         Array.from(
           new Set((values ?? []).map((value) => value.trim()).filter(Boolean)),
         ),
+      index: true,
+    },
+    normalizedTags: {
+      type: [String],
+      default: [],
+      set: (values: string[]) => normalizeTagList(values),
       index: true,
     },
     genre: {

@@ -5,6 +5,7 @@ import type {
 	SeriesListResponseDTO,
 } from "../../dto/series.dto.js";
 import { ApiError } from "../../utils/api-error.js";
+import { normalizeTagList, normalizeTagToken } from "../../utils/normalize.js";
 import { BookModel, type BookDocument } from "../books/book.model.js";
 import { buildBookFilterConditions } from "../books/book.query.js";
 
@@ -108,6 +109,30 @@ function summarizeSeries(seriesName: string, books: BookDocument[]): SeriesListI
 		),
 	).sort((left, right) => left.localeCompare(right, undefined, { sensitivity: "base" }));
 
+	const tagsByFrequency = new Map<string, number>();
+	for (const book of books) {
+		const normalizedTags = normalizeTagList((book as unknown as { normalizedTags?: unknown }).normalizedTags ?? book.tags);
+		for (const tag of normalizedTags) {
+			tagsByFrequency.set(tag, (tagsByFrequency.get(tag) ?? 0) + 1);
+		}
+	}
+
+	const tags = Array.from(tagsByFrequency.entries())
+		.sort((left, right) => {
+			if (left[1] !== right[1]) {
+				return right[1] - left[1];
+			}
+
+			return left[0].localeCompare(right[0], undefined, { sensitivity: "base" });
+		})
+		.slice(0, 16)
+		.map(([tag]) => tag);
+
+	const lastUpdatedAt = books
+		.map((book) => book.updatedAt ?? book.createdAt)
+		.filter((value): value is Date => value instanceof Date)
+		.sort((left, right) => right.getTime() - left.getTime())[0];
+
 	return {
 		id: buildSeriesId(seriesName),
 		name: seriesName,
@@ -115,14 +140,80 @@ function summarizeSeries(seriesName: string, books: BookDocument[]): SeriesListI
 		totalDuration: books.reduce((sum, book) => sum + (book.duration ?? 0), 0),
 		authors,
 		genres,
+		tags,
+		lastUpdatedAt: lastUpdatedAt ? lastUpdatedAt.toISOString() : undefined,
 		coverPath: books.find((book) => book.coverPath)?.coverPath ?? null,
 	};
+}
+
+function includesNormalizedText(haystack: string, needle: string): boolean {
+	if (!needle) {
+		return false;
+	}
+
+	return haystack.toLocaleLowerCase().includes(needle.toLocaleLowerCase());
+}
+
+function toTagFilters(input: ListBooksQueryDTO["tags"]): string[] {
+	if (!input) {
+		return [];
+	}
+
+	if (Array.isArray(input)) {
+		return normalizeTagList(input);
+	}
+
+	return normalizeTagList(
+		String(input)
+			.split(",")
+			.map((value) => value.trim())
+			.filter(Boolean),
+	);
+}
+
+function computeRelevanceScore(
+	series: SeriesListItemDTO,
+	query: string,
+	requestedTags: string[],
+): { score: number; matchedTags: string[] } {
+	let score = 0;
+	const matchedTags = requestedTags.filter((tag) => series.tags.includes(tag));
+
+	if (query) {
+		if (includesNormalizedText(series.name, query)) {
+			score += 80;
+		}
+
+		if (series.authors.some((author) => includesNormalizedText(author, query))) {
+			score += 25;
+		}
+
+		if (series.genres.some((genre) => includesNormalizedText(genre, query))) {
+			score += 15;
+		}
+
+		const queryTag = normalizeTagToken(query);
+		if (queryTag && series.tags.some((tag) => tag.includes(queryTag) || queryTag.includes(tag))) {
+			score += 30;
+		}
+	}
+
+	if (matchedTags.length > 0) {
+		score += matchedTags.length * 60;
+	}
+
+	score += Math.min(12, series.bookCount);
+
+	return { score, matchedTags };
 }
 
 export class SeriesService {
 	static async listSeries(filters: ListBooksQueryDTO): Promise<SeriesListResponseDTO> {
 		const limit = filters.limit ?? 20;
 		const offset = filters.offset ?? 0;
+		const requestedTags = toTagFilters(filters.tags);
+		const queryText = (filters.q ?? "").trim();
+		const sortMode = filters.sort ?? (queryText || requestedTags.length > 0 ? "relevance" : "activity");
 		const conditions = buildBookFilterConditions(filters);
 		const query =
 			conditions.length > 0
@@ -150,7 +241,45 @@ export class SeriesService {
 
 		const allSeries = Array.from(groups.entries())
 			.map(([, group]) => summarizeSeries(group.name, sortSeriesBooks(group.books)))
-			.sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: "base" }));
+			.filter((series) =>
+				requestedTags.length === 0 || requestedTags.every((tag) => series.tags.includes(tag)),
+			)
+			.map((series) => {
+				const { score, matchedTags } = computeRelevanceScore(series, queryText, requestedTags);
+				return {
+					...series,
+					relevanceScore: score,
+					matchedTags,
+				};
+			});
+
+		allSeries.sort((left, right) => {
+			if (sortMode === "alphabetical") {
+				return left.name.localeCompare(right.name, undefined, { sensitivity: "base" });
+			}
+
+			if (sortMode === "activity") {
+				const leftTs = left.lastUpdatedAt ? Date.parse(left.lastUpdatedAt) : 0;
+				const rightTs = right.lastUpdatedAt ? Date.parse(right.lastUpdatedAt) : 0;
+				if (leftTs !== rightTs) {
+					return rightTs - leftTs;
+				}
+				if (left.bookCount !== right.bookCount) {
+					return right.bookCount - left.bookCount;
+				}
+				return left.name.localeCompare(right.name, undefined, { sensitivity: "base" });
+			}
+
+			const leftScore = left.relevanceScore ?? 0;
+			const rightScore = right.relevanceScore ?? 0;
+			if (leftScore !== rightScore) {
+				return rightScore - leftScore;
+			}
+			if (left.bookCount !== right.bookCount) {
+				return right.bookCount - left.bookCount;
+			}
+			return left.name.localeCompare(right.name, undefined, { sensitivity: "base" });
+		});
 		const series = allSeries.slice(offset, offset + limit);
 
 		return {
@@ -193,6 +322,7 @@ export class SeriesService {
 			totalDuration: summary.totalDuration,
 			authors: summary.authors,
 			genres: summary.genres,
+			tags: summary.tags,
 			books: orderedBooks.map(toBookDTO),
 		};
 	}

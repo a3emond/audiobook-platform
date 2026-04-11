@@ -14,16 +14,25 @@
 
 .app-shell::before {
   content: '';
-  position: fixed;
+  position: absolute;
   inset: 4.25rem 0 auto;
   height: min(62vw, 34rem);
   background:
     radial-gradient(circle at center, rgb(255 158 42 / 0.14) 0%, rgb(152 89 22 / 0.09) 36%, transparent 68%),
     linear-gradient(90deg, rgb(63 37 9 / 0.52) 0%, rgb(100 58 15 / 0.4) 22%, rgb(112 66 17 / 0.34) 50%, rgb(100 58 15 / 0.4) 78%, rgb(63 37 9 / 0.52) 100%),
     url('/logo.png') center top / min(78vw, 46rem) no-repeat;
-  opacity: 0.14;
+  opacity: 0.12;
   filter: saturate(0.92) contrast(1.02) blur(0.2px);
   mask-image: radial-gradient(circle at center, rgb(0 0 0 / 1) 0%, rgb(0 0 0 / 0.94) 48%, rgb(0 0 0 / 0.72) 68%, transparent 92%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.app-shell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #0000 0, #0000 26rem, rgb(7 7 7 / .42) 52rem, rgb(5 5 5 / .7) 100%);
   pointer-events: none;
   z-index: -1;
 }

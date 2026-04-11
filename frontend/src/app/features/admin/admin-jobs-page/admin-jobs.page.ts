@@ -39,6 +39,7 @@ export class AdminJobsPage implements OnInit, OnDestroy {
     'INGEST_MP3_AS_M4B',
     'SANITIZE_MP3_TO_M4B',
     'RESCAN',
+    'SYNC_TAGS',
     'WRITE_METADATA',
     'EXTRACT_COVER',
     'REPLACE_COVER',
@@ -153,9 +154,42 @@ export class AdminJobsPage implements OnInit, OnDestroy {
   }
 
   triggerManualParityScan(): void {
-    // Manual parity scan would require a special POST endpoint in the admin API.
-    // This is a placeholder for future implementation.
-    this.jobActionMessage.set('Manual parity scan requires backend API endpoint implementation');
-    setTimeout(() => this.jobActionMessage.set(null), 3000);
+    this.jobActionInProgress.set('parity-scan');
+    this.jobActionMessage.set(null);
+
+    this.admin
+      .enqueueAdminJob('RESCAN', { force: true, trigger: 'manual-admin' })
+      .subscribe({
+        next: (job) => {
+          this.jobActionInProgress.set(null);
+          this.jobActionMessage.set(`Manual parity scan queued (${job.id})`);
+          setTimeout(() => this.jobActionMessage.set(null), 3500);
+        },
+        error: (error: unknown) => {
+          this.jobActionInProgress.set(null);
+          this.jobActionMessage.set(error instanceof Error ? error.message : 'Could not queue parity scan');
+          setTimeout(() => this.jobActionMessage.set(null), 3500);
+        },
+      });
+  }
+
+  triggerSyncTags(): void {
+    this.jobActionInProgress.set('sync-tags');
+    this.jobActionMessage.set(null);
+
+    this.admin
+      .enqueueAdminJob('SYNC_TAGS', { trigger: 'manual-admin' })
+      .subscribe({
+        next: (job) => {
+          this.jobActionInProgress.set(null);
+          this.jobActionMessage.set(`Tag sync queued (${job.id})`);
+          setTimeout(() => this.jobActionMessage.set(null), 3500);
+        },
+        error: (error: unknown) => {
+          this.jobActionInProgress.set(null);
+          this.jobActionMessage.set(error instanceof Error ? error.message : 'Could not queue tag sync');
+          setTimeout(() => this.jobActionMessage.set(null), 3500);
+        },
+      });
   }
 }

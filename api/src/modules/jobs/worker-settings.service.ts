@@ -16,12 +16,17 @@ export interface WorkerSettingsDTO {
     enabled: boolean;
     intervalMs: number;
   };
+  taxonomy: {
+    enabled: boolean;
+    intervalMs: number;
+  };
   updatedAt?: string;
 }
 
 interface WorkerSettingsPatchDTO {
   queue?: Partial<WorkerSettingsDTO["queue"]>;
   parity?: Partial<WorkerSettingsDTO["parity"]>;
+  taxonomy?: Partial<WorkerSettingsDTO["taxonomy"]>;
 }
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -65,6 +70,10 @@ function toDto(doc: WorkerSettingsDocument): WorkerSettingsDTO {
     parity: {
       enabled: doc.parity.enabled,
       intervalMs: doc.parity.intervalMs,
+    },
+    taxonomy: {
+      enabled: doc.taxonomy?.enabled ?? true,
+      intervalMs: doc.taxonomy?.intervalMs ?? 3_600_000,
     },
     updatedAt: doc.updatedAt?.toISOString(),
   };
@@ -123,6 +132,17 @@ export class WorkerSettingsService {
         doc.parity.intervalMs = patch.parity.intervalMs;
       }
     }
+    if (patch.taxonomy) {
+      if (!doc.taxonomy) {
+        doc.taxonomy = { enabled: true, intervalMs: 3_600_000 };
+      }
+      if (patch.taxonomy.enabled !== undefined) {
+        doc.taxonomy.enabled = patch.taxonomy.enabled;
+      }
+      if (patch.taxonomy.intervalMs !== undefined) {
+        doc.taxonomy.intervalMs = patch.taxonomy.intervalMs;
+      }
+    }
 
     await doc.save();
     const value = toDto(doc);
@@ -132,7 +152,7 @@ export class WorkerSettingsService {
   }
 
   private static validatePatch(patch: WorkerSettingsPatchDTO): void {
-    if (!patch.queue && !patch.parity) {
+    if (!patch.queue && !patch.parity && !patch.taxonomy) {
       return;
     }
 
@@ -169,6 +189,12 @@ export class WorkerSettingsService {
         throw new ApiError(400, "worker_settings_invalid_parity_interval");
       }
     }
+
+    if (patch.taxonomy?.intervalMs !== undefined) {
+      if (patch.taxonomy.intervalMs < 60_000 || !Number.isInteger(patch.taxonomy.intervalMs)) {
+        throw new ApiError(400, "worker_settings_invalid_taxonomy_interval");
+      }
+    }
   }
 
   private static async findOrCreate(): Promise<WorkerSettingsDocument> {
@@ -191,6 +217,10 @@ export class WorkerSettingsService {
       parity: {
         enabled: String(process.env.PARITY_SCAN_ENABLED || "true") === "true",
         intervalMs: Math.max(60_000, parseNumberEnv("PARITY_SCAN_INTERVAL_MS", 3_600_000)),
+      },
+      taxonomy: {
+        enabled: String(process.env.TAG_SYNC_ENABLED || "true") === "true",
+        intervalMs: Math.max(60_000, parseNumberEnv("TAG_SYNC_INTERVAL_MS", 3_600_000)),
       },
     });
   }

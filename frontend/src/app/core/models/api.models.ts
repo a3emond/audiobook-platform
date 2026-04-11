@@ -153,6 +153,10 @@ export interface SeriesSummary {
   totalDuration: number;
   authors: string[];
   genres: string[];
+  tags: string[];
+  matchedTags?: string[];
+  relevanceScore?: number;
+  lastUpdatedAt?: string;
   coverPath?: string | null;
 }
 

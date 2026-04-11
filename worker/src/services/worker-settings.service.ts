@@ -17,9 +17,15 @@ export interface WorkerParitySettings {
   intervalMs: number;
 }
 
+export interface WorkerTaxonomySettings {
+  enabled: boolean;
+  intervalMs: number;
+}
+
 export interface WorkerRuntimeSettings {
   queue: WorkerQueueSettings;
   parity: WorkerParitySettings;
+  taxonomy: WorkerTaxonomySettings;
 }
 
 const DEFAULT_SETTINGS: WorkerQueueSettings = {
@@ -33,6 +39,11 @@ const DEFAULT_SETTINGS: WorkerQueueSettings = {
 };
 
 const DEFAULT_PARITY_SETTINGS: WorkerParitySettings = {
+  enabled: true,
+  intervalMs: 3_600_000,
+};
+
+const DEFAULT_TAXONOMY_SETTINGS: WorkerTaxonomySettings = {
   enabled: true,
   intervalMs: 3_600_000,
 };
@@ -92,6 +103,11 @@ export class WorkerSettingsService {
     return settings.parity;
   }
 
+  static async getTaxonomySettings(forceRefresh = false): Promise<WorkerTaxonomySettings> {
+    const settings = await this.getRuntimeSettings(forceRefresh);
+    return settings.taxonomy;
+  }
+
   static async getRuntimeSettings(forceRefresh = false): Promise<WorkerRuntimeSettings> {
     const ttlMs = Math.max(1000, parseNumberEnv("WORKER_SETTINGS_REFRESH_MS", 15_000));
     const now = Date.now();
@@ -115,6 +131,7 @@ export class WorkerSettingsService {
       return {
         queue: { ...DEFAULT_SETTINGS },
         parity: { ...DEFAULT_PARITY_SETTINGS },
+        taxonomy: { ...DEFAULT_TAXONOMY_SETTINGS },
       };
     }
 
@@ -123,11 +140,13 @@ export class WorkerSettingsService {
       return {
         queue: { ...DEFAULT_SETTINGS },
         parity: { ...DEFAULT_PARITY_SETTINGS },
+        taxonomy: { ...DEFAULT_TAXONOMY_SETTINGS },
       };
     }
 
     const queue = (doc as { queue?: Record<string, unknown> }).queue || {};
     const parity = (doc as { parity?: Record<string, unknown> }).parity || {};
+    const taxonomy = (doc as { taxonomy?: Record<string, unknown> }).taxonomy || {};
 
     const heavyJobTypes = Array.isArray(queue.heavyJobTypes)
       ? queue.heavyJobTypes.filter((item): item is JobType => typeof item === "string")
@@ -170,6 +189,16 @@ export class WorkerSettingsService {
           typeof parity.intervalMs === "number" && parity.intervalMs >= 60_000
             ? Math.round(parity.intervalMs)
             : DEFAULT_PARITY_SETTINGS.intervalMs,
+      },
+      taxonomy: {
+        enabled:
+          typeof taxonomy.enabled === "boolean"
+            ? taxonomy.enabled
+            : DEFAULT_TAXONOMY_SETTINGS.enabled,
+        intervalMs:
+          typeof taxonomy.intervalMs === "number" && taxonomy.intervalMs >= 60_000
+            ? Math.round(taxonomy.intervalMs)
+            : DEFAULT_TAXONOMY_SETTINGS.intervalMs,
       },
     };
   }

@@ -73,8 +73,10 @@ export interface ListBooksQueryDTO {
   title?: string;
   author?: string;
   series?: string;
+  tags?: string | string[];
   genre?: string;
   language?: string;
+  sort?: "alphabetical" | "activity" | "relevance";
   limit?: number;
   offset?: number;
 }

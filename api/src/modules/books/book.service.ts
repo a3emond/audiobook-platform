@@ -8,7 +8,7 @@ import type {
 	UpdateChaptersDTO,
 } from "../../dto/book.dto.js";
 import { ApiError } from "../../utils/api-error.js";
-import { normalizeOptionalText } from "../../utils/normalize.js";
+import { normalizeOptionalText, normalizeTagList } from "../../utils/normalize.js";
 import { BookModel, type BookDocument } from "./book.model.js";
 import { JobModel } from "../jobs/job.model.js";
 import { buildBookQuery } from "./book.query.js";
@@ -149,6 +149,7 @@ export class BookService {
 
 		if (data.tags !== undefined) {
 			updates.tags = data.tags;
+			updates.normalizedTags = normalizeTagList(data.tags);
 		}
 
 		if (data.description !== undefined) {

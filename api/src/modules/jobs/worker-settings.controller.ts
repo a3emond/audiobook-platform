@@ -27,6 +27,10 @@ export class WorkerSettingsController {
           enabled?: boolean;
           intervalMs?: number;
         };
+        taxonomy?: {
+          enabled?: boolean;
+          intervalMs?: number;
+        };
       }
     >,
     res: Response,

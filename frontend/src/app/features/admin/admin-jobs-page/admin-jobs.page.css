@@ -222,6 +222,7 @@
 		flex-direction: column;
 		min-width: 0;
 		max-width: 100%;
+		margin-left: 2rem;
 	}
 
 	.pane-label {
@@ -308,7 +309,7 @@
 	/* Job control buttons */
 	.job-controls {
 		display: flex;
-		flex-direction: column;
+		flex-direction: row;
 		gap: 0.5rem;
 		padding: 0.65rem;
 		background: rgba(255 255 255 / 0.03);

@@ -17,8 +17,13 @@ export class BookController {
 			title: req.query.title,
 			author: req.query.author,
 			series: req.query.series,
+			tags: req.query.tags,
 			genre: req.query.genre,
 			language: req.query.language,
+			sort:
+				req.query.sort === "alphabetical" || req.query.sort === "activity" || req.query.sort === "relevance"
+					? req.query.sort
+					: undefined,
 			limit: req.query.limit ? Number(req.query.limit) : undefined,
 			offset: req.query.offset ? Number(req.query.offset) : undefined,
 		};

@@ -44,6 +44,12 @@ export interface RescanJobOutputDTO {
   skippedExistingRemediation: number;
 }
 
+export interface SyncTagsJobOutputDTO {
+  scanned: number;
+  updated: number;
+  unchanged: number;
+}
+
 export interface WriteMetadataJobOutputDTO {
   bookId: string;
   filePath: string;
@@ -88,6 +94,7 @@ export type JobOutputDTO =
   | IngestMp3AsM4BJobOutputDTO
   | SanitizeMp3ToM4BJobOutputDTO
   | RescanJobOutputDTO
+  | SyncTagsJobOutputDTO
   | WriteMetadataJobOutputDTO
   | ExtractCoverJobOutputDTO
   | ReplaceCoverJobOutputDTO
@@ -99,6 +106,7 @@ export type JobTypeDTO =
   | "INGEST_MP3_AS_M4B"
   | "SANITIZE_MP3_TO_M4B"
   | "RESCAN"
+  | "SYNC_TAGS"
   | "WRITE_METADATA"
   | "EXTRACT_COVER"
   | "REPLACE_COVER"
@@ -117,6 +125,7 @@ export interface JobOutputByTypeDTO {
   INGEST_MP3_AS_M4B: IngestMp3AsM4BJobOutputDTO;
   SANITIZE_MP3_TO_M4B: SanitizeMp3ToM4BJobOutputDTO;
   RESCAN: RescanJobOutputDTO;
+  SYNC_TAGS: SyncTagsJobOutputDTO;
   WRITE_METADATA: WriteMetadataJobOutputDTO;
   EXTRACT_COVER: ExtractCoverJobOutputDTO;
   REPLACE_COVER: ReplaceCoverJobOutputDTO;

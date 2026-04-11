@@ -8,6 +8,10 @@ export interface SeriesListItemDTO {
 	totalDuration: number;
 	authors: string[];
 	genres: string[];
+	tags: string[];
+	matchedTags?: string[];
+	relevanceScore?: number;
+	lastUpdatedAt?: string;
 	coverPath?: string | null;
 }
 
@@ -23,5 +27,6 @@ export interface SeriesDetailDTO {
 	totalDuration: number;
 	authors: string[];
 	genres: string[];
+	tags: string[];
 	books: BookDTO[];
 }

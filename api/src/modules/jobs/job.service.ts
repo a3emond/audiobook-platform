@@ -19,6 +19,7 @@ export class JobService {
     INGEST_MP3_AS_M4B: 80,
     SANITIZE_MP3_TO_M4B: 20,
     REPLACE_FILE: 20,
+    SYNC_TAGS: 25,
     WRITE_METADATA: 35,
   };
 

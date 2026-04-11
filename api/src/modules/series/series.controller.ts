@@ -4,13 +4,26 @@ import type { ListBooksQueryDTO } from "../../dto/book.dto.js";
 import { SeriesService } from "./series.service.js";
 
 function parseFilters(query: Record<string, string | undefined>): ListBooksQueryDTO {
+	const tagsRaw = query.tags;
+	const tags = tagsRaw
+		? tagsRaw
+				.split(",")
+				.map((value) => value.trim())
+				.filter(Boolean)
+		: undefined;
+
 	return {
 		q: query.q,
 		title: query.title,
 		author: query.author,
 		series: query.series,
+		tags,
 		genre: query.genre,
 		language: query.language,
+		sort:
+			query.sort === "alphabetical" || query.sort === "activity" || query.sort === "relevance"
+				? query.sort
+				: undefined,
 		limit: query.limit ? Number(query.limit) : undefined,
 		offset: query.offset ? Number(query.offset) : undefined,
 	};

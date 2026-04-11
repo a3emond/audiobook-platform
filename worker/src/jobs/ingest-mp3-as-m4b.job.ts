@@ -7,7 +7,7 @@ import { FileService } from "../services/file.service.js";
 import { MP3MetadataService } from "../services/mp3-metadata.service.js";
 import { computeFileSha256, formatSha256 } from "../services/checksum.service.js";
 import { atomicWriteFile } from "../utils/atomic-write.js";
-import { normalizeOptionalText } from "../utils/normalize.js";
+import { normalizeOptionalText, normalizeTagList } from "../utils/normalize.js";
 import { JobLogger } from "../utils/job-logger.js";
 import { JOB_PRIORITY_MIN } from "../queue/job.types.js";
 
@@ -125,6 +125,8 @@ export async function handleIngestMp3AsM4BJob(
 			payload.metadata?.author?.trim() || mp3Metadata.artist || "Unknown Author";
 		const series = normalizeOptionalText(payload.metadata?.series || mp3Metadata.album);
 		const genre = payload.metadata?.genre?.trim() || mp3Metadata.genre || "Audiobook";
+		const tags = mp3Metadata.genre ? [mp3Metadata.genre] : [];
+		const normalizedTags = normalizeTagList(tags);
 		const language =
 			payload.metadata?.language === "fr" || payload.metadata?.language === "en"
 				? payload.metadata.language
@@ -161,6 +163,8 @@ export async function handleIngestMp3AsM4BJob(
 			series,
 			duration: Math.round(probeInfo.duration),
 			chapters,
+			tags,
+			normalizedTags,
 			genre,
 			language,
 			description: { default: null, fr: null, en: null },

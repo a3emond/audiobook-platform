@@ -77,6 +77,16 @@ export class AdminService {
     return this.api.get<ListJobsResponse>('/admin/jobs', { params: { limit, offset } });
   }
 
+  enqueueAdminJob(
+    type: 'INGEST' | 'INGEST_MP3_AS_M4B' | 'RESCAN' | 'SYNC_TAGS' | 'WRITE_METADATA' | 'EXTRACT_COVER' | 'REPLACE_COVER' | 'DELETE_BOOK' | 'REPLACE_FILE',
+    payload: Record<string, unknown>,
+  ): Observable<AdminJob> {
+    return this.api.post<AdminJob, { type: string; payload: Record<string, unknown> }>('/admin/jobs/enqueue', {
+      type,
+      payload,
+    });
+  }
+
   getWorkerSettings(): Observable<WorkerSettings> {
     return this.api.get<WorkerSettings>('/admin/worker-settings');
   }

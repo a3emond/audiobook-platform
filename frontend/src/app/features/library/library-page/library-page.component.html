@@ -16,6 +16,23 @@
         [placeholder]="'library.filter.placeholder' | t"
       />
     </label>
+    <label>
+      <span>Series tags</span>
+      <input
+        name="seriesTags"
+        [(ngModel)]="seriesTags"
+        (ngModelChange)="onFilterChange()"
+        placeholder="e.g. litrpg, progression"
+      />
+    </label>
+    <label>
+      <span>Sort series</span>
+      <select name="seriesSort" [(ngModel)]="seriesSort" (ngModelChange)="onFilterChange()">
+        <option value="activity">Recent activity</option>
+        <option value="relevance">Relevance</option>
+        <option value="alphabetical">A-Z</option>
+      </select>
+    </label>
     <button type="button" class="clear-filter-btn" (click)="clearFilter()" [disabled]="!hasActiveQuery()">{{ 'common.clear' | t }}</button>
   </section>
 
@@ -129,6 +146,28 @@
           </div>
         </section>
       }
+
+      <div class="series-pagination">
+        <button
+          type="button"
+          class="btn btn-secondary"
+          [disabled]="seriesLoading() || seriesOffset() === 0"
+          (click)="seriesPrevPage()"
+        >
+          Prev rows
+        </button>
+        <span>
+          Rows page {{ seriesCurrentPage() }} of {{ seriesTotalPages() }}
+        </span>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          [disabled]="seriesLoading() || !seriesHasMore()"
+          (click)="seriesNextPage()"
+        >
+          Next rows
+        </button>
+      </div>
     }
 
     <section class="row-block">

@@ -6,6 +6,7 @@ import { handleSanitizeMp3Job } from "../jobs/sanitize-mp3.job.js";
 import { handleReplaceFileJob } from "../jobs/replace-file.job.js";
 import { handleReplaceCoverJob } from "../jobs/replace-cover.job.js";
 import { handleRescanJob } from "../jobs/rescan.job.js";
+import { handleSyncTagsJob } from "../jobs/sync-tags.job.js";
 import { handleWriteMetadataJob } from "../jobs/write-metadata.job.js";
 import { WorkerSettingsService, isInWindow } from "../services/worker-settings.service.js";
 
@@ -32,6 +33,7 @@ const handlers: Record<JobType, JobHandler> = {
 	INGEST_MP3_AS_M4B: handleIngestMp3AsM4BJob,
 	SANITIZE_MP3_TO_M4B: handleSanitizeMp3Job,
 	RESCAN: handleRescanJob,
+	SYNC_TAGS: handleSyncTagsJob,
 	WRITE_METADATA: handleWriteMetadataJob,
 	EXTRACT_COVER: handleExtractCoverJob,
 	REPLACE_COVER: handleReplaceCoverJob,

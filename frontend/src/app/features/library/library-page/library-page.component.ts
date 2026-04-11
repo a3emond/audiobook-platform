@@ -7,7 +7,6 @@ import { forkJoin } from 'rxjs';
 import type {
   Book,
   Collection,
-  SeriesSummary,
 } from '../../../core/models/api.models';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 import { I18nService } from '../../../core/services/i18n.service';
@@ -26,7 +25,6 @@ import {
   deriveCollections,
   LATEST_BOOKS_LIMIT,
   mapSeriesRails,
-  uniqueTopSeries,
 } from './library-page.utils';
 
 @Component({
@@ -41,10 +39,17 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChildren('railEl', { read: ElementRef }) private railElements?: QueryList<ElementRef<HTMLElement>>;
 
   q = '';
+  seriesTags = '';
+  seriesSort: 'activity' | 'relevance' | 'alphabetical' = 'activity';
   collectionName = '';
 
   readonly latestBooks = signal<Book[]>([]);
   readonly seriesRails = signal<SeriesRail[]>([]);
+  readonly seriesPageSize = 6;
+  readonly seriesOffset = signal(0);
+  readonly seriesTotal = signal(0);
+  readonly seriesHasMore = signal(false);
+  readonly seriesLoading = signal(false);
   readonly collections = signal<Collection[]>([]);
   readonly filteredCollections = signal<Collection[]>([]);
   readonly loading = signal(false);
@@ -61,6 +66,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private filterTimeout?: ReturnType<typeof setTimeout>;
   private railChangeSub?: { unsubscribe(): void };
   private resizeObserver?: ResizeObserver;
+  private seriesFilterBooks: ((books: Book[]) => Book[]) | null = null;
 
   constructor(
     protected readonly i18n: I18nService,
@@ -109,11 +115,12 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   clearFilter(): void {
-    if (!this.q.trim()) {
+    if (!this.q.trim() && !this.seriesTags.trim()) {
       return;
     }
 
     this.q = '';
+    this.seriesTags = '';
     this.reload();
   }
 
@@ -134,10 +141,10 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
         this.listenedBookIds.set(this.computeListenedBookOrder(progress));
         const filterBooks = (books: Book[]): Book[] =>
           showCompleted ? books : books.filter((b) => !completedIds.has(b.id));
+        this.seriesFilterBooks = filterBooks;
 
         this.latestBooks.set(filterBooks(booksResponse.books).slice(0, LATEST_BOOKS_LIMIT));
-
-        this.loadAllSeries(this.q || undefined, 0, [], filterBooks);
+        this.loadSeriesPage(0, filterBooks, () => this.loadCollections());
       },
       error: (error: unknown) => {
         this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.load'));
@@ -201,45 +208,79 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  private loadAllSeries(
-    query: string | undefined,
+  private loadSeriesPage(
     offset: number,
-    acc: SeriesSummary[],
     filterBooks: (books: Book[]) => Book[],
+    onDone?: () => void,
   ): void {
-    const pageSize = 100;
-    this.library.listSeries({ q: query, limit: pageSize, offset }).subscribe({
-      next: (seriesResponse) => {
-        const merged = [...acc, ...seriesResponse.series];
-        if (seriesResponse.hasMore) {
-          this.loadAllSeries(query, offset + pageSize, merged, filterBooks);
-          return;
-        }
+    this.seriesLoading.set(true);
 
-        const topSeries = uniqueTopSeries(merged, Number.MAX_SAFE_INTEGER);
-        if (topSeries.length === 0) {
-          this.seriesRails.set([]);
-          this.loadCollections();
-          return;
-        }
+    this.library
+      .listSeries({
+        q: this.q || undefined,
+        tags: this.seriesTags.trim() || undefined,
+        sort: this.seriesSort,
+        limit: this.seriesPageSize,
+        offset,
+      })
+      .subscribe({
+        next: (seriesResponse) => {
+          this.seriesOffset.set(offset);
+          this.seriesTotal.set(seriesResponse.total);
+          this.seriesHasMore.set(seriesResponse.hasMore);
 
-        forkJoin(topSeries.map((series) => this.library.getSeries(series.name))).subscribe({
-          next: (seriesDetails) => {
-            const rails = mapSeriesRails(seriesDetails, filterBooks);
-            this.seriesRails.set(rails);
-            this.loadCollections();
-          },
-          error: (error: unknown) => {
-            this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.seriesRows'));
-            this.loading.set(false);
-          },
-        });
-      },
-      error: (error: unknown) => {
-        this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.series'));
-        this.loading.set(false);
-      },
-    });
+          if (seriesResponse.series.length === 0) {
+            this.seriesRails.set([]);
+            this.seriesLoading.set(false);
+            onDone?.();
+            return;
+          }
+
+          forkJoin(seriesResponse.series.map((series) => this.library.getSeries(series.name))).subscribe({
+            next: (seriesDetails) => {
+              this.seriesRails.set(mapSeriesRails(seriesDetails, filterBooks));
+              this.seriesLoading.set(false);
+              this.scheduleRailSync();
+              onDone?.();
+            },
+            error: (error: unknown) => {
+              this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.seriesRows'));
+              this.seriesLoading.set(false);
+              this.loading.set(false);
+            },
+          });
+        },
+        error: (error: unknown) => {
+          this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.series'));
+          this.seriesLoading.set(false);
+          this.loading.set(false);
+        },
+      });
+  }
+
+  seriesPrevPage(): void {
+    if (this.seriesLoading() || this.seriesOffset() === 0 || !this.seriesFilterBooks) {
+      return;
+    }
+
+    const nextOffset = Math.max(0, this.seriesOffset() - this.seriesPageSize);
+    this.loadSeriesPage(nextOffset, this.seriesFilterBooks);
+  }
+
+  seriesNextPage(): void {
+    if (this.seriesLoading() || !this.seriesHasMore() || !this.seriesFilterBooks) {
+      return;
+    }
+
+    this.loadSeriesPage(this.seriesOffset() + this.seriesPageSize, this.seriesFilterBooks);
+  }
+
+  seriesCurrentPage(): number {
+    return Math.floor(this.seriesOffset() / this.seriesPageSize) + 1;
+  }
+
+  seriesTotalPages(): number {
+    return Math.max(1, Math.ceil(this.seriesTotal() / this.seriesPageSize));
   }
 
   openCreateCollectionModal(): void {
@@ -301,7 +342,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   showLatestRow(): boolean {
-    return this.latestBooks().length > 0;
+    return !this.hasActiveQuery() && this.latestBooks().length > 0;
   }
 
   hasSeriesRows(): boolean {
@@ -321,7 +362,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   hasActiveQuery(): boolean {
-    return this.q.trim().length > 0;
+    return this.q.trim().length > 0 || this.seriesTags.trim().length > 0;
   }
 
   private bookPool(): Book[] {

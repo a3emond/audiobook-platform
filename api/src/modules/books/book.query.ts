@@ -1,4 +1,5 @@
 import type { ListBooksQueryDTO } from "../../dto/book.dto.js";
+import { normalizeTagList } from "../../utils/normalize.js";
 
 function escapeRegex(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -36,6 +37,21 @@ export function buildBookFilterConditions(
 
 	if (filters.series && filters.series.trim()) {
 		conditions.push({ series: toContainsRegex(filters.series) });
+	}
+
+	if (filters.tags) {
+		const tags = normalizeTagList(
+			Array.isArray(filters.tags)
+				? filters.tags
+				: String(filters.tags)
+						.split(",")
+						.map((value) => value.trim())
+						.filter(Boolean),
+		);
+
+		if (tags.length > 0) {
+			conditions.push({ normalizedTags: { $all: tags } });
+		}
 	}
 
 	if (filters.genre && filters.genre.trim()) {

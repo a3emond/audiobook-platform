@@ -110,6 +110,10 @@
 						[disabled]="jobActionInProgress() !== null">
 						{{ jobActionInProgress() === 'parity-scan' ? 'Triggering...' : 'Manual Parity Scan' }}
 					</button>
+					<button type="button" class="btn-action" (click)="triggerSyncTags()"
+						[disabled]="jobActionInProgress() !== null">
+						{{ jobActionInProgress() === 'sync-tags' ? 'Triggering...' : 'Sync Tags' }}
+					</button>
 					<p *ngIf="jobActionMessage()" class="action-message">{{ jobActionMessage() }}</p>
 				</div>
 

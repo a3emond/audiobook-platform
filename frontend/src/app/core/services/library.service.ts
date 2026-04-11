@@ -16,8 +16,10 @@ export interface BookFilters {
   q?: string;
   author?: string;
   series?: string;
+  tags?: string;
   genre?: string;
   language?: string;
+  sort?: 'alphabetical' | 'activity' | 'relevance';
   limit?: number;
   offset?: number;
 }
