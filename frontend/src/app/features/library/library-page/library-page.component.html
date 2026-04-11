@@ -151,13 +151,18 @@
         <div class="series-load-more">
           <button
             type="button"
-            class="btn btn-secondary"
+            class="btn-load-more"
+            [class.is-loading]="seriesLoading()"
             [disabled]="seriesLoading()"
             (click)="loadMoreSeries()"
+            [attr.aria-busy]="seriesLoading()"
           >
-            {{ seriesLoading() ? 'Loading...' : 'Load more series rows (' + seriesLoadedCount() + ' / ' + seriesTotal() + ')' }}
+            <span class="load-more-label">{{ seriesLoading() ? 'Loading more' : 'Load more' }}</span>
+            <span class="load-more-spinner" aria-hidden="true"></span>
           </button>
         </div>
+      } @else {
+        <p class="load-more-done" role="status">All series loaded</p>
       }
     }
 
@@ -204,13 +209,18 @@
         <div class="load-more-row">
           <button
             type="button"
-            class="btn btn-secondary"
+            class="btn-load-more"
+            [class.is-loading]="collectionsLoadingMore()"
             [disabled]="collectionsLoadingMore()"
             (click)="loadMoreCollections()"
+            [attr.aria-busy]="collectionsLoadingMore()"
           >
-            {{ collectionsLoadingMore() ? 'Loading...' : 'Load more collections (' + visibleCollections().length + ' / ' + collectionsTotal() + ')' }}
+            <span class="load-more-label">{{ collectionsLoadingMore() ? 'Loading more' : 'Load more' }}</span>
+            <span class="load-more-spinner" aria-hidden="true"></span>
           </button>
         </div>
+      } @else {
+        <p class="load-more-done" role="status">All collections loaded</p>
       }
     </section>
   }

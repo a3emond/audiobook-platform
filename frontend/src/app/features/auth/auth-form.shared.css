@@ -32,9 +32,9 @@
 .auth-logo {
   width: 1.28rem;
   height: 1.28rem;
-  object-fit: cover;
-  border-radius: 0.3rem;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
+  object-fit: contain;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .auth-title {

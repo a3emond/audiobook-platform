@@ -8,31 +8,30 @@
   position: relative;
   isolation: isolate;
   background:
-    radial-gradient(circle at 50% 10rem, rgb(126 73 18 / 0.12) 0%, rgb(94 54 14 / 0.08) 24%, transparent 54%),
+    radial-gradient(circle at 50% 12rem, rgb(126 73 18 / 0.1) 0%, rgb(94 54 14 / 0.06) 26%, transparent 58%),
     linear-gradient(90deg, rgb(58 34 8 / 0.24) 0%, rgb(88 51 12 / 0.16) 18%, transparent 34%, transparent 66%, rgb(88 51 12 / 0.16) 82%, rgb(58 34 8 / 0.24) 100%);
 }
 
 .app-shell::before {
   content: '';
-  position: absolute;
-  inset: 4.25rem 0 auto;
-  height: min(62vw, 34rem);
+  position: fixed;
+  inset: 0;
   background:
-    radial-gradient(circle at center, rgb(255 158 42 / 0.14) 0%, rgb(152 89 22 / 0.09) 36%, transparent 68%),
+    radial-gradient(circle at center, rgb(255 158 42 / 0.12) 0%, rgb(152 89 22 / 0.07) 32%, transparent 68%),
     linear-gradient(90deg, rgb(63 37 9 / 0.52) 0%, rgb(100 58 15 / 0.4) 22%, rgb(112 66 17 / 0.34) 50%, rgb(100 58 15 / 0.4) 78%, rgb(63 37 9 / 0.52) 100%),
-    url('/logo.png') center top / min(78vw, 46rem) no-repeat;
-  opacity: 0.08;
+    url('/logo.png') center center / min(54vw, 28rem) auto no-repeat;
+  opacity: 0.16;
   filter: saturate(0.92) contrast(1.02) blur(0.2px);
-  mask-image: radial-gradient(circle at center, rgb(0 0 0 / 1) 0%, rgb(0 0 0 / 0.94) 48%, rgb(0 0 0 / 0.72) 68%, transparent 92%);
+  mask-image: radial-gradient(circle at center, rgb(0 0 0 / 1) 0%, rgb(0 0 0 / 0.93) 38%, rgb(0 0 0 / 0.68) 60%, transparent 90%);
   pointer-events: none;
   z-index: -1;
 }
 
 .app-shell::after {
   content: '';
-  position: absolute;
+  position: fixed;
   inset: 0;
-  background: linear-gradient(180deg, rgb(3 3 3 / .52) 0, rgb(4 4 4 / .26) 11rem, #0000 27rem, rgb(7 7 7 / .42) 52rem, rgb(5 5 5 / .72) 100%);
+  background: linear-gradient(180deg, rgb(3 3 3 / .12) 0, rgb(4 4 4 / .04) 10rem, #0000 26rem, rgb(7 7 7 / .3) 52rem, rgb(5 5 5 / .56) 100%);
   pointer-events: none;
   z-index: -1;
 }
@@ -301,9 +300,9 @@
 .brand-logo {
   width: 1.42rem;
   height: 1.42rem;
-  border-radius: 0.35rem;
-  object-fit: cover;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
+  border-radius: 0;
+  object-fit: contain;
+  box-shadow: none;
 }
 
 /* === Nav links ================================================ */
