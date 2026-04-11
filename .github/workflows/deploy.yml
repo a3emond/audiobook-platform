@@ -3,6 +3,8 @@ name: Deploy Audiobook Platform
 on:
   push:
     branches: [ master ]
+    paths-ignore:
+      - 'clients/**'
 
 jobs:
   deploy:
