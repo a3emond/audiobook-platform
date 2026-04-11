@@ -93,3 +93,47 @@ reports/
 # MONGO DATA (if ever local)
 # =========================
 mongo-data/
+
+# =========================
+# CLIENT PROJECTS (ANDROID / APPLE / ELECTRON / FUTURE)
+# =========================
+clients/**/.idea/
+clients/**/.gradle/
+clients/**/.kotlin/
+clients/**/local.properties
+clients/**/captures/
+clients/**/.externalNativeBuild/
+clients/**/.cxx/
+clients/**/build/
+
+clients/**/*.xcodeproj/xcuserdata/
+clients/**/*.xcodeproj/project.xcworkspace/xcuserdata/
+clients/**/*.xcworkspace/xcuserdata/
+clients/**/*.xcuserstate
+clients/**/*.xcscmblueprint
+clients/**/DerivedData/
+clients/**/.swiftpm/
+clients/**/Pods/
+clients/**/Carthage/Build/
+clients/**/.build/
+
+clients/**/node_modules/
+clients/**/dist/
+clients/**/out/
+clients/**/release/
+clients/**/.next/
+clients/**/.nuxt/
+clients/**/.svelte-kit/
+clients/**/.expo/
+clients/**/.expo-shared/
+clients/**/.electron-gyp/
+clients/**/.dart_tool/
+clients/**/.flutter-plugins
+clients/**/.flutter-plugins-dependencies
+clients/**/cmake-build-*/
+
+clients/**/*.keystore
+clients/**/*.jks
+clients/**/*.p12
+clients/**/*.mobileprovision
+clients/**/*.orig
