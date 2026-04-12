@@ -9,7 +9,6 @@ export class RealtimeService {
   private socket: WebSocket | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly eventsSubject = new Subject<RealtimeEventEnvelope>();
-  private readonly queuedMessages = new Map<string, unknown>();
 
   readonly events$ = this.eventsSubject.asObservable();
   readonly connected = signal(false);
@@ -29,7 +28,6 @@ export class RealtimeService {
 
     socket.onopen = () => {
       this.connected.set(true);
-      this.flushQueuedMessages();
     };
 
     socket.onmessage = (event) => {
@@ -76,7 +74,6 @@ export class RealtimeService {
 
   send<T>(type: string, payload: T): boolean {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      this.queuedMessages.set(type, payload);
       return false;
     }
 
@@ -87,23 +84,6 @@ export class RealtimeService {
       }),
     );
     return true;
-  }
-
-  private flushQueuedMessages(): void {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN || this.queuedMessages.size === 0) {
-      return;
-    }
-
-    for (const [type, payload] of this.queuedMessages.entries()) {
-      this.socket.send(
-        JSON.stringify({
-          type,
-          payload,
-        }),
-      );
-    }
-
-    this.queuedMessages.clear();
   }
 
   private scheduleReconnect(): void {

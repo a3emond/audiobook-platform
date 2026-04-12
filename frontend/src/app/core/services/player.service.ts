@@ -1,4 +1,4 @@
-import { computed, effect, Injectable, signal } from '@angular/core';
+import { computed, Injectable, signal } from '@angular/core';
 import { firstValueFrom, Observable } from 'rxjs';
 
 import type { Book, Chapter, ResumeInfo } from '../models/api.models';
@@ -13,7 +13,6 @@ import {
 } from './player-media-session.utils';
 import { ProgressService } from './progress.service';
 import { StatsService } from './stats.service';
-import { LibraryService } from './library.service';
 import {
 	chapterStartSeconds,
 	currentChapterIndex,
@@ -27,8 +26,6 @@ interface PlaybackSessionPresencePayload {
 	label: string;
 	platform: string;
 	currentBookId: string | null;
-	currentBookTitle?: string | null;
-	currentBookCoverPath?: string | null;
 	paused: boolean;
 	timestamp: string;
 }
@@ -45,8 +42,6 @@ export interface PlaybackDeviceSession {
 	label: string;
 	platform: string;
 	currentBookId: string | null;
-	currentBookTitle?: string | null;
-	currentBookCoverPath?: string | null;
 	paused: boolean;
 	lastSeenAt: string;
 }
@@ -68,8 +63,6 @@ export class PlayerService {
 	readonly playbackDeviceId = signal('');
 	readonly listeningDevices = signal<PlaybackDeviceSession[]>([]);
 	readonly activeListeningDeviceId = signal<string | null>(null);
-	readonly remoteBook = signal<Book | null>(null);
-	readonly remoteBookId = signal<string | null>(null);
 	readonly activeListeningDevice = computed<PlaybackDeviceSession | null>(() => {
 		const activeId = this.activeListeningDeviceId();
 		if (!activeId) {
@@ -79,18 +72,6 @@ export class PlayerService {
 		return this.listeningDevices().find((item) => item.deviceId === activeId) ?? null;
 	});
 	readonly activeListeningDeviceLabel = computed(() => this.activeListeningDevice()?.label ?? 'another device');
-	readonly isRemotePlaybackActive = computed(() => {
-		const active = this.activeListeningDevice();
-		if (!active) {
-			return false;
-		}
-
-		if (active.deviceId === this.playbackDeviceId()) {
-			return false;
-		}
-
-		return !active.paused;
-	});
 	readonly shouldShowListeningBadge = computed(() => {
 		const active = this.activeListeningDevice();
 		if (!active) {
@@ -103,33 +84,6 @@ export class PlayerService {
 
 		return !active.paused;
 	});
-	readonly topbarBook = computed<Book | null>(() => this.currentBook() ?? this.remoteBook());
-	readonly topbarBookId = computed<string | null>(() => this.currentBook()?.id ?? this.remoteBookId());
-	readonly topbarTitle = computed(() => this.topbarBook()?.title ?? 'Live playback');
-	readonly topbarCoverUrl = computed(() => {
-		const localBook = this.currentBook();
-		if (localBook) {
-			return this.coverUrl();
-		}
-
-		const remoteBook = this.remoteBook();
-		if (!remoteBook) {
-			return '';
-		}
-
-		return this.coverUrlForBook(remoteBook);
-	});
-	readonly topbarFallbackInitials = computed(() => {
-		const initials = this.topbarTitle()
-			.split(' ')
-			.filter(Boolean)
-			.slice(0, 2)
-			.map((part) => part[0]?.toUpperCase() ?? '')
-			.join('');
-
-		return initials || 'ON';
-	});
-	readonly shouldShowTopbarPlayer = computed(() => Boolean(this.currentBook()) || this.isRemotePlaybackActive());
 
 	private readonly audio = new Audio();
 	private pendingInitialPosition: number | null = null;
@@ -141,7 +95,6 @@ export class PlayerService {
 	private lastPlayClaimTime = 0;
 	private lastLiveProgressEmitAt = 0;
 	private suppressLiveProgressUntil = 0;
-	private remoteBookFetchRequestId = 0;
 
 	constructor(
 		private readonly api: ApiService,
@@ -149,24 +102,12 @@ export class PlayerService {
 		private readonly realtime: RealtimeService,
 		private readonly progress: ProgressService,
 		private readonly stats: StatsService,
-		private readonly library: LibraryService,
 	) {
 		this.initializePlaybackDevice();
 		this.configureAudioEvents();
 		this.configureMediaSessionActions();
 		this.setupProgressSync();
 		this.setupPlaybackSessions();
-
-		effect(() => {
-			if (!this.realtime.connected()) {
-				return;
-			}
-
-			this.broadcastPlaybackPresence();
-			if (!this.paused() && this.currentBook()) {
-				this.claimPlaybackOwnership();
-			}
-		});
 	}
 
 	getResumeInfo(bookId: string): Observable<ResumeInfo> {
@@ -585,7 +526,6 @@ export class PlayerService {
 	private broadcastPlaybackPresence(): void {
 		const user = this.auth.user();
 		const deviceId = this.playbackDeviceId();
-		const currentBook = this.currentBook();
 		if (!user?.id || !deviceId) {
 			return;
 		}
@@ -595,9 +535,7 @@ export class PlayerService {
 			deviceId,
 			label: this.browserLabel(),
 			platform: 'web',
-			currentBookId: currentBook?.id ?? null,
-			currentBookTitle: currentBook?.title ?? null,
-			currentBookCoverPath: currentBook?.coverPath ?? null,
+			currentBookId: this.currentBook()?.id ?? null,
 			paused: this.paused(),
 		};
 
@@ -621,8 +559,6 @@ export class PlayerService {
 			label: presence.label,
 			platform: presence.platform,
 			currentBookId: presence.currentBookId,
-			currentBookTitle: presence.currentBookTitle ?? null,
-			currentBookCoverPath: presence.currentBookCoverPath ?? null,
 			paused: presence.paused,
 			lastSeenAt: presence.timestamp,
 		});
@@ -641,10 +577,6 @@ export class PlayerService {
 			});
 
 		this.listeningDevices.set(sorted);
-
-		const nextActive = this.resolveActiveListeningDevice(sorted, presence.deviceId);
-		this.activeListeningDeviceId.set(nextActive?.deviceId ?? ownDeviceId ?? null);
-		this.refreshRemoteBookContext();
 	}
 
 	private pruneStalePlaybackDevices(): void {
@@ -652,9 +584,6 @@ export class PlayerService {
 		const filtered = current.filter((item) => Date.now() - new Date(item.lastSeenAt).getTime() <= 35000);
 		if (filtered.length !== current.length) {
 			this.listeningDevices.set(filtered);
-			const nextActive = this.resolveActiveListeningDevice(filtered);
-			this.activeListeningDeviceId.set(nextActive?.deviceId ?? this.playbackDeviceId() ?? null);
-			this.refreshRemoteBookContext();
 		}
 	}
 
@@ -729,106 +658,10 @@ export class PlayerService {
 
 		this.lastPlayClaimTime = claimTime;
 		this.activeListeningDeviceId.set(claim.deviceId);
-		this.refreshRemoteBookContext(claim.bookId);
 
 		if (claim.deviceId !== ownDeviceId && !this.paused()) {
 			this.pause();
 		}
-	}
-
-	private resolveActiveListeningDevice(
-		devices: PlaybackDeviceSession[],
-		preferredDeviceId?: string,
-	): PlaybackDeviceSession | null {
-		if (devices.length === 0) {
-			return null;
-		}
-
-		const currentActiveId = this.activeListeningDeviceId();
-		const currentActive = currentActiveId
-			? devices.find((item) => item.deviceId === currentActiveId)
-			: undefined;
-		if (currentActive && !currentActive.paused) {
-			return currentActive;
-		}
-
-		const playingDevices = devices.filter((item) => !item.paused);
-		if (playingDevices.length > 0) {
-			if (preferredDeviceId) {
-				const preferred = playingDevices.find((item) => item.deviceId === preferredDeviceId);
-				if (preferred) {
-					return preferred;
-				}
-			}
-
-			return playingDevices[0] ?? null;
-		}
-
-		const ownDeviceId = this.playbackDeviceId();
-		if (ownDeviceId) {
-			const ownDevice = devices.find((item) => item.deviceId === ownDeviceId);
-			if (ownDevice) {
-				return ownDevice;
-			}
-		}
-
-		return devices[0] ?? null;
-	}
-
-	private refreshRemoteBookContext(bookIdFromClaim?: string): void {
-		const active = this.activeListeningDevice();
-		const ownDeviceId = this.playbackDeviceId();
-		if (!active || active.deviceId === ownDeviceId || active.paused) {
-			this.remoteBookId.set(null);
-			this.remoteBook.set(null);
-			return;
-		}
-
-		const bookId = bookIdFromClaim ?? active.currentBookId ?? null;
-		this.remoteBookId.set(bookId);
-		if (!bookId) {
-			this.remoteBook.set(null);
-			return;
-		}
-
-		if (this.remoteBook()?.id !== bookId) {
-			if (active.currentBookTitle) {
-				this.remoteBook.set({
-					id: bookId,
-					title: active.currentBookTitle,
-					author: '',
-					duration: 0,
-					coverPath: active.currentBookCoverPath ?? null,
-					chapters: [],
-				});
-			}
-
-			void this.fetchRemoteBook(bookId);
-		}
-	}
-
-	private async fetchRemoteBook(bookId: string): Promise<void> {
-		const requestId = ++this.remoteBookFetchRequestId;
-
-		try {
-			const book = await firstValueFrom(this.library.getBook(bookId));
-			if (requestId !== this.remoteBookFetchRequestId || this.remoteBookId() !== bookId) {
-				return;
-			}
-
-			this.remoteBook.set(book);
-		} catch {
-			// Keep lightweight fallback metadata if full fetch fails.
-		}
-	}
-
-	private coverUrlForBook(book: Book): string {
-		const token = this.auth.accessToken();
-		if (!book.coverPath || !token) {
-			return '';
-		}
-
-		return `/streaming/books/${book.id}/cover?access_token=${encodeURIComponent(token)}`;
 	}
 
 	private browserLabel(): string {
