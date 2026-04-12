@@ -11,12 +11,14 @@ export interface AggregateProgress {
   totalSeconds: number;
 }
 
+// Shared clamp helper keeps progress math consistent across list/detail views.
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
 @Injectable({ providedIn: 'root' })
-// library-progress: keeps UI and state logic readable for this frontend unit.
+// LibraryProgressService keeps a client-side cache of per-book progress so list
+// pages do not each reimplement progress math or duplicate API traffic.
 export class LibraryProgressService {
   private readonly progressByBookIdState = signal<Map<string, Progress>>(new Map());
   private loading = false;
@@ -42,6 +44,7 @@ export class LibraryProgressService {
     });
   }
 
+  // Read helpers are synchronous because components call them frequently during rendering.
   progressForBook(bookId: string): Progress | null {
     return this.progressByBookIdState().get(bookId) ?? null;
   }
@@ -141,6 +144,7 @@ export class LibraryProgressService {
     };
   }
 
+  // Refresh collapses concurrent requests into one extra rerun instead of overlapping fetches.
   refresh(): void {
     if (this.loading) {
       this.pendingRefresh = true;
@@ -169,6 +173,7 @@ export class LibraryProgressService {
     });
   }
 
+  // Book duration can come from catalog metadata or from the last persisted player snapshot.
   private resolveDurationSeconds(bookDuration: number | undefined, durationAtSave: number): number {
     const candidate = Number.isFinite(bookDuration) && (bookDuration ?? 0) > 0
       ? Number(bookDuration)

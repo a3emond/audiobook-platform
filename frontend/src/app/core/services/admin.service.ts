@@ -39,13 +39,15 @@ export type {
 } from './admin.types';
 
 @Injectable({ providedIn: 'root' })
-// admin: keeps UI and state logic readable for this frontend unit.
+// AdminService groups backend admin endpoints so admin features can stay thin
+// and mostly declarative.
 export class AdminService {
   constructor(
     private readonly api: ApiService,
     private readonly realtime: RealtimeService,
   ) {}
 
+  // Catalog and dashboard queries.
   listAdminBooks(limit = 20, offset = 0): Observable<ListBooksResponse> {
     return this.api.get<ListBooksResponse>('/admin/books', { params: { limit, offset } });
   }
@@ -58,6 +60,7 @@ export class AdminService {
     return this.api.get<AdminCoverage>('/admin/coverage');
   }
 
+  // Uploads enqueue worker jobs rather than completing synchronously in the request.
   uploadBook(file: File, language: 'fr' | 'en'): Observable<{ jobId: string }> {
     return this.api.postFormData<{ jobId: string }>('/admin/books/upload', buildBookUploadForm(file, language));
   }
@@ -77,6 +80,7 @@ export class AdminService {
     return this.api.get<ListJobsResponse>('/admin/jobs', { params: { limit, offset } });
   }
 
+  // Generic job enqueue remains available for admin actions that are not file uploads.
   enqueueAdminJob(
     type: 'INGEST' | 'INGEST_MP3_AS_M4B' | 'RESCAN' | 'SYNC_TAGS' | 'WRITE_METADATA' | 'EXTRACT_COVER' | 'REPLACE_COVER' | 'DELETE_BOOK' | 'REPLACE_FILE',
     payload: Record<string, unknown>,
@@ -99,6 +103,7 @@ export class AdminService {
     return this.api.get<AdminJob>(`/admin/jobs/${jobId}`);
   }
 
+  // The realtime helper encapsulates websocket-vs-poll fallback logic for job updates.
   startJobsStream(options: {
     onJobs: (jobs: AdminJob[]) => void;
     onConnectionState?: (connected: boolean, mode: 'stream' | 'poll') => void;
@@ -111,6 +116,7 @@ export class AdminService {
     return this.api.get<Book>(`/admin/books/${bookId}`);
   }
 
+  // User and moderation endpoints.
   listUsers(query: { q?: string; role?: 'admin' | 'user'; limit?: number; offset?: number } = {}): Observable<ListAdminUsersResponse> {
     return this.api.get<ListAdminUsersResponse>('/admin/users', {
       params: {
@@ -140,6 +146,7 @@ export class AdminService {
     return this.api.delete<{ revoked: number }>(`/admin/users/${userId}/sessions`);
   }
 
+  // Book maintenance actions typically enqueue worker jobs so they can run outside request timeouts.
   updateBookMetadata(bookId: string, payload: UpdateBookMetadataPayload): Observable<Book> {
     return this.api.patch<Book, UpdateBookMetadataPayload>(`/admin/books/${bookId}/metadata`, payload);
   }
@@ -163,6 +170,7 @@ export class AdminService {
     return this.api.delete<{ queued: boolean; jobId: string }>(`/admin/books/${bookId}`);
   }
 
+  // Log access is parameterized because these lists can grow large quickly.
   getJobLogs(
     jobId: string,
     options?: { limit?: number; offset?: number; level?: 'debug' | 'info' | 'warn' | 'error' },

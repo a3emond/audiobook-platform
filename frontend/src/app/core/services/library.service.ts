@@ -27,10 +27,12 @@ export interface BookFilters {
 export interface SeriesFilters extends BookFilters {}
 
 @Injectable({ providedIn: 'root' })
-// library: keeps UI and state logic readable for this frontend unit.
+// LibraryService mirrors public catalog endpoints and applies a default locale
+// so most callers do not need to pass one explicitly.
 export class LibraryService {
   constructor(private readonly api: ApiService) {}
 
+  // Public catalog queries.
   listBooks(filters: BookFilters = {}): Observable<ListBooksResponse> {
     return this.api.get<ListBooksResponse>('/books', { params: this.withDefaultLanguage(filters) });
   }
@@ -69,6 +71,7 @@ export class LibraryService {
     return this.api.delete<void>(`/collections/${collectionId}`);
   }
 
+  // Locale fallback keeps browsing consistent with the currently selected UI language.
   private withDefaultLanguage<T extends BookFilters>(filters: T): T {
     if (filters.language) {
       return filters;

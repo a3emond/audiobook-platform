@@ -16,17 +16,20 @@ interface ListProgressResponse extends PaginationMeta {
 }
 
 @Injectable({ providedIn: 'root' })
-// progress: keeps UI and state logic readable for this frontend unit.
+// ProgressService wraps reading/writing listening progress and emits a simple
+// invalidation signal for any UI that caches progress-derived state.
 export class ProgressService {
 	private readonly progressChangedSubject = new Subject<void>();
 	readonly progressChanged$ = this.progressChangedSubject.asObservable();
 
 	constructor(private readonly api: ApiService) {}
 
+	// Basic read operations.
 	listMine(limit = 20, offset = 0): Observable<ListProgressResponse> {
 		return this.api.get<ListProgressResponse>('/progress', { params: { limit, offset } });
 	}
 
+	// listMineAll is intentionally iterative so callers do not have to reason about pagination.
 	listMineAll(limit = 100): Observable<Progress[]> {
 		const pageSize = Math.min(100, Math.max(1, Math.floor(limit)));
 
@@ -41,6 +44,7 @@ export class ProgressService {
 		return this.api.get<Progress>(`/progress/${bookId}`);
 	}
 
+	// Any write emits progressChanged$ so library views can refresh without tight coupling.
 	saveForBook(bookId: string, payload: SaveProgressPayload, idempotencyKey: string): Observable<Progress> {
 		return this.api
 			.put<Progress, SaveProgressPayload>(`/progress/${bookId}`, payload, {

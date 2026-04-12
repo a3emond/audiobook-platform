@@ -27,8 +27,10 @@ export interface UploadQueueItem {
 }
 
 @Injectable({ providedIn: 'root' })
-// admin-upload-queue: keeps UI and state logic readable for this frontend unit.
+// AdminUploadQueueService coordinates local upload queue state with backend job
+// creation and job-status tracking.
 export class AdminUploadQueueService {
+	// Queue state is persistent enough to survive refreshes, but file contents remain in memory only.
 	readonly queue = signal<UploadQueueItem[]>([]);
 	readonly loading = signal(false);
 	readonly lastQueuedJobId = signal<string | null>(null);
@@ -43,6 +45,7 @@ export class AdminUploadQueueService {
 		this.loadQueueMetadata();
 	}
 
+	// Only lightweight metadata is restored; File objects themselves cannot be serialized.
 	private loadQueueMetadata(): void {
 		try {
 			const stored = localStorage.getItem(this.storageKey);
@@ -64,6 +67,7 @@ export class AdminUploadQueueService {
 		}
 	}
 
+	// Metadata persistence is best-effort because queue UX should still function in private mode.
 	private saveQueueMetadata(): void {
 		try {
 			localStorage.setItem(
@@ -78,6 +82,7 @@ export class AdminUploadQueueService {
 		}
 	}
 
+	// Files are normalized into queue items immediately so the UI can edit metadata before upload starts.
 	addFiles(files: File[]): void {
 		if (files.length === 0) {
 			return;
@@ -126,6 +131,7 @@ export class AdminUploadQueueService {
 		this.saveQueueMetadata();
 	}
 
+	// Queue processing is serialized because the worker/backend already handles the heavy parallelism.
 	startQueue(): void {
 		if (this.loading()) {
 			return;
@@ -150,6 +156,7 @@ export class AdminUploadQueueService {
 			.filter((job): job is AdminJob => Boolean(job));
 	}
 
+	// Uploads advance recursively so completion/failure handling stays in one place.
 	private uploadQueueItem(index: number): void {
 		const items = this.queue();
 		if (index >= items.length) {
@@ -197,6 +204,7 @@ export class AdminUploadQueueService {
 		this.queue.set(patchQueueItem(this.queue(), index, patch));
 	}
 
+	// Once a backend job exists, realtime tracking becomes the authoritative source of status.
 	private trackJob(jobId: string): void {
 		if (!this.trackedJobIds().includes(jobId)) {
 			this.trackedJobIds.update((ids) => [...ids, jobId]);
@@ -205,6 +213,7 @@ export class AdminUploadQueueService {
 		this.startRealtimeTracking();
 	}
 
+	// Realtime tracking is lazy-started and auto-stops when every tracked job reaches a terminal state.
 	private startRealtimeTracking(): void {
 		if (this.jobsStreamHandle) {
 			return;

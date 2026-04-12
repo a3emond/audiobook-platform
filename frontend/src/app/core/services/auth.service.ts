@@ -18,13 +18,16 @@ interface RefreshResponse {
 }
 
 @Injectable({ providedIn: 'root' })
-// auth: keeps UI and state logic readable for this frontend unit.
+// AuthService is the single source of truth for tokens, current user identity,
+// and session lifecycle in the frontend.
 export class AuthService {
+	// Writable signals stay private so callers cannot mutate auth state directly.
 	private readonly accessTokenState = signal<string | null>(null);
 	private readonly refreshTokenState = signal<string | null>(null);
 	private readonly userState = signal<User | null>(null);
 	private readonly initializedState = signal(false);
 
+	// Public readonly state consumed by guards, layout, and interceptors.
 	readonly user = this.userState.asReadonly();
 	readonly initialized = this.initializedState.asReadonly();
 	readonly isAuthenticated = computed(() => !!this.accessTokenState());
@@ -36,6 +39,7 @@ export class AuthService {
 		return this.accessTokenState();
 	}
 
+	// Init restores a persisted session, then validates it by fetching /auth/me.
 	async init(): Promise<void> {
 		this.loadFromStorage();
 
@@ -58,6 +62,7 @@ export class AuthService {
 		}
 	}
 
+	// Login/register/OAuth all converge on the same token + user bootstrap flow.
 	async login(payload: AuthPayload): Promise<void> {
 		const response = await firstValueFrom(this.api.post<AuthResponse, AuthPayload>('/auth/login', payload));
 		this.applyTokens(this.extractTokens(response));
@@ -92,6 +97,8 @@ export class AuthService {
 		this.clearSession();
 	}
 
+	// Refresh is conservative: if refresh fails, local auth is cleared so callers
+	// do not keep retrying with a broken session.
 	async refresh(): Promise<boolean> {
 		const refreshToken = this.refreshTokenState();
 		if (!refreshToken) {
@@ -121,6 +128,7 @@ export class AuthService {
 		await this.fetchCurrentUser();
 	}
 
+	// Callers may provide a prefetched user when the auth endpoint already returned one.
 	private async fetchCurrentUser(prefetched: User | null = null): Promise<void> {
 		if (prefetched) {
 			this.userState.set(prefetched);
@@ -131,6 +139,7 @@ export class AuthService {
 		this.userState.set(user);
 	}
 
+	// Tokens are mirrored to localStorage because app bootstrap happens before any API call.
 	private applyTokens(tokens: AuthTokens): void {
 		this.accessTokenState.set(tokens.accessToken);
 		this.refreshTokenState.set(tokens.refreshToken);
@@ -149,6 +158,7 @@ export class AuthService {
 		return { accessToken, refreshToken };
 	}
 
+	// Clearing the full session avoids subtle stale-user bugs after auth failures.
 	private clearSession(): void {
 		this.accessTokenState.set(null);
 		this.refreshTokenState.set(null);
@@ -157,6 +167,7 @@ export class AuthService {
 		localStorage.removeItem('auth.refreshToken');
 	}
 
+	// Storage hydration is separate from init() so startup and tests can reuse it.
 	private loadFromStorage(): void {
 		const accessToken = localStorage.getItem('auth.accessToken');
 		const refreshToken = localStorage.getItem('auth.refreshToken');

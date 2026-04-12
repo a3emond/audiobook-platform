@@ -26,14 +26,16 @@ export interface UserStatsResponse {
 }
 
 @Injectable({ providedIn: 'root' })
-// stats: keeps UI and state logic readable for this frontend unit.
+// StatsService wraps listening analytics endpoints used by profile and player flows.
 export class StatsService {
 	constructor(private readonly api: ApiService) {}
 
+	// Aggregate user-facing stats.
 	getMine(): Observable<UserStatsResponse> {
 		return this.api.get<UserStatsResponse>('/stats/me');
 	}
 
+	// Session lists stay paginated because they can become large for active users.
 	listSessions(query: { bookId?: string; limit?: number; offset?: number } = {}): Observable<ListListeningSessionsResponse> {
 		return this.api.get<ListListeningSessionsResponse>('/stats/sessions', {
 			params: {
@@ -44,6 +46,7 @@ export class StatsService {
 		});
 	}
 
+	// PlayerService uses an idempotency key here so pause/end retries do not double-count sessions.
 	createSession(payload: CreateListeningSessionPayload, idempotencyKey: string): Observable<{ id: string }> {
 		return this.api.post<{ id: string }, CreateListeningSessionPayload>('/stats/sessions', payload, {
 			headers: { 'Idempotency-Key': idempotencyKey },

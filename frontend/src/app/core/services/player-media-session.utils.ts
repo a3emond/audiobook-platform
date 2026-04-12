@@ -10,7 +10,7 @@ interface MediaSessionHandlers {
   onNextTrack: () => void;
 }
 
-// Media session utilities: keep browser integration details away from playback business logic.
+// Media session utilities keep browser integration details away from playback business logic.
 export function getMediaSession(): MediaSession | null {
   if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) {
     return null;
@@ -19,6 +19,7 @@ export function getMediaSession(): MediaSession | null {
   return navigator.mediaSession;
 }
 
+// Browsers vary in which actions they support; unsupported handlers may throw.
 export function configureMediaSessionActions(mediaSession: MediaSession | null, handlers: MediaSessionHandlers): void {
   if (!mediaSession) {
     return;
@@ -41,6 +42,7 @@ export function configureMediaSessionActions(mediaSession: MediaSession | null, 
   }
 }
 
+// Metadata updates are separate from position updates because title/artwork changes far less often.
 export function updateMediaSessionMetadata(
   mediaSession: MediaSession | null,
   book: Book | null,
@@ -69,6 +71,7 @@ export function updateMediaSessionMetadata(
   mediaSession.playbackState = paused ? 'paused' : 'playing';
 }
 
+// Position state is best-effort only; some browsers reject transient or incomplete values.
 export function updateMediaSessionPosition(
   mediaSession: MediaSession | null,
   duration: number,

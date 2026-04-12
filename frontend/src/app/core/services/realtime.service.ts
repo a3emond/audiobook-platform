@@ -4,15 +4,18 @@ import { Observable, Subject, filter, map } from 'rxjs';
 import type { RealtimeEventEnvelope } from '../models/api.models';
 
 @Injectable({ providedIn: 'root' })
-// realtime: keeps UI and state logic readable for this frontend unit.
+// RealtimeService exposes a typed event bus on top of a single websocket connection.
 export class RealtimeService {
   private socket: WebSocket | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly eventsSubject = new Subject<RealtimeEventEnvelope>();
 
+  // Consumers subscribe by event type rather than dealing with raw websocket messages.
   readonly events$ = this.eventsSubject.asObservable();
   readonly connected = signal(false);
 
+  // Duplicate connect calls are expected during bootstrap and route changes, so
+  // both OPEN and CONNECTING states are treated as already connected.
   connect(): void {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       return;
@@ -65,6 +68,7 @@ export class RealtimeService {
     }
   }
 
+  // Typed event selection keeps call sites focused on payload shape instead of transport details.
   on<T>(type: string): Observable<T> {
     return this.events$.pipe(
       filter((event) => event.type === type),
@@ -72,6 +76,7 @@ export class RealtimeService {
     );
   }
 
+  // Fire-and-forget semantics are enough here; callers only need to know whether the socket was writable.
   send<T>(type: string, payload: T): boolean {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       return false;
@@ -86,6 +91,7 @@ export class RealtimeService {
     return true;
   }
 
+  // Reconnect is serialized so a burst of close/error events does not create parallel sockets.
   private scheduleReconnect(): void {
     if (this.reconnectTimer) {
       return;

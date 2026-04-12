@@ -16,7 +16,7 @@ declare global {
 }
 
 @Injectable({ providedIn: 'root' })
-// config: keeps UI and state logic readable for this frontend unit.
+// AppConfigService exposes runtime configuration injected by env.js at deploy time.
 export class AppConfigService {
   private readonly env: WindowEnv = window.__env__ ?? {};
 
@@ -44,6 +44,7 @@ export class AppConfigService {
     return this.isProviderEnabledForOrigin(this.env.APPLE_ALLOWED_ORIGINS);
   }
 
+    // OAuth buttons are suppressed unless the current origin is explicitly allowed.
   private isProviderEnabledForOrigin(rawAllowedOrigins: string | undefined): boolean {
     const currentOrigin = window.location.origin;
     const isLocalhost =
