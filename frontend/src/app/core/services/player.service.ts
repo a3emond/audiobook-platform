@@ -13,6 +13,7 @@ import {
 } from './player-media-session.utils';
 import { ProgressService } from './progress.service';
 import { StatsService } from './stats.service';
+import { LibraryService } from './library.service';
 import {
 	chapterStartSeconds,
 	currentChapterIndex,
@@ -63,6 +64,8 @@ export class PlayerService {
 	readonly playbackDeviceId = signal('');
 	readonly listeningDevices = signal<PlaybackDeviceSession[]>([]);
 	readonly activeListeningDeviceId = signal<string | null>(null);
+	readonly remoteBook = signal<Book | null>(null);
+	readonly remoteBookId = signal<string | null>(null);
 	readonly activeListeningDevice = computed<PlaybackDeviceSession | null>(() => {
 		const activeId = this.activeListeningDeviceId();
 		if (!activeId) {
@@ -72,6 +75,18 @@ export class PlayerService {
 		return this.listeningDevices().find((item) => item.deviceId === activeId) ?? null;
 	});
 	readonly activeListeningDeviceLabel = computed(() => this.activeListeningDevice()?.label ?? 'another device');
+	readonly isRemotePlaybackActive = computed(() => {
+		const active = this.activeListeningDevice();
+		if (!active) {
+			return false;
+		}
+
+		if (active.deviceId === this.playbackDeviceId()) {
+			return false;
+		}
+
+		return !active.paused;
+	});
 	readonly shouldShowListeningBadge = computed(() => {
 		const active = this.activeListeningDevice();
 		if (!active) {
@@ -84,6 +99,57 @@ export class PlayerService {
 
 		return !active.paused;
 	});
+	readonly topbarBookId = computed<string | null>(() => {
+		if (this.isRemotePlaybackActive()) {
+			return this.activeListeningDevice()?.currentBookId ?? this.remoteBookId();
+		}
+
+		return this.currentBook()?.id ?? null;
+	});
+	readonly topbarBook = computed<Book | null>(() => {
+		const localBook = this.currentBook();
+		if (!this.isRemotePlaybackActive()) {
+			return localBook;
+		}
+
+		const remoteBookId = this.topbarBookId();
+		if (localBook && remoteBookId && localBook.id === remoteBookId) {
+			return localBook;
+		}
+
+		return this.remoteBook();
+	});
+	readonly topbarTitle = computed(() => this.topbarBook()?.title ?? 'Live playback');
+	readonly topbarCoverUrl = computed(() => {
+		const localBook = this.currentBook();
+		const topbarBookId = this.topbarBookId();
+		if (localBook && topbarBookId && localBook.id === topbarBookId) {
+			return this.coverUrl();
+		}
+
+		const remoteBook = this.remoteBook();
+		if (!remoteBook) {
+			return '';
+		}
+
+		return this.coverUrlForBook(remoteBook);
+	});
+	readonly topbarFallbackInitials = computed(() => {
+		const initials = this.topbarTitle()
+			.split(' ')
+			.filter(Boolean)
+			.slice(0, 2)
+			.map((part) => part[0]?.toUpperCase() ?? '')
+			.join('');
+
+		return initials || 'ON';
+	});
+	readonly shouldShowTopbarPlayer = computed(() => Boolean(this.currentBook()) || this.isRemotePlaybackActive());
+	readonly canControlTopbarPlayback = computed(() => {
+		const current = this.currentBook();
+		const topbarBookId = this.topbarBookId();
+		return Boolean(current && topbarBookId && current.id === topbarBookId);
+	});
 
 	private readonly audio = new Audio();
 	private pendingInitialPosition: number | null = null;
@@ -95,6 +161,7 @@ export class PlayerService {
 	private lastPlayClaimTime = 0;
 	private lastLiveProgressEmitAt = 0;
 	private suppressLiveProgressUntil = 0;
+	private remoteBookFetchRequestId = 0;
 
 	constructor(
 		private readonly api: ApiService,
@@ -102,6 +169,7 @@ export class PlayerService {
 		private readonly realtime: RealtimeService,
 		private readonly progress: ProgressService,
 		private readonly stats: StatsService,
+		private readonly library: LibraryService,
 	) {
 		this.initializePlaybackDevice();
 		this.configureAudioEvents();
@@ -577,6 +645,10 @@ export class PlayerService {
 			});
 
 		this.listeningDevices.set(sorted);
+
+		const nextActive = this.resolveActiveListeningDevice(sorted, presence.deviceId);
+		this.activeListeningDeviceId.set(nextActive?.deviceId ?? ownDeviceId ?? null);
+		this.refreshRemoteBookContext();
 	}
 
 	private pruneStalePlaybackDevices(): void {
@@ -584,6 +656,9 @@ export class PlayerService {
 		const filtered = current.filter((item) => Date.now() - new Date(item.lastSeenAt).getTime() <= 35000);
 		if (filtered.length !== current.length) {
 			this.listeningDevices.set(filtered);
+			const nextActive = this.resolveActiveListeningDevice(filtered);
+			this.activeListeningDeviceId.set(nextActive?.deviceId ?? this.playbackDeviceId() ?? null);
+			this.refreshRemoteBookContext();
 		}
 	}
 
@@ -658,10 +733,104 @@ export class PlayerService {
 
 		this.lastPlayClaimTime = claimTime;
 		this.activeListeningDeviceId.set(claim.deviceId);
+		this.refreshRemoteBookContext(claim.bookId);
 
 		if (claim.deviceId !== ownDeviceId && !this.paused()) {
 			this.pause();
 		}
+	}
+
+	private resolveActiveListeningDevice(
+		devices: PlaybackDeviceSession[],
+		preferredDeviceId?: string,
+	): PlaybackDeviceSession | null {
+		if (devices.length === 0) {
+			return null;
+		}
+
+		const currentActiveId = this.activeListeningDeviceId();
+		const currentActive = currentActiveId
+			? devices.find((item) => item.deviceId === currentActiveId)
+			: undefined;
+		if (currentActive && !currentActive.paused) {
+			return currentActive;
+		}
+
+		const playingDevices = devices.filter((item) => !item.paused);
+		if (playingDevices.length > 0) {
+			if (preferredDeviceId) {
+				const preferred = playingDevices.find((item) => item.deviceId === preferredDeviceId);
+				if (preferred) {
+					return preferred;
+				}
+			}
+
+			return playingDevices[0] ?? null;
+		}
+
+		const ownDeviceId = this.playbackDeviceId();
+		if (ownDeviceId) {
+			const ownDevice = devices.find((item) => item.deviceId === ownDeviceId);
+			if (ownDevice) {
+				return ownDevice;
+			}
+		}
+
+		return devices[0] ?? null;
+	}
+
+	private refreshRemoteBookContext(bookIdFromClaim?: string): void {
+		const active = this.activeListeningDevice();
+		const ownDeviceId = this.playbackDeviceId();
+		if (!active || active.deviceId === ownDeviceId || active.paused) {
+			this.remoteBookId.set(null);
+			this.remoteBook.set(null);
+			return;
+		}
+
+		const bookId = bookIdFromClaim ?? active.currentBookId ?? null;
+		this.remoteBookId.set(bookId);
+		if (!bookId) {
+			this.remoteBook.set(null);
+			return;
+		}
+
+		const localBook = this.currentBook();
+		if (localBook && localBook.id === bookId) {
+			this.remoteBook.set(localBook);
+			return;
+		}
+
+		if (this.remoteBook()?.id === bookId) {
+			return;
+		}
+
+		this.remoteBook.set(null);
+		void this.fetchRemoteBook(bookId);
+	}
+
+	private async fetchRemoteBook(bookId: string): Promise<void> {
+		const requestId = ++this.remoteBookFetchRequestId;
+
+		try {
+			const book = await firstValueFrom(this.library.getBook(bookId));
+			if (requestId !== this.remoteBookFetchRequestId || this.remoteBookId() !== bookId) {
+				return;
+			}
+
+			this.remoteBook.set(book);
+		} catch {
+			// Leave the topbar in badge-only mode if metadata fetch fails.
+		}
+	}
+
+	private coverUrlForBook(book: Book): string {
+		const token = this.auth.accessToken();
+		if (!book.coverPath || !token) {
+			return '';
+		}
+
+		return `/streaming/books/${book.id}/cover?access_token=${encodeURIComponent(token)}`;
 	}
 
 	private browserLabel(): string {
