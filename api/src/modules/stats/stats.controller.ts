@@ -1,3 +1,9 @@
+/**
+ * HTTP controller for listening analytics, session history, and usage reporting.
+ * Controllers in this API are intentionally thin: they translate Express
+ * request data into validated service inputs and choose response status codes,
+ * while the real business rules live below in the service/model layer.
+ */
 import { type Response } from "express";
 
 import type { AuthenticatedRequest } from "../../middlewares/auth.middleware.js";

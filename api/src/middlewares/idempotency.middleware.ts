@@ -1,3 +1,11 @@
+/**
+ * Prevents duplicate processing of retried write requests that carry an
+ * Idempotency-Key header. In this audiobook platform, clients may retry
+ * uploads, progress writes, or admin actions after flaky mobile/network
+ * failures; this middleware makes those retries safe by replaying the first
+ * successful JSON response for the same user + method + path + key instead of
+ * executing the side effect twice.
+ */
 import crypto from "node:crypto";
 import { type Request, type Response, type NextFunction } from "express";
 

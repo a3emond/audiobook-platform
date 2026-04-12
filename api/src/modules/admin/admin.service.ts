@@ -1,3 +1,9 @@
+/**
+ * Core business logic for admin-only book operations, user management, audit visibility, and worker controls.
+ * In this codebase, services are the place where models, validation results,
+ * worker/job coordination, and cross-feature rules come together so controllers
+ * remain small and the domain behavior stays testable and reusable.
+ */
 import { BookModel } from "../books/book.model.js";
 import { CollectionModel } from "../collections/collection.model.js";
 import { JobModel } from "../jobs/job.model.js";

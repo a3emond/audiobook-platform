@@ -1,3 +1,9 @@
+/**
+ * Route registration for playback progress persistence and synchronization.
+ * This is where middleware order becomes explicit: auth, role checks,
+ * validation, and controller binding are composed here so the external HTTP
+ * surface stays readable and reviewable.
+ */
 import { Router } from "express";
 
 import { idempotencyMiddleware } from "../../middlewares/idempotency.middleware.js";

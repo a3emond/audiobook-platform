@@ -1,3 +1,9 @@
+/**
+ * Query-building helpers for audiobook catalog reads and admin-side metadata maintenance.
+ * Filtering and pagination logic lives here so controllers/services do not
+ * duplicate Mongo query construction or drift in how user-facing filters are
+ * interpreted.
+ */
 import type { ListBooksQueryDTO } from "../../dto/book.dto.js";
 import { normalizeTagList } from "../../utils/normalize.js";
 

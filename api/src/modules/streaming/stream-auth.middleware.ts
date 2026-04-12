@@ -1,3 +1,9 @@
+/**
+ * Auth helper specifically for streaming endpoints. Audio tags, cover images,
+ * and browser media elements do not always send the same Authorization header
+ * flow as JSON API calls, so this middleware supports tokenized media access
+ * without weakening protection on private audiobook assets.
+ */
 import { type Request, type Response, type NextFunction } from "express";
 
 import { extractBearerToken, tryVerifyAccessToken } from "../auth/jwt.js";

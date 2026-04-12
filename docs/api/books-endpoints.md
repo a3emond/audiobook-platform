@@ -94,14 +94,14 @@ Query parameters:
 Example:
 
 ```bash
-curl "http://localhost:3000/api/books?q=gatsby&limit=10" \
+curl "http://localhost:3000/api/v1/books?q=gatsby&limit=10" \
   -H "Authorization: Bearer <accessToken>"
 ```
 
 Example with explicit filters:
 
 ```bash
-curl "http://localhost:3000/api/books?title=gatsby&author=fitz&genre=fiction&series=classic" \
+curl "http://localhost:3000/api/v1/books?title=gatsby&author=fitz&genre=fiction&series=classic" \
   -H "Authorization: Bearer <accessToken>"
 ```
 
@@ -134,7 +134,7 @@ Get a single book.
 Example:
 
 ```bash
-curl "http://localhost:3000/api/books/507f1f77bcf86cd799439011" \
+curl "http://localhost:3000/api/v1/books/507f1f77bcf86cd799439011" \
   -H "Authorization: Bearer <accessToken>"
 ```
 
@@ -145,17 +145,18 @@ Common errors:
 
 ## Admin-managed Book Actions
 
-These actions are not exposed under `/api/books`. They are available only under:
+These actions are not exposed under `/api/v1/books`. They are available only under:
 
-- `PATCH /api/admin/books/:bookId/metadata`
-- `PATCH /api/admin/books/:bookId/chapters`
-- `POST /api/admin/books/:bookId/extract-cover`
-- `DELETE /api/admin/books/:bookId`
+- `PATCH /api/v1/admin/books/:bookId/metadata`
+- `PATCH /api/v1/admin/books/:bookId/chapters`
+- `POST /api/v1/admin/books/:bookId/cover`
+- `POST /api/v1/admin/books/:bookId/extract-cover`
+- `DELETE /api/v1/admin/books/:bookId`
 
 ## Typical Client Flow
 
-1. Call `GET /api/books` to show library results.
-2. Call `GET /api/books/:bookId` to display full details.
+1. Call `GET /api/v1/books` to show library results.
+2. Call `GET /api/v1/books/:bookId` to display full details.
 3. For management actions (metadata/chapters/cover/delete), use [Admin API Endpoints](./admin-endpoints.md).
 
 ## Related Docs

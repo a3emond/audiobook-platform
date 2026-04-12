@@ -1,3 +1,9 @@
+/**
+ * Authenticates incoming API requests and attaches the current user context
+ * to req.user. This exists so protected audiobook endpoints can share one
+ * consistent JWT/session gate instead of each controller re-implementing
+ * token parsing, error handling, and user lookup.
+ */
 import { Request, Response, NextFunction } from "express";
 import { extractBearerToken, verifyAccessToken } from "../modules/auth/jwt.js";
 import { ApiError } from "../utils/api-error.js";

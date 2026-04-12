@@ -1,3 +1,9 @@
+/**
+ * Central CORS policy for the API. The platform serves multiple clients
+ * (web frontend, native apps, Electron, local tooling), so origin handling
+ * needs to be deliberate and centralized rather than scattered across route
+ * registration.
+ */
 import cors from "cors";
 
 import { ApiError } from "../utils/api-error.js";

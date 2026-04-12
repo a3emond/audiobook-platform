@@ -1,3 +1,9 @@
+/**
+ * HTTP controller for admin-only book operations, user management, audit visibility, and worker controls.
+ * Controllers in this API are intentionally thin: they translate Express
+ * request data into validated service inputs and choose response status codes,
+ * while the real business rules live below in the service/model layer.
+ */
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";

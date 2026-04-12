@@ -1,3 +1,9 @@
+/**
+ * Core business logic for account authentication, refresh sessions, and OAuth sign-in.
+ * In this codebase, services are the place where models, validation results,
+ * worker/job coordination, and cross-feature rules come together so controllers
+ * remain small and the domain behavior stays testable and reusable.
+ */
 import { OAuth2Client } from "google-auth-library";
 import jwt, { type JwtHeader } from "jsonwebtoken";
 import jwksClient from "jwks-rsa";

@@ -56,7 +56,7 @@ Query parameters:
 Example:
 
 ```bash
-curl "http://localhost:3000/api/progress" \
+curl "http://localhost:3000/api/v1/progress" \
   -H "Authorization: Bearer <accessToken>"
 ```
 
@@ -164,10 +164,10 @@ Common errors:
 ## Typical Client Flow
 
 1. Load library from [Books API Endpoints](./books-endpoints.md).
-2. Load `GET /api/progress` to decorate book cards with resume state.
-3. Call `PUT /api/progress/:bookId` periodically during playback.
-4. Call `POST /api/progress/:bookId/complete` for explicit manual completion.
-5. Call `DELETE /api/progress/:bookId/complete` if the user wants to reopen a completed book.
+2. Load `GET /api/v1/progress` to decorate book cards with resume state.
+3. Call `PUT /api/v1/progress/:bookId` periodically during playback.
+4. Call `POST /api/v1/progress/:bookId/complete` for explicit manual completion.
+5. Call `DELETE /api/v1/progress/:bookId/complete` if the user wants to reopen a completed book.
 
 ## Related Docs
 

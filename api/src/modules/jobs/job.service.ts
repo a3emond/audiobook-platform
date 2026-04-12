@@ -1,3 +1,9 @@
+/**
+ * Core business logic for background job queueing, worker coordination, and job observability.
+ * In this codebase, services are the place where models, validation results,
+ * worker/job coordination, and cross-feature rules come together so controllers
+ * remain small and the domain behavior stays testable and reusable.
+ */
 import {
   JobModel,
   JOB_PRIORITY_DEFAULT,

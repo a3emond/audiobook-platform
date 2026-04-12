@@ -67,6 +67,16 @@ Payload:
 
 - message: discussion message DTO
 
+### discussion.message.deleted
+
+Emitted when an admin deletes a discussion message.
+
+Payload:
+
+- messageId: deleted message ID
+- lang: discussion language
+- channelKey: channel key
+
 ### progress.synced
 
 Emitted when a user's progress is saved from any device/tab.

@@ -83,6 +83,7 @@ Status: strong client-consumption baseline.
 Implemented:
 
 - `GET /streaming/books/:bookId/resume`
+- `GET /streaming/books/:bookId/cover`
 - `HEAD /streaming/books/:bookId/audio`
 - `GET /streaming/books/:bookId/audio`
 
@@ -114,14 +115,15 @@ Implemented (admin-only under `/api/v1/admin`):
   - `GET /api/v1/admin/coverage`
 - books management:
   - `POST /api/v1/admin/books/upload`
-  - `POST /api/v1/admin/books/upload/url` (image URL for cover)
+  - `POST /api/v1/admin/books/upload/mp3`
   - Batch upload support via sequential queue
   - `GET /api/v1/admin/books`
   - `GET /api/v1/admin/books/:bookId`
   - `PATCH /api/v1/admin/books/:bookId/metadata`
   - `PATCH /api/v1/admin/books/:bookId/chapters`
+  - `POST /api/v1/admin/books/:bookId/cover`
   - `POST /api/v1/admin/books/:bookId/extract-cover`
-  - Cover image URL support via `prepareCoverImageFromUrl`
+  - Multipart cover replacement support
   - `DELETE /api/v1/admin/books/:bookId`
 - jobs management:
   - `POST /api/v1/admin/jobs/enqueue`
@@ -129,7 +131,11 @@ Implemented (admin-only under `/api/v1/admin`):
   - `GET /api/v1/admin/jobs`
   - `GET /api/v1/admin/jobs/events`
   - `GET /api/v1/admin/jobs/:jobId`
+  - `GET /api/v1/admin/jobs/:jobId/logs`
   - `DELETE /api/v1/admin/jobs/:jobId`
+  - `GET /api/v1/admin/logs`
+  - `GET /api/v1/admin/worker-settings`
+  - `PATCH /api/v1/admin/worker-settings`
 - users management:
   - `GET /api/v1/admin/users`
   - `GET /api/v1/admin/users/:userId`
@@ -168,10 +174,10 @@ Status: complete for current worker-backed operations.
 
 - Upload, ingest, and publish books from admin app flow: covered.
 - Batch upload queue with per-item language and cover selection: covered.
-- Image URL cover assignment and validation: covered.
+- Cover replacement via multipart upload: covered.
 - Metadata and chapter management: covered.
 - Cover extraction and delete workflows via jobs: covered.
-- Job restart, rerun, and manual parity scan triggers: covered.
+- Direct job enqueueing, live queue monitoring, and scheduled parity/tag sync controls: covered.
 - Queue visibility and cancellation: covered.
 - User role management and session revocation: covered.
 

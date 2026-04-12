@@ -1,3 +1,27 @@
+/**
+ * WebSocket gateway for the audiobook platform's realtime features.
+ *
+ * This backend is still primarily request/response driven, but a few UX flows
+ * benefit from push updates instead of polling from every client:
+ *
+ * - admin job dashboards need near-live status changes while workers progress
+ * - catalog surfaces can react when new books appear
+ * - the web player needs lightweight cross-device playback presence and
+ *   progress handoff so multiple browser tabs/devices stay in sync
+ *
+ * The gateway intentionally uses a hybrid model:
+ *
+ * - explicit in-process domain events are forwarded immediately when available
+ * - short-interval database polling fills gaps for entities that do not yet
+ *   emit dedicated events everywhere in the codebase
+ * - client-originated playback events are strictly whitelisted, validated, and
+ *   re-broadcast so browsers can coordinate playback without opening a broader
+ *   arbitrary message channel into the server
+ *
+ * In other words, this file is the small transport bridge between backend state
+ * changes and connected clients; it is not meant to become a second business
+ * logic layer.
+ */
 import type { Server as HttpServer } from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
 
@@ -9,6 +33,9 @@ import {
   type RealtimeEventEnvelope,
 } from "./realtime.events.js";
 
+/**
+ * Owns the `/ws` WebSocket server lifecycle and fan-out of realtime events.
+ */
 export class RealtimeGateway {
   private wss?: WebSocketServer;
   private pollTimer: ReturnType<typeof setInterval> | null = null;

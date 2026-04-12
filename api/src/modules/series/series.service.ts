@@ -1,3 +1,9 @@
+/**
+ * Core business logic for series-level catalog browsing and grouping.
+ * In this codebase, services are the place where models, validation results,
+ * worker/job coordination, and cross-feature rules come together so controllers
+ * remain small and the domain behavior stays testable and reusable.
+ */
 import type { ListBooksQueryDTO } from "../../dto/book.dto.js";
 import type {
 	SeriesDetailDTO,

@@ -1,3 +1,9 @@
+/**
+ * HTTP controller for account authentication, refresh sessions, and OAuth sign-in.
+ * Controllers in this API are intentionally thin: they translate Express
+ * request data into validated service inputs and choose response status codes,
+ * while the real business rules live below in the service/model layer.
+ */
 import { Request, Response } from "express";
 
 import { AuthService } from "./auth.service.js";

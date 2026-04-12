@@ -52,7 +52,7 @@ Query parameters:
 Example:
 
 ```bash
-curl "http://localhost:3000/api/collections" \
+curl "http://localhost:3000/api/v1/collections" \
   -H "Authorization: Bearer <accessToken>"
 ```
 
@@ -162,9 +162,9 @@ Common errors:
 
 ## Typical Client Flow
 
-1. Load `GET /api/collections` to render user-defined book groupings.
-2. Create new lists with `POST /api/collections`.
-3. Persist reorder or membership changes with `PATCH /api/collections/:collectionId`.
+1. Load `GET /api/v1/collections` to render user-defined book groupings.
+2. Create new lists with `POST /api/v1/collections`.
+3. Persist reorder or membership changes with `PATCH /api/v1/collections/:collectionId`.
 4. Use [Books API Endpoints](./books-endpoints.md) to resolve each `bookId` into display data.
 5. Do not expect app-level series groupings here; those are exposed separately by [Series API Endpoints](./series-endpoints.md).
 

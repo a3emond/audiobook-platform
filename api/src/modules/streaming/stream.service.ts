@@ -1,3 +1,9 @@
+/**
+ * Core business logic for authenticated audio and cover delivery plus resume metadata.
+ * In this codebase, services are the place where models, validation results,
+ * worker/job coordination, and cross-feature rules come together so controllers
+ * remain small and the domain behavior stays testable and reusable.
+ */
 import fs from "node:fs/promises";
 import mongoose from "mongoose";
 

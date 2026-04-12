@@ -1,3 +1,9 @@
+/**
+ * Core business logic for background job queueing, worker coordination, and job observability.
+ * In this codebase, services are the place where models, validation results,
+ * worker/job coordination, and cross-feature rules come together so controllers
+ * remain small and the domain behavior stays testable and reusable.
+ */
 import { ApiError } from "../../utils/api-error.js";
 import { JOB_TYPES, type JobType } from "./job.model.js";
 import { WorkerSettingsModel, type WorkerSettingsDocument } from "./worker-settings.model.js";

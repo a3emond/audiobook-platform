@@ -1,3 +1,9 @@
+/**
+ * Authorization guard for role-based access. After auth has attached the user,
+ * this middleware blocks non-admin callers from routes that mutate catalog,
+ * worker, or user-management state. It keeps permission checks explicit in the
+ * route layer instead of buried in every handler.
+ */
 import { Response, NextFunction } from "express";
 import { ApiError } from "../utils/api-error.js";
 import { type AuthenticatedRequest } from "./auth.middleware.js";

@@ -1,3 +1,9 @@
+/**
+ * Validation and request-shaping for listening analytics, session history, and usage reporting.
+ * This exists so malformed payloads are rejected before they reach business
+ * logic, keeping controller code smaller and making input rules consistent
+ * across every client that talks to the API.
+ */
 import { type Request, type Response, type NextFunction } from "express";
 
 import { ApiError } from "../../utils/api-error.js";

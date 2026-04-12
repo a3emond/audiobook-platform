@@ -10,8 +10,6 @@ The Job Queue API lets clients enqueue long-running background tasks and monitor
 /api/v1/admin/jobs
 ```
 
-Backward-compatible alias: `/api/admin/jobs`
-
 ## Authentication
 
 All job queue endpoints require:
@@ -46,7 +44,7 @@ Heavy jobs are subject to optional time-window scheduling configured in worker s
 
 ### Enqueue Job
 
-**POST** `/api/admin/jobs/enqueue`
+**POST** `/api/v1/admin/jobs/enqueue`
 
 Create and queue a new background job.
 
@@ -105,7 +103,7 @@ Create and queue a new background job.
 
 ### Get Job Status
 
-**GET** `/api/admin/jobs/:jobId`
+**GET** `/api/v1/admin/jobs/:jobId`
 
 #### Response — 200 OK
 
@@ -269,7 +267,7 @@ stateDiagram-v2
 
 ### List Jobs
 
-**GET** `/api/admin/jobs`
+**GET** `/api/v1/admin/jobs`
 
 #### Query Parameters
 
@@ -293,7 +291,7 @@ stateDiagram-v2
 
 ### Get Job Statistics
 
-**GET** `/api/admin/jobs/stats`
+**GET** `/api/v1/admin/jobs/stats`
 
 #### Response — 200 OK
 
@@ -311,7 +309,7 @@ stateDiagram-v2
 
 ### Cancel Job
 
-**DELETE** `/api/admin/jobs/:jobId`
+**DELETE** `/api/v1/admin/jobs/:jobId`
 
 Cancels a `queued` job. Jobs that are already `running`, `done`, or `failed` cannot be cancelled.
 
@@ -332,7 +330,7 @@ Cancels a `queued` job. Jobs that are already `running`, `done`, or `failed` can
 
 ### Get Job Logs
 
-**GET** `/api/admin/jobs/:jobId/logs`
+**GET** `/api/v1/admin/jobs/:jobId/logs`
 
 Returns structured runtime log entries persisted during job execution.
 
@@ -349,13 +347,32 @@ Returns structured runtime log entries persisted during job execution.
 
 ---
 
+### Stream Job Events
+
+**GET** `/api/v1/admin/jobs/events`
+
+Returns a text/event-stream feed of recent job updates for dashboards.
+
+Query parameters:
+
+- `since`: optional ISO timestamp used as the event cursor
+
+Behavior:
+
+- keeps the HTTP connection open using Server-Sent Events
+- emits `jobs` events containing updated jobs
+- emits `heartbeat` events when no updates are available
+- useful for reducing dashboard polling load
+
+---
+
 ### Worker Settings
 
-**GET** `/api/admin/worker-settings`
+**GET** `/api/v1/admin/worker-settings`
 
 Returns the current DB-backed worker scheduling policy.
 
-**PATCH** `/api/admin/worker-settings`
+**PATCH** `/api/v1/admin/worker-settings`
 
 Updates the scheduling policy.
 
@@ -368,7 +385,18 @@ Updates the scheduling policy.
     "heavyJobDelayMs": 0,
     "heavyWindowEnabled": false,
     "heavyWindowStart": "03:00",
-    "heavyWindowEnd": "05:00"
+  "heavyWindowEnd": "05:00",
+  "heavyConcurrency": 1,
+  "fastConcurrency": 0
+  },
+  "parity": {
+    "enabled": true,
+    "intervalMs": 3600000
+  },
+  "taxonomy": {
+    "enabled": true,
+    "intervalMs": 3600000
+  }
   }
 }
 ```
@@ -380,6 +408,12 @@ Updates the scheduling policy.
 | `heavyWindowEnabled` | boolean | If true, heavy jobs only run inside the window |
 | `heavyWindowStart` | string | `HH:MM` server-local time |
 | `heavyWindowEnd` | string | `HH:MM` server-local time. Midnight crossover is supported (e.g. `23:00`–`01:00`) |
+| `heavyConcurrency` | number | Max concurrent slots for the mixed "any" lane |
+| `fastConcurrency` | number | Max concurrent slots for the lightweight "fast" lane |
+| `parity.enabled` | boolean | Enables scheduled RESCAN enqueueing |
+| `parity.intervalMs` | number | Interval between automatic parity scans |
+| `taxonomy.enabled` | boolean | Enables scheduled SYNC_TAGS enqueueing |
+| `taxonomy.intervalMs` | number | Interval between automatic taxonomy sync runs |
 
 Changes propagate to the worker within `WORKER_SETTINGS_REFRESH_MS` (default 15 s).
 

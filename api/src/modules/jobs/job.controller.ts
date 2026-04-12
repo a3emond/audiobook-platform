@@ -1,3 +1,9 @@
+/**
+ * HTTP controller for background job queueing, worker coordination, and job observability.
+ * Controllers in this API are intentionally thin: they translate Express
+ * request data into validated service inputs and choose response status codes,
+ * while the real business rules live below in the service/model layer.
+ */
 import { Request, Response } from "express";
 import { JobService } from "./job.service.js";
 import type { JobType, JobStatus } from "./job.model.js";
@@ -5,7 +11,7 @@ import { ApiError } from "../../utils/api-error.js";
 
 export class JobController {
   /**
-    * POST /api/admin/jobs/enqueue
+    * POST /api/v1/admin/jobs/enqueue
    * Enqueue a new job
    */
   static async enqueueJob(
@@ -59,7 +65,7 @@ export class JobController {
   }
 
   /**
-    * GET /api/admin/jobs/:jobId
+    * GET /api/v1/admin/jobs/:jobId
    * Get job status and details
    */
   static async getJob(
@@ -78,7 +84,7 @@ export class JobController {
   }
 
   /**
-    * GET /api/admin/jobs
+    * GET /api/v1/admin/jobs
    * List jobs with filtering
    */
   static async listJobs(
@@ -152,7 +158,7 @@ export class JobController {
   }
 
   /**
-    * GET /api/admin/jobs/stats
+    * GET /api/v1/admin/jobs/stats
    * Get job queue statistics
    */
   static async getStats(
@@ -165,7 +171,7 @@ export class JobController {
   }
 
   /**
-    * GET /api/admin/jobs/events
+    * GET /api/v1/admin/jobs/events
    * Stream job updates via SSE
    */
   static async streamJobEvents(
@@ -207,7 +213,7 @@ export class JobController {
   }
 
   /**
-    * DELETE /api/admin/jobs/:jobId
+    * DELETE /api/v1/admin/jobs/:jobId
    * Cancel a queued job
    */
   static async cancelJob(
@@ -226,7 +232,7 @@ export class JobController {
   }
 
   /**
-    * GET /api/admin/jobs/:jobId/logs
+    * GET /api/v1/admin/jobs/:jobId/logs
    * Get logs for a specific job with pagination
    */
   static async getJobLogs(
@@ -281,7 +287,7 @@ export class JobController {
   }
 
   /**
-    * GET /api/admin/logs
+    * GET /api/v1/admin/logs
    * Get logs across all jobs with search and filtering
    */
   static async searchLogs(

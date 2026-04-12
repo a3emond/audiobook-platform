@@ -11,7 +11,7 @@ This document describes the complete integration between the API server and the 
 ```mermaid
 graph LR
     Client["Client\n(Web/Mobile)"]
-    API["API Server\n/api/admin"]
+  API["API Server\n/api/v1/admin"]
     DB[("MongoDB")]
     Worker["Worker Service"]
     Settings[("worker_settings")]
@@ -22,7 +22,7 @@ graph LR
     API -->|"insert job"| DB
     Worker -->|"claim / complete job"| DB
     Worker -->|"read scheduling policy"| Settings
-    API -->|"GET/PATCH\n/admin/worker-settings"| Settings
+    API -->|"GET/PATCH\n/api/v1/admin/worker-settings"| Settings
     API -->|"write uploaded file"| Uploads
     Worker -->|"read source"| Uploads
     Worker -->|"write final files"| Library
@@ -152,7 +152,7 @@ sequenceDiagram
     participant DB
     participant Worker
 
-    Admin->>API: POST /admin/books/upload/mp3\n(multipart: file, cover, language, title…)
+    Admin->>API: POST /api/v1/admin/books/upload/mp3\n(multipart: file, cover, language, title…)
     API->>API: Save to /uploads/
     API->>DB: INSERT job {type: INGEST_MP3_AS_M4B, priority: 80}
     API-->>Admin: { jobId }
@@ -186,7 +186,7 @@ sequenceDiagram
 
 Standard path for native M4B/M4A files. Synchronous encode is not required.
 
-1. Admin uploads via `POST /admin/books/upload`
+1. Admin uploads via `POST /api/v1/admin/books/upload`
 2. API enqueues `INGEST` (priority 80)
 3. Worker: probe → checksum → extract metadata → copy → extract cover → update book
 4. Book published with `processingState: "ready"`
@@ -202,7 +202,7 @@ sequenceDiagram
     participant DB
     participant Worker
 
-    Admin->>API: PATCH /admin/worker-settings\n{heavyWindowEnabled: true, heavyWindowStart: "03:00", heavyConcurrency: 1, fastConcurrency: 2}
+    Admin->>API: PATCH /api/v1/admin/worker-settings\n{heavyWindowEnabled: true, heavyWindowStart: "03:00", heavyConcurrency: 1, fastConcurrency: 2}
     API->>DB: findOneAndUpdate worker_settings
     API-->>Admin: updated settings
 
@@ -219,34 +219,35 @@ sequenceDiagram
 
 ```
 # Job queue
-POST   /api/admin/jobs/enqueue          Create job
-GET    /api/admin/jobs                  List (filterable)
-GET    /api/admin/jobs/stats            Queue counters
-GET    /api/admin/jobs/:jobId           Get one job
-DELETE /api/admin/jobs/:jobId           Cancel queued job
-GET    /api/admin/jobs/:jobId/logs      Structured execution logs
-GET    /api/admin/logs                  Recent logs across all jobs
+POST   /api/v1/admin/jobs/enqueue          Create job
+GET    /api/v1/admin/jobs                  List (filterable)
+GET    /api/v1/admin/jobs/stats            Queue counters
+GET    /api/v1/admin/jobs/:jobId           Get one job
+DELETE /api/v1/admin/jobs/:jobId           Cancel queued job
+GET    /api/v1/admin/jobs/:jobId/logs      Structured execution logs
+GET    /api/v1/admin/logs                  Recent logs across all jobs
 
 # Worker settings
-GET    /api/admin/worker-settings       Read scheduling policy
-PATCH  /api/admin/worker-settings       Update scheduling policy
+GET    /api/v1/admin/worker-settings       Read scheduling policy
+PATCH  /api/v1/admin/worker-settings       Update scheduling policy
 
 # Books
-POST   /api/admin/books/upload          Upload M4B/M4A
-POST   /api/admin/books/upload/mp3      Upload MP3 (fast-publish)
-GET    /api/admin/books                 List books
-GET    /api/admin/books/:bookId
-PATCH  /api/admin/books/:bookId/metadata
-PATCH  /api/admin/books/:bookId/chapters
-POST   /api/admin/books/:bookId/extract-cover
-DELETE /api/admin/books/:bookId
+POST   /api/v1/admin/books/upload          Upload M4B/M4A
+POST   /api/v1/admin/books/upload/mp3      Upload MP3 (fast-publish)
+POST   /api/v1/admin/books/:bookId/cover   Replace cover via multipart upload
+GET    /api/v1/admin/books                 List books
+GET    /api/v1/admin/books/:bookId
+PATCH  /api/v1/admin/books/:bookId/metadata
+PATCH  /api/v1/admin/books/:bookId/chapters
+POST   /api/v1/admin/books/:bookId/extract-cover
+DELETE /api/v1/admin/books/:bookId
 
 # Users / sessions
-GET    /api/admin/users
-GET    /api/admin/users/:userId
-PATCH  /api/admin/users/:userId/role
-GET    /api/admin/users/:userId/sessions
-DELETE /api/admin/users/:userId/sessions
+GET    /api/v1/admin/users
+GET    /api/v1/admin/users/:userId
+PATCH  /api/v1/admin/users/:userId/role
+GET    /api/v1/admin/users/:userId/sessions
+DELETE /api/v1/admin/users/:userId/sessions
 ```
 
 ---
@@ -325,16 +326,16 @@ db.jobs.updateOne(
 
 ```bash
 # Queue stats
-curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/admin/jobs/stats
+curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/v1/admin/jobs/stats
 
 # Failed jobs
-curl -H "Authorization: Bearer $TOKEN" "http://localhost:3000/api/admin/jobs?status=failed&limit=20"
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:3000/api/v1/admin/jobs?status=failed&limit=20"
 
 # Worker logs
 docker logs audiobook-worker --tail=100
 
 # Job execution logs (per-job)
-curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/admin/jobs/$JOB_ID/logs
+curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/v1/admin/jobs/$JOB_ID/logs
 ```
 
 ### Scale Throughput

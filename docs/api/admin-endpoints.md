@@ -341,7 +341,6 @@ Get current worker queue configuration.
 
 ```json
 {
-  "key": "worker",
   "queue": {
     "heavyJobTypes": ["SANITIZE_MP3_TO_M4B", "REPLACE_FILE"],
     "heavyJobDelayMs": 0,
@@ -350,6 +349,14 @@ Get current worker queue configuration.
     "heavyWindowEnd": "05:00",
     "heavyConcurrency": 2,
     "fastConcurrency": 4
+  },
+  "parity": {
+    "enabled": true,
+    "intervalMs": 3600000
+  },
+  "taxonomy": {
+    "enabled": true,
+    "intervalMs": 3600000
   }
 }
 ```
@@ -362,6 +369,8 @@ Get current worker queue configuration.
 - `heavyWindowStart`/`heavyWindowEnd`: time window in HH:MM format (midnight crossover supported)
 - `heavyConcurrency`: max concurrent jobs on "any" lane
 - `fastConcurrency`: max concurrent jobs on "fast" lane (excludes heavy jobs)
+- `parity.enabled` / `parity.intervalMs`: scheduled RESCAN policy
+- `taxonomy.enabled` / `taxonomy.intervalMs`: scheduled SYNC_TAGS policy
 
 ---
 
@@ -381,6 +390,14 @@ Update worker queue configuration.
     "heavyWindowEnd": "05:00",
     "heavyConcurrency": 2,
     "fastConcurrency": 4
+  },
+  "parity": {
+    "enabled": true,
+    "intervalMs": 3600000
+  },
+  "taxonomy": {
+    "enabled": true,
+    "intervalMs": 3600000
   }
 }
 ```
@@ -403,9 +420,11 @@ Quick summary:
 - `POST /api/v1/admin/jobs/enqueue` - Create and queue a job
 - `GET /api/v1/admin/jobs` - List jobs with filters
 - `GET /api/v1/admin/jobs/stats` - Get queue statistics
+- `GET /api/v1/admin/jobs/events` - Stream live job updates via SSE
 - `GET /api/v1/admin/jobs/:jobId` - Get job details and status
 - `GET /api/v1/admin/jobs/:jobId/logs` - Get job execution logs
 - `DELETE /api/v1/admin/jobs/:jobId` - Cancel a queued job
+- `GET /api/v1/admin/logs` - Search logs across jobs
 
 ---
 

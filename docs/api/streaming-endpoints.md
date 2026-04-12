@@ -40,6 +40,32 @@ Response:
 }
 ```
 
+### GET /books/:bookId/cover
+
+Return the current book cover image.
+
+Behavior:
+- resolves the cover file from the book record
+- returns the image body directly
+- supports cache validation through `ETag` and `Last-Modified`
+- may return `304 Not Modified` when validators match
+
+Common errors:
+- `400` `book_invalid_id`
+- `401` `missing_token`
+- `404` `book_not_found`
+- `404` `stream_cover_not_found`
+
+### HEAD /books/:bookId/audio
+
+Return audio headers without the response body.
+
+Behavior:
+- resolves the current audio file for the book
+- returns `Content-Length`, `Content-Type`, and `Accept-Ranges`
+- supports cache validation through `ETag` and `Last-Modified`
+- may return `304 Not Modified` when validators match
+
 ### GET /books/:bookId/audio
 
 Stream the audiobook file for a book.

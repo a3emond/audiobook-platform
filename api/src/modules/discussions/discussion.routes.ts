@@ -1,3 +1,9 @@
+/**
+ * Route registration for community discussion channels and threaded messages.
+ * This is where middleware order becomes explicit: auth, role checks,
+ * validation, and controller binding are composed here so the external HTTP
+ * surface stays readable and reviewable.
+ */
 import { Router } from "express";
 
 import { DiscussionController } from "./discussion.controller.js";

@@ -1,3 +1,10 @@
+/**
+ * Lightweight in-memory rate limiting for abuse-prone endpoints. The API uses
+ * this to protect authentication flows and general traffic from accidental or
+ * malicious bursts without forcing every route to know about throttling rules.
+ * For this project, the goal is pragmatic protection rather than distributed,
+ * cross-instance enforcement.
+ */
 import { type Request, type Response, type NextFunction } from "express";
 
 import { ApiError } from "../utils/api-error.js";

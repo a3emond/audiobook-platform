@@ -1,3 +1,9 @@
+/**
+ * HTTP controller for background job queueing, worker coordination, and job observability.
+ * Controllers in this API are intentionally thin: they translate Express
+ * request data into validated service inputs and choose response status codes,
+ * while the real business rules live below in the service/model layer.
+ */
 import { Request, Response } from "express";
 
 import { WorkerSettingsService } from "./worker-settings.service.js";

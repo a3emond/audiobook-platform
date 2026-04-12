@@ -1,3 +1,9 @@
+/**
+ * Validation and request-shaping for account authentication, refresh sessions, and OAuth sign-in.
+ * This exists so malformed payloads are rejected before they reach business
+ * logic, keeping controller code smaller and making input rules consistent
+ * across every client that talks to the API.
+ */
 import { Request, Response, NextFunction } from "express";
 
 import { ApiError } from "../../utils/api-error.js";

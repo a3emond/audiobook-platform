@@ -2,227 +2,137 @@
 
 ------
 
-# 0. File Tree (planned)
+# 0. File Tree (current)
 ```text
 audiobook-platform/
 ├── docker-compose.yml
-├── .env
-├── .env.example
-├── .gitignore
 ├── README.md
-│
-├── infra/
-│   └── nginx/
-│       ├── default.conf
-│       └── Dockerfile
-│
 ├── api/
 │   ├── Dockerfile
 │   ├── package.json
-│   ├── tsconfig.json
-│   ├── .env
-│   ├── .env.example
-│   ├── src/
-│   │   ├── server.ts
-│   │   ├── app.ts
-│   │   │
-│   │   ├── config/
-│   │   │   ├── env.ts
-│   │   │   ├── db.ts
-│   │   │   └── logger.ts
-│   │   │
-│   │   ├── dto/                     # NEW (04-04-2026)
-│   │   │   ├── admin.dto.ts
-│   │   │   ├── auth.dto.ts
-│   │   │   ├── user.dto.ts
-│   │   │   ├── book.dto.ts
-│   │   │   ├── progress.dto.ts
-│   │   │   ├── settings.dto.ts
-│   │   │   ├── stats.dto.ts
-│   │   │   ├── collection.dto.ts
-│   │   │   ├── job.dto.ts
-│   │   │   └── session.dto.ts
-│   │   │
-│   │   ├── modules/
-│   │   │   ├── auth/
-│   │   │   │   ├── auth.controller.ts
-│   │   │   │   ├── auth.service.ts
-│   │   │   │   ├── auth.routes.ts
-│   │   │   │   ├── auth.middleware.ts
-│   │   │   │   └── jwt.ts
-│   │   │   │
-│   │   │   ├── users/
-│   │   │   │   ├── user.model.ts
-│   │   │   │   └── user.service.ts
-│   │   │   │
-│   │   │   ├── books/
-│   │   │   │   ├── book.model.ts
-│   │   │   │   ├── book.controller.ts
-│   │   │   │   ├── book.service.ts
-│   │   │   │   └── book.routes.ts
-│   │   │   │
-│   │   │   ├── streaming/
-│   │   │   │   ├── stream.controller.ts
-│   │   │   │   └── stream.service.ts
-│   │   │   │
-│   │   │   ├── progress/
-│   │   │   │   ├── progress.model.ts
-│   │   │   │   ├── progress.controller.ts
-│   │   │   │   ├── progress.service.ts
-│   │   │   │   └── progress.routes.ts
-│   │   │   │
-│   │   │   ├── settings/
-│   │   │   │   ├── settings.model.ts
-│   │   │   │   ├── settings.controller.ts
-│   │   │   │   ├── settings.service.ts
-│   │   │   │   └── settings.routes.ts
-│   │   │   │
-│   │   │   ├── stats/
-│   │   │   │   ├── stats.model.ts
-│   │   │   │   ├── listening-session.model.ts
-│   │   │   │   ├── stats.controller.ts
-│   │   │   │   ├── stats.service.ts
-│   │   │   │   └── stats.routes.ts
-│   │   │   │
-│   │   │   ├── collections/
-│   │   │   │   ├── collection.model.ts
-│   │   │   │   ├── collection.controller.ts
-│   │   │   │   ├── collection.service.ts
-│   │   │   │   └── collection.routes.ts
-│   │   │   │
-│   │   │   ├── admin/
-│   │   │   │   ├── admin.controller.ts
-│   │   │   │   ├── admin.service.ts
-│   │   │   │   └── admin.routes.ts
-│   │   │   │
-│   │   │   └── jobs/
-│   │   │       ├── job.model.ts
-│   │   │       ├── job.service.ts
-│   │   │       └── job.routes.ts
-│   │   │
-│   │   ├── services/
-│   │   │   ├── ingest.service.ts
-│   │   │   ├── metadata.service.ts
-│   │   │   ├── ffmpeg.service.ts
-│   │   │   ├── cover.service.ts
-│   │   │   ├── chapter.service.ts
-│   │   │   └── file.service.ts
-│   │   │
-│   │   ├── utils/
-│   │   │   ├── checksum.ts
-│   │   │   ├── time.ts
-│   │   │   └── validation.ts
-│   │   │
-│   │   └── middlewares/
-│   │       ├── error.middleware.ts
-│   │       ├── auth.middleware.ts
-│   │       └── cors.middleware.ts
-│   │
-│   └── tests/
-│       └── api.test.ts
-│
+│   └── src/
+│       ├── app.ts
+│       ├── server.ts
+│       ├── bootstrap/
+│       ├── config/
+│       ├── dto/
+│       │   ├── admin.dto.ts
+│       │   ├── auth.dto.ts
+│       │   ├── book.dto.ts
+│       │   ├── collection.dto.ts
+│       │   ├── common.dto.ts
+│       │   ├── discussion.dto.ts
+│       │   ├── job.dto.ts
+│       │   ├── progress.dto.ts
+│       │   ├── series.dto.ts
+│       │   ├── session.dto.ts
+│       │   ├── settings.dto.ts
+│       │   ├── stats.dto.ts
+│       │   └── user.dto.ts
+│       ├── middlewares/
+│       │   ├── auth.middleware.ts
+│       │   ├── cors.middleware.ts
+│       │   ├── error.middleware.ts
+│       │   ├── idempotency.middleware.ts
+│       │   ├── rate-limit.middleware.ts
+│       │   └── role.middleware.ts
+│       ├── modules/
+│       │   ├── admin/
+│       │   ├── auth/
+│       │   ├── books/
+│       │   ├── collections/
+│       │   ├── discussions/
+│       │   ├── jobs/
+│       │   ├── progress/
+│       │   ├── series/
+│       │   ├── settings/
+│       │   ├── stats/
+│       │   ├── streaming/
+│       │   └── users/
+│       ├── realtime/
+│       │   ├── realtime.events.ts
+│       │   └── realtime.gateway.ts
+│       ├── services/
+│       │   ├── chapter.service.ts
+│       │   ├── cover.service.ts
+│       │   ├── ffmpeg.service.ts
+│       │   ├── file.service.ts
+│       │   ├── ingest.service.ts
+│       │   └── metadata.service.ts
+│       └── utils/
 ├── worker/
 │   ├── Dockerfile
 │   ├── package.json
-│   ├── tsconfig.json
-│   ├── src/
-│   │   ├── worker.ts
-│   │   ├── queue/
-│   │   │   ├── job.processor.ts
-│   │   │   ├── job.runner.ts
-│   │   │   └── job.types.ts
-│   │   │
-│   │   ├── jobs/
-│   │   │   ├── ingest.job.ts
-│   │   │   ├── rescan.job.ts
-│   │   │   ├── write-metadata.job.ts
-│   │   │   ├── extract-cover.job.ts
-│   │   │   ├── replace-file.job.ts
-│   │   │   └── delete-book.job.ts
-│   │   │
-│   │   ├── services/
-│   │   │   ├── ffmpeg.service.ts
-│   │   │   ├── file.service.ts
-│   │   │   ├── metadata.service.ts
-│   │   │   └── checksum.service.ts
-│   │   │
-│   │   └── utils/
-│   │       └── atomic-write.ts
-│
+│   └── src/
+│       ├── worker.ts
+│       ├── jobs/
+│       │   ├── delete-book.job.ts
+│       │   ├── extract-cover.job.ts
+│       │   ├── ingest-mp3-as-m4b.job.ts
+│       │   ├── ingest.job.ts
+│       │   ├── replace-cover.job.ts
+│       │   ├── replace-file.job.ts
+│       │   ├── rescan.job.ts
+│       │   ├── sanitize-mp3.job.ts
+│       │   ├── sync-tags.job.ts
+│       │   └── write-metadata.job.ts
+│       ├── queue/
+│       ├── services/
+│       │   ├── checksum.service.ts
+│       │   ├── ffmpeg.service.ts
+│       │   ├── file.service.ts
+│       │   ├── metadata.service.ts
+│       │   ├── mp3-metadata.service.ts
+│       │   ├── parity-scheduler.service.ts
+│       │   ├── tag-sync-scheduler.service.ts
+│       │   └── worker-settings.service.ts
+│       └── utils/
 ├── ffmpeg/
 │   ├── Dockerfile
 │   ├── scripts/
-│   │   ├── extract-metadata.sh
-│   │   ├── extract-cover.sh
-│   │   ├── write-metadata.sh
-│   │   ├── write-chapters.sh
-│   │   └── probe-duration.sh
 │   └── templates/
-│       └── ffmetadata.template.txt
-│
-└── frontend/
-    ├── package.json
-    ├── angular.json
-    ├── tsconfig.json
-    └── src/
-        ├── main.ts
-        ├── index.html
-        ├── styles.css
-        │
-        ├── app/
-        │   ├── app.routes.ts
-        │   ├── app.config.ts
-        │   │
-        │   ├── core/
-        │   │   ├── services/
-        │   │   │   ├── api.service.ts
-        │   │   │   ├── auth.service.ts
-        │   │   │   ├── player.service.ts
-        │   │   │   ├── progress.service.ts
-        │   │   │   ├── settings.service.ts
-        │   │   │   ├── stats.service.ts
-        │   │   │   └── i18n.service.ts
-        │   │   │
-        │   │   └── guards/
-        │   │       └── auth.guard.ts
-        │   │
-        │   ├── features/
-        │   │   ├── library/
-        │   │   │   ├── library.page.ts
-        │   │   │   ├── book-card.ts
-        │   │   │   └── collection-card.ts
-        │   │   │
-        │   │   ├── player/
-        │   │   │   ├── player.page.ts
-        │   │   │   ├── controls.ts
-        │   │   │   └── chapter-list.ts
-        │   │   │
-        │   │   ├── profile/
-        │   │   │   └── profile.page.ts
-        │   │   │
-        │   │   ├── legal/
-        │   │   │   ├── privacy.page.ts
-        │   │   │   └── terms.page.ts
-        │   │   │
-        │   │   └── admin/
-        │   │       ├── admin-books.page.ts
-        │   │       ├── admin-edit.page.ts
-        │   │       ├── admin-upload.page.ts
-        │   │       └── admin-jobs.page.ts
-        │   │
-        │   └── shared/
-        │       ├── ui/
-        │       │   ├── button.ts
-        │       │   ├── modal.ts
-        │       │   └── slider.ts
-        │       │
-        │       └── pipes/
-        │           └── duration.pipe.ts
-        │
-        └── assets/
-            └── i18n/
-                ├── en.json
-                └── fr.json
+├── frontend/
+│   ├── angular.json
+│   ├── package.json
+│   └── src/
+│       └── app/
+│           ├── app.routes.ts
+│           ├── core/
+│           │   ├── guards/
+│           │   └── services/
+│           │       ├── admin-upload-queue.service.ts
+│           │       ├── admin.service.ts
+│           │       ├── api.service.ts
+│           │       ├── auth.service.ts
+│           │       ├── completed-books.service.ts
+│           │       ├── config.service.ts
+│           │       ├── discussion.service.ts
+│           │       ├── i18n.service.ts
+│           │       ├── library-progress.service.ts
+│           │       ├── library.service.ts
+│           │       ├── player.service.ts
+│           │       ├── progress.service.ts
+│           │       ├── realtime.service.ts
+│           │       ├── settings.service.ts
+│           │       └── stats.service.ts
+│           ├── features/
+│           │   ├── admin/
+│           │   ├── auth/
+│           │   ├── discussions/
+│           │   ├── history/
+│           │   ├── legal/
+│           │   ├── library/
+│           │   ├── player/
+│           │   ├── profile/
+│           │   └── stats/
+│           └── shared/
+├── infra/
+│   └── nginx/
+└── docs/
+  ├── api/
+  ├── ffmpeg/
+  ├── platform/
+  └── worker/
 ```
 
 ```mermaid
@@ -265,7 +175,7 @@ subgraph HOME["Home Network (LAN)"]
             subgraph APP_NET["app_net (isolated internal network)"]
 
                 %% nginx
-                NGINX["nginx container :80 (exposed as 8100 on host) - serves Angular - routes /api & /stream"]
+                NGINX["nginx container :80 (exposed as 8100 on host) - serves Angular - routes /api, /stream, and /ws"]
 
                 %% api
                 API["API container Node + Express :3000 (internal only)"]
@@ -277,7 +187,7 @@ subgraph HOME["Home Network (LAN)"]
                 WORKER["Worker (background jobs)"]
 
                 %% internal flows
-                NGINX <--> |"/api/* and /stream/* → port 3000"| API
+                NGINX <--> |"/api/*, /streaming/*, and WebSocket /ws → port 3000"| API
                 API <--> |"Mongo connection :27017"| DB
                 WORKER <--> |"Mongo access"| DB
             end
@@ -297,6 +207,7 @@ NAT <--> |"Forward 80/443 → server"| APACHE_NODE
 APACHE_NODE <--> |"Proxy → http://127.0.0.1:8100"| NGINX
 
 NGINX <--> |"/ (Angular static files)"| CLIENT
+CLIENT <--> |"WSS /ws (upgrade over HTTPS :443)"| DOMAIN
 ```
 
 
@@ -331,8 +242,16 @@ NGINX <--> |"/ (Angular static files)"| CLIENT
 
 - UI reads database-backed API only
 - Streaming reads filesystem via DB lookup
+- Realtime UI updates use a same-origin WebSocket connection at `/ws`
+- WebSocket transport carries push events only; durable state still lives in DB-backed API endpoints
 - File mutations happen only through controlled jobs
 - No direct manual mutation path from UI to file system internals
+
+Notes:
+
+- the canonical REST base is `/api/v1`
+- streaming endpoints are mounted separately at `/streaming`
+- nginx still contains a `/stream/` compatibility proxy location, but the implemented API routes live under `/streaming`
 
 ## Write model
 
@@ -347,6 +266,7 @@ NGINX <--> |"/ (Angular static files)"| CLIENT
 ## Backend
 
 - Node.js + Express
+- WebSocket server layered onto the same HTTP server for realtime fan-out
 - MongoDB
 - ffmpeg and ffprobe
 - Worker processes for ingestion and file rewrite jobs
@@ -392,14 +312,141 @@ Rules:
 ## Services
 
 - `frontend` — Angular app served by nginx
-- `api` — Express API for auth, library, progress, settings, stats, admin actions, streaming
+- `api` — Express API for auth, library, progress, settings, stats, admin actions, streaming, and realtime WebSocket events
 - `db` — MongoDB
 - `worker` — background job processor
+
+Worker runtime details:
+
+- one job runner consumes queued jobs from Mongo-backed state
+- parity and tag-sync schedulers run alongside the main job runner in the worker process
 
 ## Networks
 
 - Internal application network only
 - DB not exposed publicly
+- WebSocket traffic enters through the same public HTTPS entrypoint and is proxied internally to the API container
+
+## Realtime transport
+
+- Browser clients connect to `wss://<domain>/ws`
+- Apache terminates TLS and preserves HTTP upgrade headers
+- nginx forwards the upgraded `/ws` connection to the API container
+- the API hosts the WebSocket gateway on the same Node process as the REST API
+- server-originated events include job-state changes, catalog insertions, and other UI refresh signals
+- client-originated events are restricted to validated playback coordination messages such as presence, playback claims, and progress sync
+- realtime is advisory transport, not the source of truth: reconnecting clients must always recover state from normal API endpoints
+
+Current server-originated event examples:
+
+- `job.state.changed`
+- `catalog.book.added`
+- `system.connected`
+
+Current client-originated event examples:
+
+- `playback.session.presence`
+- `playback.claim`
+- `playback.progress`
+
+## WebSocket deployment model
+
+This project does **not** run a separate websocket microservice.
+
+The realtime server is currently:
+
+- the same Node.js process as the REST API
+- inside the same `api` Docker container
+- listening on the same internal port (`3000`)
+- attached to the same HTTP server instance used by Express
+
+Concretely, the startup path is:
+
+```text
+api/src/server.ts
+→ createApp()
+→ createServer(app)
+→ new RealtimeGateway()
+→ realtime.start(server)
+→ server.listen(env.port)
+```
+
+That means `/api/v1/*`, `/streaming/*`, and `/ws` are all ultimately served by the same backend service.
+There is no dedicated websocket container, no second Node port, and no separate realtime network segment.
+
+## Exact websocket network path
+
+For a browser websocket connection, the request path is:
+
+```text
+Browser
+→ wss://audio.aedev.pro/ws
+→ public DNS
+→ router/NAT on 443
+→ Apache on the host machine (TLS termination)
+→ nginx container on 127.0.0.1:8100
+→ location /ws
+→ proxy_pass http://api:3000/ws
+→ API container
+→ Node HTTP server
+→ RealtimeGateway attached to that server
+```
+
+Important implications:
+
+- the browser only sees one public origin
+- websocket traffic does not bypass nginx or Apache
+- the API container is still internal-only on `app_net`
+- only nginx is exposed to the host in Docker Compose
+- websocket upgrade headers must survive Apache and nginx forwarding unchanged
+
+## What actually handles the websocket upgrade
+
+The upgrade is handled in two layers:
+
+1. Reverse proxies:
+Apache forwards the HTTPS request to nginx.
+nginx detects `/ws`, sets `Upgrade` and `Connection: upgrade`, and proxies to `http://api:3000/ws`.
+
+2. Node API server:
+`server.ts` creates a single `http.Server` for Express.
+`RealtimeGateway.start(server)` attaches a `WebSocketServer` from `ws` with `path: "/ws"` to that same server.
+
+This is why the correct architectural description is:
+
+- REST API and websocket server are the same backend service
+- websocket is an additional transport exposed by the API, not its own subsystem at deployment level
+
+## What the websocket layer is responsible for
+
+The realtime gateway is intentionally narrow in scope. It currently provides:
+
+- fan-out of server-side events such as job status changes and new book insertions
+- playback-session coordination between browser clients
+- lightweight progress synchronization signals between active clients
+- connection lifecycle signaling such as `system.connected`
+
+It does **not** replace the normal API.
+Clients still need the REST endpoints for authoritative reads, auth, persistence, and recovery after reconnect.
+
+## How events are produced today
+
+The gateway uses a hybrid strategy rather than a full event bus service:
+
+- in-process realtime events are subscribed through `realtime.events.ts`
+- a polling loop fills gaps for database-backed changes that are not yet emitted everywhere as domain events
+- client messages are accepted only for a small whitelist of playback-related event types
+
+This keeps realtime simple for the current single-API-instance deployment.
+
+## Current architectural consequence
+
+Because websocket clients and realtime listeners are stored in-process inside the API container, the current design is best described as:
+
+- a single API service that also happens to provide realtime capabilities
+- suitable for the current deployment model where one API instance is the expected runtime shape
+
+If the platform were later scaled to multiple API instances, websocket fan-out and in-process event delivery would need an external pub/sub layer to stay consistent across instances.
 
 ## Mounts and volumes
 
@@ -647,9 +694,13 @@ Purpose:
 Job types:
 
 - `INGEST`
+- `INGEST_MP3_AS_M4B`
+- `SANITIZE_MP3_TO_M4B`
 - `RESCAN`
+- `SYNC_TAGS`
 - `WRITE_METADATA`
 - `EXTRACT_COVER`
+- `REPLACE_COVER`
 - `DELETE_BOOK`
 - `REPLACE_FILE`
 
@@ -657,6 +708,7 @@ Job statuses:
 
 - `queued`
 - `running`
+- `retrying`
 - `done`
 - `failed`
 
@@ -667,7 +719,7 @@ Job statuses:
 ## Auth model
 
 - JWT access token for authenticated API calls
-- Optional refresh token support later
+- Refresh token rotation for long-lived authenticated sessions
 - Passwords stored as hashes only
 
 ## Permissions
@@ -806,7 +858,10 @@ Benefits:
 
 ## Endpoint
 
-- `GET /stream/:bookId`
+- `HEAD /streaming/books/:bookId/audio`
+- `GET /streaming/books/:bookId/audio`
+- `GET /streaming/books/:bookId/cover`
+- `GET /streaming/books/:bookId/resume`
 
 ## Requirements
 
@@ -1240,49 +1295,97 @@ Base path: `/api/v1`
 
 ## Books
 
-- `GET /api/books`
-- `GET /api/books/:id`
-- `GET /api/books/:id/chapters`
+- `GET /api/v1/books`
+- `GET /api/v1/books/:bookId`
 
 ## Collections
 
-- `GET /api/collections`
-- `GET /api/collections/:id`
+- `GET /api/v1/collections`
+- `POST /api/v1/collections`
+- `GET /api/v1/collections/:collectionId`
+- `PATCH /api/v1/collections/:collectionId`
+- `DELETE /api/v1/collections/:collectionId`
+
+## Series
+
+- `GET /api/v1/series`
+- `GET /api/v1/series/:seriesName`
 
 ## Progress
 
-- `GET /api/progress/:bookId`
-- `POST /api/progress/:bookId`
-- `POST /api/progress/:bookId/complete`
-- `POST /api/progress/:bookId/uncomplete`
-- `POST /api/progress/:bookId/reset`
+- `GET /api/v1/progress`
+- `GET /api/v1/progress/:bookId`
+- `PUT /api/v1/progress/:bookId`
+- `POST /api/v1/progress/:bookId/complete`
+- `DELETE /api/v1/progress/:bookId/complete`
 
 ## User settings
 
-- `GET /api/me/settings`
-- `PATCH /api/me/settings`
+- `GET /api/v1/settings`
+- `PATCH /api/v1/settings`
 
 ## User stats
 
-- `GET /api/me/stats`
-- `GET /api/me/history`
+- `GET /api/v1/stats/me`
+- `GET /api/v1/stats/sessions`
+- `POST /api/v1/stats/sessions`
+
+## Users
+
+- `GET /api/v1/users/me`
+- `PATCH /api/v1/users/me`
+
+## Discussions
+
+- `GET /api/v1/discussions/channels`
+- `POST /api/v1/discussions/channels`
+- `DELETE /api/v1/discussions/:lang/:channelKey`
+- `GET /api/v1/discussions/:lang/:channelKey/messages`
+- `POST /api/v1/discussions/:lang/:channelKey/messages`
+- `DELETE /api/v1/discussions/:lang/:channelKey/messages/:messageId`
 
 ## Streaming
 
-- `GET /stream/:bookId`
+- `HEAD /streaming/books/:bookId/audio`
+- `GET /streaming/books/:bookId/audio`
+- `GET /streaming/books/:bookId/cover`
+- `GET /streaming/books/:bookId/resume`
+
+## Realtime
+
+- `GET /ws` as WebSocket upgrade endpoint
+- server pushes events such as `job.state.changed`, `catalog.book.added`, and connection lifecycle messages
+- clients may send validated playback coordination events such as `playback.session.presence`, `playback.claim`, and `playback.progress`
+- gateway may rebroadcast normalized events such as `playback.claimed` and `progress.synced`
 
 ## Admin
 
-- `POST /api/admin/books/upload`
-- `PATCH /api/admin/books/:id`
-- `PATCH /api/admin/books/:id/chapters`
-- `POST /api/admin/books/:id/cover`
-- `POST /api/admin/books/:id/apply-to-file`
-- `POST /api/admin/books/:id/rescan`
-- `DELETE /api/admin/books/:id`
-- `GET /api/admin/jobs`
-- `GET /api/admin/jobs/:id`
-- `GET /api/admin/stats`
+- `GET /api/v1/admin/overview`
+- `GET /api/v1/admin/coverage`
+- `POST /api/v1/admin/books/upload`
+- `POST /api/v1/admin/books/upload/mp3`
+- `GET /api/v1/admin/books`
+- `GET /api/v1/admin/books/:bookId`
+- `PATCH /api/v1/admin/books/:bookId/metadata`
+- `PATCH /api/v1/admin/books/:bookId/chapters`
+- `POST /api/v1/admin/books/:bookId/cover`
+- `POST /api/v1/admin/books/:bookId/extract-cover`
+- `DELETE /api/v1/admin/books/:bookId`
+- `POST /api/v1/admin/jobs/enqueue`
+- `GET /api/v1/admin/jobs/stats`
+- `GET /api/v1/admin/jobs`
+- `GET /api/v1/admin/jobs/events`
+- `GET /api/v1/admin/jobs/:jobId`
+- `GET /api/v1/admin/jobs/:jobId/logs`
+- `DELETE /api/v1/admin/jobs/:jobId`
+- `GET /api/v1/admin/logs`
+- `GET /api/v1/admin/worker-settings`
+- `PATCH /api/v1/admin/worker-settings`
+- `GET /api/v1/admin/users`
+- `GET /api/v1/admin/users/:userId`
+- `PATCH /api/v1/admin/users/:userId/role`
+- `GET /api/v1/admin/users/:userId/sessions`
+- `DELETE /api/v1/admin/users/:userId/sessions`
 
 ------
 
@@ -1291,45 +1394,47 @@ Base path: `/api/v1`
 ## Public routes
 
 - `/library`
-- `/collection/:id`
+- `/series/:seriesName`
+- `/collections/:collectionId`
 - `/player/:bookId`
 - `/login`
-- `/history`
-- `/settings`
-- `/stats`
+- `/register`
+- `/profile`
+- `/discussions`
+- `/discussions/:lang`
+- `/privacy`
+- `/terms`
 
 ## Admin routes
 
+- `/admin`
 - `/admin/books`
-- `/admin/books/:id/edit`
+- `/admin/books/:bookId/edit`
 - `/admin/jobs`
+- `/admin/jobs/:jobId/logs`
 - `/admin/upload`
+- `/admin/users`
 
 ## Main components
 
-- `library-grid`
-- `book-card`
-- `collection-card`
-- `audio-player`
-- `progress-bar`
-- `chapter-list`
-- `history-list`
-- `user-settings-form`
-- `user-stats-dashboard`
-- `admin-book-table`
-- `admin-book-form`
-- `admin-chapter-editor`
-- `admin-job-list`
+- Angular routes are lazy-loaded page components rather than one flat component list
+- major page groups currently include auth, library, player, profile, discussions, and admin
+- shared UI lives under `frontend/src/app/shared/ui`
 
 ## Main services
 
 - `AuthService`
 - `LibraryService`
 - `PlayerService`
+- `RealtimeService`
 - `ProgressService`
 - `SettingsService`
 - `StatsService`
 - `AdminService`
+- `DiscussionService`
+- `LibraryProgressService`
+- `AdminUploadQueueService`
+- `ConfigService`
 - `I18nService`
 
 ------
@@ -1423,7 +1528,7 @@ Maintain parallel files:
 
 ## Content translations
 
-N0 auto-translate book content.
+No auto-translate book content.
 
 Allow optional per-field values:
 
@@ -1500,16 +1605,23 @@ Single domain with path-based routing:
 ```text
 https://audio.yourdomain.com/          → frontend
 https://audio.yourdomain.com/api/*     → api
-https://audio.yourdomain.com/stream/*  → api
+https://audio.yourdomain.com/streaming/* → api
+https://audio.yourdomain.com/ws        → api (WebSocket upgrade)
 ```
 
 Requirements:
 
 - `/` goes to frontend
 - `/api` goes to API
-- `/stream` goes to API
-- `/stream` must bypass frontend entirely
+- `/streaming` goes to API
+- `/ws` goes to API as an HTTP upgrade request
+- `/streaming` must bypass frontend entirely
+- `/ws` must preserve `Upgrade` and `Connection` headers end-to-end
 - HTTPS terminated at host proxy
+
+Compatibility note:
+
+- the current nginx config also proxies `/stream/` to the API, but the implemented backend routes are mounted under `/streaming`
 
 Benefits:
 

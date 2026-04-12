@@ -1,3 +1,9 @@
+/**
+ * Captures admin-side actions for auditability. This platform lets admins edit
+ * books, queue worker jobs, and manage users, so important operations need a
+ * trace explaining who changed what and when. Keeping that concern in middleware
+ * avoids duplicating audit logging across every admin handler.
+ */
 import mongoose from "mongoose";
 import { type Response, type NextFunction } from "express";
 

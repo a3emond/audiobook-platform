@@ -1,3 +1,9 @@
+/**
+ * HTTP controller for series-level catalog browsing and grouping.
+ * Controllers in this API are intentionally thin: they translate Express
+ * request data into validated service inputs and choose response status codes,
+ * while the real business rules live below in the service/model layer.
+ */
 import { type Request, type Response } from "express";
 
 import type { ListBooksQueryDTO } from "../../dto/book.dto.js";

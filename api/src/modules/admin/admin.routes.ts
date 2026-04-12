@@ -1,3 +1,9 @@
+/**
+ * Route registration for admin-only book operations, user management, audit visibility, and worker controls.
+ * This is where middleware order becomes explicit: auth, role checks,
+ * validation, and controller binding are composed here so the external HTTP
+ * surface stays readable and reviewable.
+ */
 import { Router } from "express";
 import multer from "multer";
 

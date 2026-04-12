@@ -1,3 +1,9 @@
+/**
+ * JWT helpers for the authentication module.
+ * Access-token signing and verification stay centralized here so security
+ * configuration, expiry rules, and claim shape are not duplicated across the
+ * rest of the app.
+ */
 import jwt, { type JwtPayload, type SignOptions } from "jsonwebtoken";
 import { ApiError } from "../../utils/api-error.js";
 

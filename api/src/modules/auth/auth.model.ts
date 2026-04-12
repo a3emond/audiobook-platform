@@ -1,3 +1,9 @@
+/**
+ * Persistence model for account authentication, refresh sessions, and OAuth sign-in.
+ * Model files define how this feature is stored in MongoDB and usually carry
+ * the schema, indexes, and document typing that other layers rely on as the
+ * source of truth for persisted state.
+ */
 import mongoose, {
   Schema,
   type InferSchemaType,

@@ -1,3 +1,9 @@
+/**
+ * Core business logic for user-managed book collections and library organization.
+ * In this codebase, services are the place where models, validation results,
+ * worker/job coordination, and cross-feature rules come together so controllers
+ * remain small and the domain behavior stays testable and reusable.
+ */
 import mongoose from "mongoose";
 
 import type {

@@ -1,3 +1,9 @@
+/**
+ * HTTP controller for authenticated audio and cover delivery plus resume metadata.
+ * Controllers in this API are intentionally thin: they translate Express
+ * request data into validated service inputs and choose response status codes,
+ * while the real business rules live below in the service/model layer.
+ */
 import fs from "node:fs";
 import { type Response } from "express";
 

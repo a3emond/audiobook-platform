@@ -79,7 +79,7 @@ Query parameters:
 Example:
 
 ```bash
-curl "http://localhost:3000/api/series?author=fitz&genre=fiction" \
+curl "http://localhost:3000/api/v1/series?author=fitz&genre=fiction" \
   -H "Authorization: Bearer <accessToken>"
 ```
 
@@ -115,7 +115,7 @@ Notes:
 Example:
 
 ```bash
-curl "http://localhost:3000/api/series/Classic%20Literature" \
+curl "http://localhost:3000/api/v1/series/Classic%20Literature" \
   -H "Authorization: Bearer <accessToken>"
 ```
 
@@ -126,9 +126,9 @@ Common errors:
 
 ## Typical Client Flow
 
-1. Load `GET /api/series` to render app-level series shelves.
+1. Load `GET /api/v1/series` to render app-level series shelves.
 2. Use the same partial query inputs as the books screen for author, title, series, or genre filtering.
-3. Open `GET /api/series/:seriesName` to render a detail view with books ordered by `seriesIndex`, then title.
+3. Open `GET /api/v1/series/:seriesName` to render a detail view with books ordered by `seriesIndex`, then title.
 4. Use [Collections API Endpoints](./collections-endpoints.md) separately for user-made lists.
 
 ## Related Docs

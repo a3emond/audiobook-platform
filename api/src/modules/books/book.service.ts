@@ -1,3 +1,9 @@
+/**
+ * Core business logic for audiobook catalog reads and admin-side metadata maintenance.
+ * In this codebase, services are the place where models, validation results,
+ * worker/job coordination, and cross-feature rules come together so controllers
+ * remain small and the domain behavior stays testable and reusable.
+ */
 import mongoose from "mongoose";
 
 import type {

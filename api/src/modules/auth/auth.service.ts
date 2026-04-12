@@ -1,3 +1,9 @@
+/**
+ * Core business logic for account authentication, refresh sessions, and OAuth sign-in.
+ * In this codebase, services are the place where models, validation results,
+ * worker/job coordination, and cross-feature rules come together so controllers
+ * remain small and the domain behavior stays testable and reusable.
+ */
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 

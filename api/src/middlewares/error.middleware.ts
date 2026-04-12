@@ -1,3 +1,9 @@
+/**
+ * Final Express error boundary that normalizes thrown exceptions into stable
+ * API responses. This keeps the contract predictable for every client while
+ * also preventing stack traces and low-level failures from leaking through
+ * the audiobook API surface.
+ */
 import { Request, Response, NextFunction } from "express";
 import { ApiError } from "../utils/api-error.js";
 import { logger } from "../config/logger.js";
