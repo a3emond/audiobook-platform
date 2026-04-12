@@ -1,0 +1,371 @@
+@startuml Realtime Architecture - WebSocket Event System
+
+skinparam backgroundColor white
+skinparam defaultFontColor black
+skinparam classBorderColor black
+skinparam classBackgroundColor white
+skinparam classHeaderBackgroundColor #e0e0e0
+skinparam defaultFontName sans-serif
+skinparam shadowing false
+left to right direction
+skinparam nodesep 10
+skinparam ranksep 30
+
+title Realtime Architecture - WebSocket Server + Event Broadcasting\n<size:14>Socket.io + Node.js EventEmitter + Client Subscriptions</size>
+
+package "Backend - Realtime Server" {
+    class RealtimeGateway {
+        -io: Server
+        -port: number = 3001
+        -corsOrigin: string[]
+        -eventEmitter: EventEmitter
+        -connectedSockets: Map<string, Socket>
+        -userSockets: Map<string, Set<string>>
+        
+        +start(): Promise<void>
+        +stop(): Promise<void>
+        +emit(eventName, data): void
+        -setupConnectionHandlers(): void
+        -setupDisconnectionHandlers(): void
+        -bindEventListeners(): void
+        -setupAuthentication(socket): boolean
+    }
+
+    class SocketManager {
+        -io: Server
+        -sockets: Map<string, Socket>
+        -authenticate(socket): Promise<User>
+        
+        +getSocket(socketId): Socket
+        +getSockets(userId): Socket[]
+        +removeSocket(socketId): void
+        +broadcast(event, data): void
+        +broadcastToUser(userId, event, data): void
+        +broadcastToUsers(userIds, event, data): void
+        -handleConnection(socket): void
+        -handleDisconnection(socket): void
+    }
+
+    class EventEmitterService {
+        -eventEmitter: EventEmitter
+        -eventHandlers: Map<string, Function[]>
+        -eventHistory: Event[] (max 1000)
+        
+        +emit(eventName, data): void
+        +on(eventName, handler): Subscription
+        +off(eventName, handler): void
+        +getEventHistory(eventName): Event[]
+        -logEvent(eventName, data): void
+    }
+
+    class SocketAuthMiddleware {
+        -tokenService: TokenService
+        -userModel: Model<User>
+        
+        +authenticate(socket): Promise<boolean>
+        +validateToken(token): {userId, roles}
+        -extractToken(socket): string?
+        -storageAuthenticated(socket): void
+    }
+
+    class RealtimeEventDispatcher {
+        -eventEmitter: EventEmitterService
+        -socketManager: SocketManager
+        -roomManager: RoomManager
+        
+        +emit(event, target, data): void
+        -routeEvent(event): 'broadcast'|'user'|'room'
+        -applyFilters(event, filters): void
+    }
+
+    class RoomManager {
+        -rooms: Map<string, Room>
+        
+        +createRoom(name): void
+        +deleteRoom(name): void
+        +joinRoom(userId, roomName): void
+        +leaveRoom(userId, roomName): void
+        +broadcastToRoom(roomName, event, data): void
+        +getRoomMembers(roomName): User[]
+    }
+
+    class Room {
+        +id: string
+        +name: string
+        +type: 'book'|'discussion'|'admin'
+        +members: Map<string, User>
+        +createdAt: Date
+        
+        +addMember(userId): void
+        +removeMember(userId): void
+        +broadcast(event, data): void
+    }
+}
+
+package "Event Types" {
+    class JobEvent {
+        +type: 'job.state.changed'|'job.progress.updated'|'job.error.occurred'
+        +jobId: ObjectId
+        +status: 'QUEUED'|'RUNNING'|'DONE'|'FAILED'|'RETRYING'
+        +progress?: number (0-100)
+        +error?: {code, message}
+        +metadata?: Object
+        +timestamp: Date
+    }
+
+    class BookEvent {
+        +type: 'book.added'|'book.updated'|'book.deleted'|'book.published'
+        +bookId: ObjectId
+        +book?: Book
+        +changes?: {field, newValue}
+        +timestamp: Date
+    }
+
+    class ProgressEvent {
+        +type: 'progress.synced'
+        +userId: ObjectId
+        +bookId: ObjectId
+        +positionSeconds: number
+        +completed: boolean
+        +timestamp: Date
+    }
+
+    class DiscussionEvent {
+        +type: 'discussion.created'|'discussion.deleted'|'discussion.liked'
+        +discussionId: ObjectId
+        +bookId: ObjectId
+        +content?: string
+        +userId: ObjectId
+        +timestamp: Date
+    }
+
+    class AdminEvent {
+        +type: 'admin.user.banned'|'admin.user.warned'|'admin.mod.logged'|'admin.report.created'
+        +targetUserId?: ObjectId
+        +adminId: ObjectId
+        +action: string
+        +reason?: string
+        +metadata?: Object
+        +timestamp: Date
+    }
+
+    class SystemEvent {
+        +type: 'system.alert'|'system.alert_resolved'|'system.maintenance'
+        +severity: 'info'|'warning'|'error'|'critical'
+        +message: string
+        +affectedUsers?: ObjectId[]
+        +timestamp: Date
+    }
+}
+
+package "Client - Frontend Connection" {
+    class RealtimeService {
+        -socket: Socket
+        -apiService: ApiService
+        -reconnectDelay: number = 3000
+        -maxReconnectAttempts: number = 5
+        -reconnectCount: number = 0
+        
+        -isConnectedSignal: WritableSignal<boolean>
+        -connectionStateSignal: WritableSignal<'connecting'|'connected'|'disconnected'>
+        -lastPingSignal: WritableSignal<Date>
+        -latencySignal: WritableSignal<number>
+        
+        +connect(): Promise<void>
+        +disconnect(): void
+        +subscribe(eventName, callback): Subscription
+        +emit(eventName, data): void
+        +on(event): Observable<any>
+        +off(event, callback): void
+        -setupEventListeners(): void
+        -setupReconnectLogic(): void
+        -handleConnectionError(error): void
+        -calculateLatency(): void
+    }
+
+    class ClientEventHandlers {
+        -authService: AuthService
+        -playerService: PlayerService
+        -libraryService: LibraryService
+        -adminService: AdminService
+        
+        +handleJobStatusChange(event): void
+        +handleBookAdded(event): void
+        +handleProgressSync(event): void
+        +handleDiscussionCreated(event): void
+        +handleAdminAction(event): void
+        +handleSystemAlert(event): void
+    }
+
+    class EventSubscriptionManager {
+        -subscriptions: Map<string, Subscription[]>
+        
+        +subscribe(eventName, handler): Subscription
+        +unsubscribe(eventName, handler): void
+        +unsubscribeAll(): void
+        -registerHandler(eventName, handler): void
+    }
+}
+
+package "Connection & Middleware" {
+    class PingPongHandler {
+        -pingInterval: number = 30000 (30s)
+        -pongTimeout: number = 5000 (5s)
+        
+        +startPingPong(): void
+        +stopPingPong(): void
+        -sendPing(socket): void
+        -handlePong(socket): void
+        -handleTimeout(socket): void
+    }
+
+    class RateLimiter {
+        -maxEventsPerSecond: number = 100
+        -perUserLimit: number = 10
+        -eventCounts: Map<string, number[]>
+        
+        +canEmit(userId, eventName): boolean
+        -trackEvent(userId, eventName): void
+        -cleanupOldCounts(): void
+    }
+
+    class ErrorHandlingMiddleware {
+        +handleError(socket, error): void
+        +handleDisconnect(socket, reason): void
+        -logError(error, context): void
+        -notifyUser(socket, error): void
+    }
+}
+
+' Relationships
+RealtimeGateway --> SocketManager
+RealtimeGateway --> EventEmitterService
+RealtimeGateway --> RealtimeEventDispatcher
+RealtimeGateway --> SocketAuthMiddleware
+RealtimeGateway --> PingPongHandler
+RealtimeGateway --> RateLimiter
+
+SocketManager --> SocketAuthMiddleware
+SocketManager --> ErrorHandlingMiddleware
+
+RealtimeEventDispatcher --> RoomManager
+RealtimeEventDispatcher --> EventEmitterService
+
+RoomManager --> Room
+
+RealtimeService --> EventSubscriptionManager
+RealtimeService --> ClientEventHandlers
+RealtimeService --> PingPongHandler
+
+ClientEventHandlers --> PlayerService
+ClientEventHandlers --> LibraryService
+ClientEventHandlers --> AuthService
+
+EventEmitterService --> JobEvent
+EventEmitterService --> BookEvent
+EventEmitterService --> ProgressEvent
+EventEmitterService --> DiscussionEvent
+EventEmitterService --> AdminEvent
+EventEmitterService --> SystemEvent
+
+note right of RealtimeGateway
+    **Server Initialization:**
+    ```
+    io = new Server(server, {
+        cors: {
+            origin: ['https://domain.com'],
+            methods: ['GET', 'POST']
+        },
+        transports: ['websocket', 'polling']
+    })
+    
+    io.on('connection', socket => {
+        // authenticate socket
+        // setup handlers
+    })
+    ```
+end note
+
+note right of EventEmitterService
+    **Event Broadcasting Pattern:**
+    1. Service calls: emit('event.name', data)
+    2. EventEmitter fires listeners
+    3. Dispatcher routes based on target
+    4. SocketManager sends via socket.io
+    5. Clients receive & process
+    
+    **Event History (max 1000):**
+    - Stored for late subscribers
+    - Cleared after 1 hour
+end note
+
+note right of RealtimeService
+    **Connection States:**
+    - connecting: WebSocket handshake
+    - connected: Ready for events
+    - disconnected: Lost connection
+    
+    **Auto-Reconnect (Exponential):**
+    - Attempt 1: 3s delay
+    - Attempt 2: 6s delay
+    - Attempt 3: 12s delay
+    - Attempt 4: 24s delay
+    - Attempt 5: 48s delay
+    - Max 5 attempts
+end note
+
+note bottom of JobEvent
+    **Job Events Timeline:**
+    1. job.state.changed: QUEUED
+    2. job.state.changed: RUNNING
+    3. job.progress.updated: 25%, 50%, 75%
+    4. job.state.changed: DONE
+    5. (or) job.error.occurred: ERROR
+    
+    **Broadcast to:**
+    - Admin dashboard
+    - Book detail page
+    - Library search results
+end note
+
+note bottom of ProgressEvent
+    **Progress Sync Event:**
+    - User played book to 300s
+    - ProgressService > RealtimeGateway
+    - Emitted to user's sockets
+    - Other tabs apply via PlayerService
+    - Resume position updated
+    
+    **Guard conditions:**
+    ✓ Same book
+    ✓ Newer timestamp
+    ✓ Not currently playing
+end note
+
+note bottom of AdminEvent
+    **Admin Events:**
+    - user.banned: permanent removal
+    - user.warned: strike system
+    - mod.logged: audit trail
+    - report.created: flagged content
+    
+    **Targeted to:**
+    - Admin dashboard
+    - Affected users (notification)
+    - Audit logs
+end note
+
+note bottom of RoomManager
+    **Room Types:**
+    - book:{bookId}: listeners of book
+    - discussion:{discussionId}: participants
+    - admin: admin users only
+    - system: all connected users
+    
+    **Membership:**
+    - Join: user subscribes to book
+    - Leave: user closes book
+    - Broadcast: room-specific events
+end note
+
+@enduml

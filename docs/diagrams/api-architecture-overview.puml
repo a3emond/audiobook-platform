@@ -1,0 +1,496 @@
+@startuml API Architecture Overview
+
+skinparam backgroundColor white
+skinparam defaultFontColor black
+skinparam classBorderColor black
+skinparam classBackgroundColor white
+skinparam classHeaderBackgroundColor #e0e0e0
+skinparam defaultFontName sans-serif
+skinparam shadowing false
+left to right direction
+skinparam nodesep 10
+skinparam ranksep 30
+
+title API Architecture Overview\n<size:14>Express + Mongoose + WebSocket</size>
+
+package "Request/Response Pipeline" {
+    class HttpServer {
+        -app: Express
+        -server: http.Server
+        +listen(port): void
+    }
+
+    class CorsMiddleware {
+        +apply(): void
+    }
+
+    class AuthMiddleware {
+        +verify(token): {userId, role}
+        +check(req, res, next): void
+    }
+
+    class RoleMiddleware {
+        -requiredRole: 'admin'|'user'
+        +enforce(req, res, next): void
+    }
+
+    class ErrorMiddleware {
+        +handle(error, req, res, next): void
+    }
+
+    class RateLimitMiddleware {
+        -windowMs: number
+        -maxRequests: number
+        +check(req, res, next): void
+    }
+
+    class IdempotencyMiddleware {
+        -idempotencyKeyHeader: string
+        +dedup(req, res, next): void
+    }
+}
+
+package "Routing Layer (v1)" {
+    class AuthController {
+        +register(dto): {accessToken, refreshToken, user}
+        +login(email, password): {accessToken, refreshToken}
+        +refresh(refreshToken): {accessToken}
+        +logout(req): void
+        +oauth/google(code): User
+        +oauth/apple(code): User
+        +me(req): User
+        +changePassword(oldPwd, newPwd): void
+        +changeEmail(newEmail): void
+    }
+
+    class BookController {
+        +list(language?, page?, limit?): Book[]
+        +getById(bookId): Book
+    }
+
+    class ProgressController {
+        +get(bookId): Progress
+        +save(bookId, dto): Progress
+        +complete(bookId): void
+        +uncomplete(bookId): void
+    }
+
+    class StreamingController {
+        +getAudio(bookId): Stream
+        +getCover(bookId): Buffer
+        +getResume(bookId): {positionSeconds}
+    }
+
+    class CollectionController {
+        +list(): Collection[]
+        +create(dto): Collection
+        +getById(collectionId): Collection
+        +update(collectionId, dto): Collection
+        +delete(collectionId): void
+    }
+
+    class DiscussionController {
+        +getChannels(language): Channel[]
+        +getMessages(lang, channelKey, pageSize): Message[]
+        +postMessage(lang, channelKey, text): Message
+        +deleteMessage(lang, channelKey, msgId): void
+    }
+
+    class SeriesController {
+        +list(): Series[]
+        +getByName(seriesName): {books, stats}
+    }
+
+    class UserController {
+        +getMe(): User
+        +updateProfile(dto): User
+    }
+
+    class SettingsController {
+        +get(): UserSettings
+        +update(dto): UserSettings
+    }
+
+    class StatsController {
+        +getMe(): UserStats
+        +getSessions(): ListeningSession[]
+        +saveSession(dto): ListeningSession
+    }
+
+    class AdminController {
+        +getOverview(): {bookCount, userCount, jobStats}
+        +getCoverage(): ApiCoverageReport
+    }
+
+    class AdminBookController {
+        +list(): AdminBook[]
+        +getById(bookId): AdminBook
+        +uploadM4B(file): {jobId, book}
+        +uploadMP3(file): {jobId, book}
+        +updateMetadata(bookId, dto): Book
+        +updateChapters(bookId, chapters): Book
+        +replaceCover(bookId, image): {jobId}
+        +deleteBook(bookId): void
+    }
+
+    class AdminJobController {
+        +list(status?, limit?): Job[]
+        +getById(jobId): JobWithLogs
+        +enqueue(type, payload, priority?): Job
+        +getStats(): {queued, running, failed}
+        +delete(jobId): void
+    }
+
+    class AdminUserController {
+        +list(): AdminUser[]
+        +getById(userId): AdminUser
+        +updateRole(userId, role): User
+        +getSessions(userId): AuthSession[]
+        +deleteSessions(userId): void
+    }
+}
+
+package "Service Layer" {
+    class AuthService {
+        -userModel: Model
+        -tokenService: TokenService
+        +register(email, pwd): User
+        +login(email, pwd): {user, tokens}
+        +refreshToken(token): {accessToken}
+        +handleOAuth(provider, profile): User
+        -mergeOAuthAccounts(existing, oauthProfile): User
+    }
+
+    class TokenService {
+        -accessTokenSecret: string
+        -refreshTokenSecret: string
+        +generateAccessToken(userId, role): string
+        +generateRefreshToken(userId): string
+        +verify(token, type): {userId, role}
+    }
+
+    class OAuthService {
+        -googleAuth: GoogleAuth
+        -appleAuth: AppleAuth
+        +verifyGoogle(token): {profile}
+        +verifyApple(token): {profile}
+    }
+
+    class BookService {
+        -bookModel: Model
+        -queryBuilder: BookQueryBuilder
+        +list(filters): Book[]
+        +getById(id): Book
+        +getWithProgress(userId, bookId): BookWithProgress
+    }
+
+    class BookQueryBuilder {
+        -query: MongoQuery
+        +language(lang): this
+        +series(seriesName): this
+        +completed(userId): this
+        +build(): Query
+    }
+
+    class ProgressService {
+        -model: Model
+        -realtimeGateway: RealtimeGateway
+        +saveForBook(userId, bookId, position): Progress
+        +getForBook(userId, bookId): Progress
+        +markComplete(userId, bookId): void
+        +emitProgressSync(userId, bookId, position): void
+    }
+
+    class StreamingService {
+        -fileService: FileService
+        -cacheHeaders: {ETag, LastModified}
+        +getAudioStream(bookId, range?): Stream
+        +getCoverImage(bookId): Buffer
+        +getResumePosition(userId, bookId): number
+    }
+
+    class CollectionService {
+        -model: Model
+        +list(userId): Collection[]
+        +create(userId, dto): Collection
+        +addBook(collectionId, bookId): void
+        +removeBook(collectionId, bookId): void
+    }
+
+    class DiscussionService {
+        -channelModel: Model
+        -messageModel: Model
+        -realtimeGateway: RealtimeGateway
+        +getChannels(language): Channel[]
+        +getMessages(lang, channel, page): Message[]
+        +postMessage(userId, lang, channel, text): Message
+        +emitMessageCreated(message): void
+    }
+
+    class AdminService {
+        -bookModel: Model
+        -jobModel: Model
+        -userModel: Model
+        +getOverviewMetrics(): {books, users, jobs}
+        +getApiCoverage(): CoverageReport
+    }
+
+    class JobService {
+        -jobModel: Model
+        -jobRunner: JobRunner
+        +enqueue(type, payload, priority): Job
+        +list(filters): Job[]
+        +getById(jobId): Job
+        +getLogs(jobId): JobLog[]
+        +retry(jobId): void
+        +delete(jobId): void
+    }
+
+    class StatsService {
+        -sessionModel: Model
+        -progressModel: Model
+        +getListeningStats(userId): UserStats
+        +getSessions(userId): ListeningSession[]
+        +recordSession(userId, dto): ListeningSession
+    }
+
+    class UserService {
+        -userModel: Model
+        +getById(userId): User
+        +updateProfile(userId, dto): User
+        +updateRole(userId, role): User
+    }
+
+    class SettingsService {
+        -model: Model
+        +get(userId): UserSettings
+        +update(userId, dto): UserSettings
+    }
+}
+
+package "Data Models (Mongoose)" {
+    class UserModel {
+        -_id: ObjectId
+        -email: string
+        -passwordHash: string
+        -role: 'admin'|'user'
+        -profile: {name, avatar?}
+        -oauthProviders: []
+        -createdAt: Date
+        -updatedAt: Date
+    }
+
+    class BookModel {
+        -_id: ObjectId
+        -title: string
+        -author: string
+        -language: 'en'|'fr'
+        -description: string
+        -duration: number
+        -chapters: Chapter[]
+        -series?: string
+        -filePaths: {m4b?, mp3?}
+        -coverPath: string
+        -checksum: string
+        -fileSync: {status, lastProbed}
+        -createdAt: Date
+    }
+
+    class ProgressModel {
+        -_id: ObjectId
+        -userId: ObjectId
+        -bookId: ObjectId
+        -positionSeconds: number
+        -completed: boolean
+        -completedAt?: Date
+        -updatedAt: Date
+    }
+
+    class CollectionModel {
+        -_id: ObjectId
+        -userId: ObjectId
+        -name: string
+        -bookIds: ObjectId[]
+        -createdAt: Date
+    }
+
+    class JobModel {
+        -_id: ObjectId
+        -type: string
+        -status: 'queued'|'running'|'done'|'failed'|'retrying'
+        -payload: object
+        -result?: object
+        -error?: string
+        -attempt: number
+        -maxAttempts: number
+        -logs: JobLog[]
+        -createdAt: Date
+        -updatedAt: Date
+    }
+
+    class AuthSessionModel {
+        -_id: ObjectId
+        -userId: ObjectId
+        -refreshToken: string
+        -expiresAt: Date
+        -createdAt: Date
+    }
+
+    class SettingsModel {
+        -_id: ObjectId
+        -userId: ObjectId
+        -playbackRate: number
+        -jumpSeconds: number
+        -sleepTimerMode: 'none'|'chapter'|'minutes'
+        -resumeRewind: number
+    }
+
+    class DiscussionChannelModel {
+        -_id: ObjectId
+        -language: 'en'|'fr'
+        -key: string
+        -name: string
+        -createdAt: Date
+    }
+
+    class DiscussionMessageModel {
+        -_id: ObjectId
+        -channelId: ObjectId
+        -userId: ObjectId
+        -text: string
+        -createdAt: Date
+    }
+
+    class ListeningSessionModel {
+        -_id: ObjectId
+        -userId: ObjectId
+        -bookId: ObjectId
+        -durationSeconds: number
+        -startedAt: Date
+        -endedAt: Date
+    }
+}
+
+package "WebSocket/Realtime" {
+    class RealtimeGateway {
+        -wss: WebSocketServer
+        -connections: Map<userId, Set<ws>>
+        +broadcast(eventType, payload, userId?): void
+        +subscribe(userId, socket): void
+        +unsubscribe(userId, socket): void
+    }
+
+    class RealtimeEventEmitter {
+        -gateway: RealtimeGateway
+        +emitJobStateChanged(job): void
+        +emitCatalogBookAdded(book): void
+        +emitProgressSynced(progress): void
+        +emitDiscussionMessage(message): void
+        +emitPlaybackPresence(userId, deviceId): void
+    }
+}
+
+package "DTOs (Request/Response)" {
+    class LoginDto {
+        +email: string
+        +password: string
+    }
+
+    class RegisterDto {
+        +email: string
+        +password: string
+        +confirmPassword: string
+    }
+
+    class UpdateProgressDto {
+        +positionSeconds: number
+        +durationSeconds?: number
+    }
+
+    class CreateCollectionDto {
+        +name: string
+    }
+
+    class PostMessageDto {
+        +text: string
+    }
+
+    class UpdateMetadataDto {
+        +title?: string
+        +author?: string
+        +chapters?: Chapter[]
+    }
+
+    class EnqueueJobDto {
+        +type: string
+        +payload: object
+        +priority?: 'low'|'normal'|'high'
+    }
+}
+
+' Relationships
+HttpServer --> CorsMiddleware
+HttpServer --> AuthMiddleware
+HttpServer --> RoleMiddleware
+HttpServer --> ErrorMiddleware
+HttpServer --> RateLimitMiddleware
+HttpServer --> IdempotencyMiddleware
+
+AuthMiddleware --> AuthService
+RoleMiddleware --> UserModel
+
+AuthController --> AuthService
+AuthController --> TokenService
+AuthController --> OAuthService
+
+BookController --> BookService
+BookController --> ProgressService
+
+ProgressController --> ProgressService
+ProgressController --> UpdateProgressDto
+
+StreamingController --> StreamingService
+
+CollectionController --> CollectionService
+
+DiscussionController --> DiscussionService
+DiscussionController --> PostMessageDto
+
+AdminBookController --> BookService
+AdminJobController --> JobService
+AdminUserController --> UserService
+
+AdminService --> BookModel
+AdminService --> UserModel
+AdminService --> JobModel
+
+ProgressService --> ProgressModel
+ProgressService --> RealtimeGateway
+
+DiscussionService --> DiscussionChannelModel
+DiscussionService --> DiscussionMessageModel
+DiscussionService --> RealtimeGateway
+
+BookService --> BookModel
+BookService --> BookQueryBuilder
+
+StreamingService --> BookModel
+
+AuthService --> UserModel
+AuthService --> AuthSessionModel
+AuthService --> TokenService
+
+CollectionService --> CollectionModel
+
+JobService --> JobModel
+
+StatsService --> ListeningSessionModel
+StatsService --> ProgressModel
+
+UserService --> UserModel
+
+SettingsService --> SettingsModel
+
+RealtimeGateway ..> RealtimeEventEmitter : emits events
+
+@enduml

@@ -1,0 +1,290 @@
+@startuml API Streaming Module Detail
+
+skinparam backgroundColor white
+skinparam defaultFontColor black
+skinparam classBorderColor black
+skinparam classBackgroundColor white
+skinparam classHeaderBackgroundColor #e0e0e0
+skinparam defaultFontName sans-serif
+skinparam shadowing false
+left to right direction
+skinparam nodesep 10
+skinparam ranksep 30
+
+title API Streaming Module - Audio & Resume Architecture\n<size:14>HTTP Range Requests + Auth Query Params + Resume Logic</size>
+
+package "Streaming Controllers" {
+    class StreamingController {
+        -streamingService: StreamingService
+        -progressService: ProgressService
+        
+        +getAudio(req: AuthRequest, bookId): Stream
+        +getCover(req: AuthRequest, bookId): Buffer
+        +getResume(req: AuthRequest, bookId): ResumeDto
+        +probeFile(req: AdminRequest, bookId): FileProbeDto
+    }
+}
+
+package "Streaming Services" {
+    class StreamingService {
+        -fileService: FileService
+        -bookModel: Model<Book>
+        -settingsService: SettingsService
+        -progressService: ProgressService
+        
+        +getAudioStream(bookId, range?: RangeHeader): {stream, headers}
+        +getCoverStream(bookId): Buffer
+        +getResumePosition(userId, bookId): ResumePosition
+        -buildRangeResponse(filesize, range): {start, end, status}
+        -buildCacheHeaders(file): {ETag, LastModified}
+        -calculateResumeWithRewind(progress, settings): seconds
+    }
+
+    class RangeRequestHandler {
+        -acceptRanges: boolean = true
+        
+        +parse(rangeHeader): RangeRequest
+        +validate(range, fileSize): boolean
+        +buildResponse(fileSize, range): RangeResponse
+        +buildPartialHeaders(start, end, total): Headers
+        +handleIfRange(ifRangeHeader, etag): boolean
+    }
+
+    class CacheHeaderManager {
+        -cacheStrategy: 'public'|'private' = 'private'
+        -cacheDuration: number = 86400 (1 day)
+        
+        +generateETag(file): string
+        +getLastModified(file): Date
+        +buildCacheHeaders(file): Header[]
+        +checkIfModified(ifModified, file): boolean
+        -computeSHA256(buffer): string
+    }
+
+    class ResumePositionCalculator {
+        -settingsService: SettingsService
+        -progressService: ProgressService
+        
+        +calculateResume(userId, bookId): {resumeSeconds, fromSettings}
+        -getLastProgress(userId, bookId): Progress
+        -applyResumeRewind(progress, rewindSeconds): seconds
+        -validatePosition(position, bookDuration): seconds
+        +getResumeMetadata(userId, bookId): {position, resumedAt, total}
+    }
+}
+
+package "Authentication (Streaming)" {
+    class StreamingAuthManager {
+        -tokenService: TokenService
+        -userModel: Model<User>
+        
+        +authenticateRequest(req): {userId, user}
+        -extractTokenFromHeader(req): JWT?
+        -extractTokenFromQuery(req): JWT?
+        -validateToken(token): {userId}
+        -handleUnauth(req, res): void
+    }
+
+    class MediaAccessValidator {
+        +canAccessBook(userId, bookId): boolean
+        +canAccessCover(userId, bookId): boolean
+        -isAdminOrOwner(userId): boolean
+        -isBookPublished(bookId): boolean
+    }
+}
+
+package "Data Models" {
+    class BookModel {
+        -_id: ObjectId
+        -title: string
+        -duration: number (seconds)
+        -filePaths.m4b?: string
+        -filePaths.mp3?: string
+        -filePaths.primary: string
+        -coverPath: string
+        -checksum: string
+        -fileSync.status: string
+        -fileSync.lastProbed: Date
+        -published: boolean = true
+        -createdAt: Date
+    }
+
+    class ProgressModel {
+        -_id: ObjectId
+        -userId: ObjectId {ref: UserModel}
+        -bookId: ObjectId {ref: BookModel}
+        -positionSeconds: number
+        -completed: boolean
+        -completedAt?: Date
+        -updatedAt: Date
+    }
+
+    class SettingsModel {
+        -_id: ObjectId
+        -userId: ObjectId {ref: UserModel}
+        -resumeRewind: number = 0 (seconds)
+        -playbackRate: number = 1.0
+        -jumpSeconds: number = 15
+        -autoMarkthreshold: number = 95 (%)
+    }
+}
+
+package "DTOs & Types" {
+    class RangeHeader {
+        +start?: number
+        +end?: number
+        +suffix?: number
+        +unit: 'bytes'
+        +toString(): string
+    }
+
+    class RangeResponse {
+        +status: 206|200
+        +start: number
+        +end: number
+        +total: number
+        +contentLength: number
+        +headers: Map<string, string>
+    }
+
+    class ResumeDto {
+        +positionSeconds: number
+        +fromResume: boolean
+        +rewindApplied: number
+        +totalDuration: number
+        +canResume: boolean
+    }
+
+    class FileProbeDto {
+        +format: 'm4b'|'mp3'
+        +duration: number
+        +bitrate: number
+        +sampleRate: number
+        +chapters: Chapter[]
+        +metadata: Metadata
+    }
+
+    class StreamHeaders {
+        +contentType: 'audio/mp4'|'audio/mpeg'
+        +contentLength: number
+        +contentRange?: string
+        +acceptRanges: 'bytes'
+        +etag: string
+        +lastModified: Date
+        +cacheControl: string
+    }
+}
+
+package "HTTP Response Builders" {
+    class PartialContentBuilder {
+        +status(206): this
+        +contentRange(start, end, total): this
+        +contentLength(length): this
+        +build(): Response
+    }
+
+    class FullContentBuilder {
+        +status(200): this
+        +contentLength(length): this
+        +acceptRanges(): this
+        +build(): Response
+    }
+
+    class CachedResponseBuilder {
+        +eTag(tag): this
+        +lastModified(date): this
+        +cacheControl(maxAge): this
+        +ifModifiedSince(date, lastModified): 304|200
+        +build(): Response
+    }
+}
+
+package "File Operations" {
+    class FileService {
+        +exists(path): Promise<boolean>
+        +getSize(path): Promise<number>
+        +getStats(path): Promise<Stats>
+        +createReadStream(path, start?, end?): Stream
+        +getMimeType(path): string
+        -validatePath(path): boolean
+    }
+
+    class StreamPipeManager {
+        +pipe(readStream, res, onError): void
+        +pipeWithRange(readStream, start, end, res): void
+        +handleStreamError(error, res): void
+        -ensureResponseNotSent(res): boolean
+    }
+}
+
+' Relationships
+StreamingController --> StreamingService
+StreamingController --> StreamingAuthManager
+StreamingController --> MediaAccessValidator
+
+StreamingService --> RangeRequestHandler
+StreamingService --> CacheHeaderManager
+StreamingService --> ResumePositionCalculator
+StreamingService --> FileService
+StreamingService --> BookModel
+StreamingService --> ProgressModel
+
+RangeRequestHandler --> RangeHeader
+RangeRequestHandler --> RangeResponse
+
+ResumePositionCalculator --> ProgressModel
+ResumePositionCalculator --> SettingsModel
+
+StreamingAuthManager --> TokenService
+MediaAccessValidator --> BookModel
+
+FileService --> StreamPipeManager
+StreamingService --> StreamPipeManager
+
+PartialContentBuilder --> StreamHeaders
+FullContentBuilder --> StreamHeaders
+CachedResponseBuilder --> StreamHeaders
+
+note right of RangeRequestHandler
+    Range Request Parsing:
+    - "bytes=0-1023" → full range
+    - "bytes=1024-" → suffix
+    - "bytes=-500" → last N bytes
+    
+    Response Status:
+    - 206 Partial Content
+    - 200 OK (full file)
+    - 304 Not Modified (cached)
+end note
+
+note right of ResumePositionCalculator
+    Resume Logic:
+    1. Get last progress position
+    2. Apply resume-rewind setting
+    3. Validate against duration
+    4. Return resume info
+    
+    Example:
+    - User was at 300s
+    - resumeRewind = 15s
+    - Resume at: 285s
+end note
+
+note right of StreamingAuthManager
+    Auth Sources (priority):
+    1. Authorization header (JWT)
+    2. Query param: ?access_token=...
+    
+    Fallback needed for HTML tags:
+    <audio src="/streaming/books/123?access_token=token">
+end note
+
+note bottom of StreamingService
+    Cache Headers:
+    - ETag: SHA256(filesize + mtime)
+    - Last-Modified: file mtime
+    - Cache-Control: private, max-age=86400
+    - If-Range: validates range continuity
+end note
+
+@enduml

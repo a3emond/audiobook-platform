@@ -1,0 +1,232 @@
+@startuml System Integration - End-to-End Flows
+
+skinparam backgroundColor white
+skinparam defaultFontColor black
+skinparam sequenceBoxBorderColor black
+skinparam sequenceBoxBackgroundColor #f5f5f5
+skinparam sequenceDividerBackgroundColor #e0e0e0
+skinparam sequenceDividerBorderColor black
+skinparam sequenceArrowColor black
+skinparam sequenceLifeLineBorderColor black
+skinparam sequenceParticipantBackgroundColor white
+skinparam sequenceParticipantBorderColor black
+skinparam shadowing false
+
+title System Integration Architecture
+
+' Flow 1: Book Ingest Workflow
+box "Flow 1: Book Upload & Processing"
+    participant Client as "Web\nClient"
+    participant API as "API\nLayer"
+    participant Queue as "MongoDB\nJobQueue"
+    participant Worker as "Worker\nJobRunner"
+    participant Storage as "File\nStorage"
+    participant Realtime as "Realtime\nGateway"
+    participant ClientList as "Other\nClients"
+end box
+
+Client->>API: POST /api/admin/books/upload\n(multipart: file, metadata)
+API->>API: AdminBookController.uploadBook()\nvalidate file + metadata
+API->>Storage: save file to /audiobooks/{bookId}/original
+Storage-->>API: filePath
+
+API->>Queue: JobModel.create({type: INGEST, payload: {bookId, filePath}})
+Queue-->>API: Job {_id, status: QUEUED}
+
+API->>Realtime: emit('job.state.changed', {id, status: QUEUED})
+Realtime->>ClientList: broadcast event
+
+API-->>Client: HTTP 202 Accepted\n{jobId, status: QUEUED}
+
+par Processing in Worker
+    Worker->>Queue: query {status: QUEUED} limit 10
+    Queue-->>Worker: [Job]
+    Worker->>Queue: atomic claim {jobId, claimedBy: worker}
+    Queue-->>Worker: claimed=true
+    
+    Worker->>Queue: update {status: RUNNING, startedAt: now}
+    Worker->>Realtime: emit('job.state.changed', {id, status: RUNNING})
+    Realtime->>ClientList: broadcast RUNNING
+    
+    Worker->>Storage: read originalFile
+    Worker->>Worker: IngestHandler.handle(job)\ndetect format (m4b vs mp3)
+    alt Format == mp3
+        Worker->>Worker: TranscodeHandler\nConvert MP3 → M4B
+        Worker->>Storage: write /audiobooks/{bookId}/book.m4b
+    else Format == m4b
+        Worker->>Storage: copy to /audiobooks/{bookId}/book.m4b
+    end
+    
+    Worker->>Worker: ExtractCoverHandler\nFFprobe + cover extraction
+    Worker->>Storage: write /audiobooks/{bookId}/cover.jpg
+    
+    Worker->>Worker: MetadataService\nExtract duration, chapters
+    Worker->>Queue: Book update\n{duration: 1234, chapters: [...]}
+    
+    Worker->>Queue: update Job\n{status: DONE, completedAt: now, result: {...}}
+    Worker->>Realtime: emit('job.state.changed', {id, status: DONE})
+    Realtime->>ClientList: broadcast DONE
+    
+    Worker->>Realtime: emit('book.added', {bookId, title, author})
+    Realtime->>ClientList: broadcast book added\nLibrary refreshes
+end
+
+' Flow 2: Progress Sync
+box "Flow 2: Cross-Device Progress Sync"
+    participant Tab1 as "Tab 1\n(Playing)"
+    participant Tab2 as "Tab 2\n(Listener)"
+    participant APIPlayer as "API\nPlayer Module"
+    participant Progress as "ProgressService\n(DB)"
+    participant RealtimeGW as "Realtime\nGateway"
+    participant Tab2Realtime as "Tab 2\nRealtimeService"
+end box
+
+Tab1->>Tab1: PlayerService.onTimeUpdate()\nemit currentPosition = 300s
+Tab1->>Tab1: ProgressService debounce(5s)
+
+Tab1->>APIPlayer: POST /api/books/{bookId}/progress\n{positionSeconds: 300, completed: false}
+
+APIPlayer->>Progress: ProgressModel.findOneAndUpdate()\nsave position for user
+
+APIPlayer->>RealtimeGW: progressService.emit('progress.synced', {userId, bookId, position: 300})
+
+RealtimeGW->>Tab2Realtime: WebSocket message\nevent: 'progress.synced'\ndata: {userId, bookId, position: 300}
+
+Tab2Realtime->>Tab2: RealtimeService.on('progress.synced')\nemit Observable
+
+Tab2->>Tab2: ProgressService subscribes\nreceives position update
+
+Tab2->>Tab2: PlayerService.applyProgressSync()\nValidate: same book? not playing?\nnewerTimestamp?\n✓ All checks pass
+
+Tab2->>Tab2: playerService.seek(300)\napply position\nUI updates: progress bar moves to 300s
+
+APIPlayer-->>Tab1: HTTP 200\n{positionSeconds: 300, updatedAt: timestamp}
+
+' Flow 3: Audio Streaming with Range Requests
+box "Flow 3: Audio Streaming & Resume"
+    participant TabStream as "Frontend\naudio element"
+    participant APIStream as "StreamingService"
+    participant FileCache as "File\nSystem"
+    participant CDN as "Nginx\n(Reverse Proxy)"
+end box
+
+TabStream->>APIStream: GET /api/streaming/books/{bookId}/audio\nHeaders: Authorization: Bearer token
+
+APIStream->>APIStream: StreamingController.getAudio()\nauthenticate + authorize
+
+APIStream->>FileCache: determine file size (2.5GB)
+FileCache-->>APIStream: size = 2684354560 bytes
+
+APIStream->>APIStream: build cache headers\nETag: sha256(size+mtime)\nLast-Modified: file mtime
+
+TabStream->>APIStream: Range request\nHeaders: Range: bytes=0-1048575 (1MB chunk)
+
+APIStream->>FileCache: fs.createReadStream(path, {start: 0, end: 1048575})
+FileCache-->>APIStream: stream chunk 0-1MB
+
+APIStream->>TabStream: HTTP 206 Partial Content\nHeaders:\n- Content-Range: bytes 0-1048575/2684354560\n- Content-Length: 1048576\n- Accept-Ranges: bytes\n- ETag: sha256hash\n- Cache-Control: private, max-age=86400
+
+TabStream->>TabStream: HTMLAudioElement plays chunk\nRequests next range
+
+par Resume on Resume
+    TabStream->>APIStream: GET /api/streaming/books/{bookId}/resume
+    APIStream->>APIStream: ResumePositionCalculator\nget last progress (300s)\napply resume-rewind (15s)\nreturn: 285s
+    APIStream-->>TabStream: HTTP 200\n{positionSeconds: 285, fromResume: true}
+    
+    TabStream->>TabStream: PlayerService.loadAudio()\nfetch resume position\nseek to 285s\naudio plays from 285s
+end
+
+' Flow 4: Realtime Event Propagation
+box "Flow 4: Realtime WebSocket Architecture"
+    participant AdminUI as "Admin UI\n(Browser)"
+    participant APIGW as "API\nRealtimeGateway"
+    participant WS as "WebSocket\nServer"
+    participant EventBus as "Node.js\nEventEmitter"
+    participant UsersTab as "User 1 Tab\n(Browser)"
+    participant UsersTab2 as "User 2 Tab\n(Browser)"
+end box
+
+WS->>WS: io.on('connection', socket)
+WS->>WS: register socket listener\nfor user subscriptions
+
+APIGW->>EventBus: realtimeEventEmitter.emit('admin.user.banned', {userId, bannedBy, reason})
+
+EventBus->>WS: notify all listeners\nevent: admin.user.banned
+
+WS->>UsersTab: socket.emit('admin.user.banned', {userId, bannedBy})
+WS->>UsersTab2: socket.emit('admin.user.banned', {userId, bannedBy})
+
+UsersTab->>UsersTab: RealtimeService.on('admin.user.banned')\nObservable triggers
+
+UsersTab->>UsersTab: AuthService checks user status\nif banned === currentUser: logout + redirect
+
+UsersTab2->>UsersTab2: Same process
+
+' Flow 5: Dashboard Real-time Stats
+box "Flow 5: Real-time Admin Dashboard"
+    participant DashboardTab as "Admin\nDashboard"
+    participant StatsAPI as "StatsController"
+    participant WS2 as "WebSocket"
+end box
+
+DashboardTab->>StatsAPI: GET /api/admin/dashboard/stats
+StatsAPI-->>DashboardTab: HTTP 200\n{activeUsers: 42, booksProcessing: 5, errors: 0}
+
+DashboardTab->>DashboardTab: StatsService.subscribeToStatsUpdates()
+
+DashboardTab->>WS2: WebSocket subscribe\nevent: 'admin.stats.updated'
+
+WS2->>DashboardTab: emit new stats every 10s
+
+DashboardTab->>DashboardTab: Charts update in real-time\nactiveUsers, booksProcessing, systemHealth
+
+' Legend and Notes
+note right of Client
+    **Complete Ingest Flow:**
+    1. Frontend uploads file (HTTP POST)
+    2. API validates + saves file
+    3. Job created in MongoDB
+    4. WebSocket event emitted
+    5. Worker fetches & processes
+    6. FFmpeg transcodes/extracts
+    7. Job completion emitted
+    8. Clients refresh library
+    
+    **Total time:** 2-30min (depends on size)
+end note
+
+note right of Tab1
+    **Progress Sync Features:**
+    - Debounced (5s window)
+    - Per-user + per-book tracking
+    - Real-time cross-device
+    - Validation on receive
+    - Auto-resume support
+    
+    **Sync Guard Conditions:**
+    ✓ Same book ID
+    ✓ Newer timestamp
+    ✓ Not currently playing
+    ✓ Position in range [0, duration]
+end note
+
+note right of TabStream
+    **Streaming Optimizations:**
+    - Range requests (206 responses)
+    - ETag caching (304 if match)
+    - 1-60MB chunks (adaptive)
+    - Auth via JWT header + query param
+    - 1-day cache max-age
+end note
+
+note right of AdminUI
+    **Realtime Event Types:**
+    - job.state.changed
+    - book.added, book.updated, book.deleted
+    - progress.synced
+    - discussion.created, discussion.deleted
+    - admin.user.banned, admin.mod.logged
+    - system.error, system.alert
+end note
+
+@enduml

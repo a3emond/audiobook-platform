@@ -1,0 +1,296 @@
+@startuml API Auth Module Detail
+
+skinparam backgroundColor white
+skinparam defaultFontColor black
+skinparam classBorderColor black
+skinparam classBackgroundColor white
+skinparam classHeaderBackgroundColor #e0e0e0
+skinparam defaultFontName sans-serif
+skinparam shadowing false
+left to right direction
+skinparam nodesep 10
+skinparam ranksep 30
+
+title API Auth Module - Detailed Architecture\n<size:14>JWT + OAuth Google/Apple + Account Merging</size>
+
+package "Auth Controllers" {
+    class AuthController {
+        +register(dto: RegisterDto): {accessToken, refreshToken, user}
+        +login(dto: LoginDto): {accessToken, refreshToken, user}
+        +refresh(dto: RefreshDto): {accessToken}
+        +logout(req: AuthRequest): void
+        +getMe(req: AuthRequest): User
+        +changePassword(oldPwd, newPwd): void
+        +changeEmail(newEmail): void
+    }
+
+    class OAuthController {
+        +handleGoogleCallback(code): {accessToken, refreshToken, user}
+        +handleAppleCallback(code): {accessToken, refreshToken, user}
+    }
+}
+
+package "Auth Services" {
+    class AuthService {
+        -userModel: Model<User>
+        -sessionModel: Model<AuthSession>
+        -tokenService: TokenService
+        -oauthService: OAuthService
+        
+        +register(email, password): User
+        +login(email, password): {user, accessToken, refreshToken}
+        +logout(userId): void
+        +refreshToken(refreshToken): {accessToken}
+        +verifyToken(token): {userId, role}
+        +validatePasswordStrength(password): boolean
+        +changePassword(userId, oldPwd, newPwd): void
+    }
+
+    class TokenService {
+        -accessTokenSecret: string
+        -refreshTokenSecret: string
+        -accessTokenTtl: 15min
+        -refreshTokenTtl: 7days
+        
+        +generateAccessToken(userId, role): JWT
+        +generateRefreshToken(userId): JWT
+        +verifyAccessToken(token): {userId, role}
+        +verifyRefreshToken(token): {userId}
+        +revokeRefreshToken(token): void
+        +isTokenExpired(token): boolean
+    }
+
+    class OAuthService {
+        -googleAuth: GoogleAuth
+        -appleAuth: AppleAuth
+        -oauthProfileMapper: ProfileMapper
+        
+        +verifyGoogleToken(code): OAuthProfile
+        +verifyAppleToken(code): OAuthProfile
+        +handleGoogleLogin(profile): User
+        +handleAppleLogin(profile): User
+        -mergeOrCreateUser(provider, profile): User
+    }
+
+    class OAuthProfileMapper {
+        +mapGoogleProfile(googleProfile): {email, name, avatar}
+        +mapAppleProfile(appleProfile): {email, name}
+        +sanitizeEmail(email): string
+        +sanitizeName(name): string
+    }
+
+    class AccountMergeService {
+        -userModel: Model<User>
+        
+        +findOrCreateUser(provider, profile): User
+        +mergeAccounts(existingUser, newProfile): User
+        +linkOAuthProvider(userId, provider, profile): void
+        +unlinkOAuthProvider(userId, provider): void
+        -deduplicateAccounts(email): User[]
+        -resolveConflicts(user1, user2): User
+    }
+}
+
+package "Password Security" {
+    class PasswordHasher {
+        -saltRounds: 10
+        
+        +hash(plaintext): Promise<hash>
+        +verify(plaintext, hash): Promise<boolean>
+        +generateResetToken(): string
+    }
+
+    class SessionManager {
+        -sessionModel: Model<AuthSession>
+        -ttl: 7days
+        
+        +createSession(userId, refreshToken): AuthSession
+        +findSession(token): AuthSession
+        +revokeSession(token): void
+        +revokeAllSessions(userId): void
+        +cleanupExpiredSessions(): void
+    }
+}
+
+package "Middleware" {
+    class AuthMiddleware {
+        -tokenService: TokenService
+        
+        +verify(req: Request, res: Response, next): void
+        -extractTokenFromHeader(req): string?
+        -extractTokenFromQuery(req): string?
+        -handleExpiredToken(err): void
+    }
+
+    class RoleMiddleware {
+        -requiredRole: 'admin'|'user'
+        
+        +enforce(req: Request, res: Response, next): void
+        -checkUserRole(user): boolean
+    }
+
+    class OAuthCallbackMiddleware {
+        -oauthService: OAuthService
+        +handleCallback(req, res, next): void
+        -validateState(state): boolean
+        -storeRefreshToken(token, req): void
+    }
+}
+
+package "Data Models" {
+    class UserModel {
+        -_id: ObjectId
+        -email: string {unique}
+        -passwordHash: string
+        -role: 'admin'|'user' = 'user'
+        -profile.name: string
+        -profile.avatar?: string
+        -oauthProviders.google?: string
+        -oauthProviders.apple?: string
+        -isEmailVerified: boolean = false
+        -createdAt: Date
+        -updatedAt: Date
+    }
+
+    class AuthSessionModel {
+        -_id: ObjectId
+        -userId: ObjectId {ref: UserModel}
+        -refreshToken: string {unique}
+        -refreshTokenHash: string
+        -expiresAt: Date
+        -createdAt: Date
+        -device?: string
+    }
+
+    class OAuthProfileModel {
+        -_id: ObjectId
+        -userId: ObjectId {ref: UserModel}
+        -provider: 'google'|'apple'
+        -providerUserId: string
+        -email: string
+        -profile: object
+        -lastUsedAt: Date
+        -createdAt: Date
+    }
+}
+
+package "DTOs & Types" {
+    class RegisterDto {
+        +email: string {Email, required}
+        +password: string {MinLength 8, required}
+        +confirmPassword: string {required}
+    }
+
+    class LoginDto {
+        +email: string {required}
+        +password: string {required}
+    }
+
+    class RefreshDto {
+        +refreshToken: string {required}
+    }
+
+    class ChangePasswordDto {
+        +currentPassword: string {required}
+        +newPassword: string {MinLength 8, required}
+        +confirmPassword: string {required}
+    }
+
+    class OAuthProfile {
+        +provider: 'google'|'apple'
+        +email: string
+        +name: string
+        +avatar?: string
+        +providerUserId: string
+    }
+
+    class AuthTokens {
+        +accessToken: string
+        +refreshToken: string
+        +expiresIn: number
+    }
+}
+
+package "Constants & Config" {
+    class AuthConstants {
+        ~ACCESS_TOKEN_TTL: 15min
+        ~REFRESH_TOKEN_TTL: 7days
+        ~PASSWORD_MIN_LENGTH: 8
+        ~SALT_ROUNDS: 10
+        ~MAX_SESSIONS_PER_USER: 5
+    }
+
+    class OAuthConfig {
+        ~GOOGLE_CLIENT_ID: string
+        ~GOOGLE_CLIENT_SECRET: string
+        ~GOOGLE_CALLBACK_URL: string
+        ~APPLE_CLIENT_ID: string
+        ~APPLE_KEY_ID: string
+        ~APPLE_TEAM_ID: string
+    }
+}
+
+' Relationships
+AuthController --> AuthService
+AuthController --> TokenService
+AuthController --> PasswordHasher
+
+OAuthController --> OAuthService
+OAuthController --> AccountMergeService
+
+AuthService --> UserModel
+AuthService --> AuthSessionModel
+AuthService --> TokenService
+AuthService --> SessionManager
+AuthService --> PasswordHasher
+
+TokenService --> AuthConstants
+
+OAuthService --> OAuthProfileMapper
+OAuthService --> AccountMergeService
+OAuthService --> OAuthConfig
+
+OAuthProfileMapper --> OAuthProfile
+
+AccountMergeService --> UserModel
+AccountMergeService --> OAuthProfileModel
+
+PasswordHasher --> AuthConstants
+
+SessionManager --> AuthSessionModel
+SessionManager --> AuthConstants
+
+AuthMiddleware --> TokenService
+RoleMiddleware --> UserModel
+OAuthCallbackMiddleware --> OAuthService
+
+UserModel --> OAuthProfileModel
+
+' Flow notes
+note right of AuthService
+    Login Flow:
+    1. Validate credentials
+    2. Hash password check
+    3. Create session
+    4. Generate tokens
+    5. Return user + tokens
+end note
+
+note right of OAuthService
+    OAuth Flow:
+    1. Verify provider token
+    2. Extract profile
+    3. Check if email exists
+    4. Merge or create user
+    5. Create session
+    6. Generate tokens
+end note
+
+note right of SessionManager
+    Session TTL:
+    - AccessToken: 15 minutes
+    - RefreshToken: 7 days
+    - Cleanup: hourly
+end note
+
+@enduml

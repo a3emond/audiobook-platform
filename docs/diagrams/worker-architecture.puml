@@ -1,0 +1,435 @@
+@startuml Worker Layer Architecture
+
+skinparam backgroundColor white
+skinparam defaultFontColor black
+skinparam classBorderColor black
+skinparam classBackgroundColor white
+skinparam classHeaderBackgroundColor #e0e0e0
+skinparam defaultFontName sans-serif
+skinparam shadowing false
+left to right direction
+skinparam nodesep 10
+skinparam ranksep 30
+
+title Worker Layer - Job Processing Engine\n<size:14>MongoDB Queue + Lane-Based Concurrency + FFmpeg Integration</size>
+
+package "Job Orchestration" {
+    class JobRunner {
+        -jobModel: Model<Job>
+        -jobProcessor: JobProcessor
+        -workerSettingsService: WorkerSettingsService
+        -logger: Logger
+        -pollInterval: number = 5000
+        -isRunning: boolean = false
+        
+        +start(): Promise<void>
+        +stop(): Promise<void>
+        -pollForJobs(): Promise<void>
+        -processJobBatch(jobs: Job[]): Promise<void>
+        -recordJobMetrics(job, duration): void
+    }
+
+    class JobProcessor {
+        -handlers: Map<JobType, JobHandler>
+        -workerSettingsService: WorkerSettingsService
+        -jobModel: Model<Job>
+        -logger: Logger
+        
+        +register(jobType, handler): void
+        +process(job: Job): Promise<JobResult>
+        +claim(job): Promise<boolean>
+        +markRunning(jobId): Promise<void>
+        +markDone(jobId, result): Promise<void>
+        +markRetrying(jobId, error, attempt): Promise<void>
+        -checkLaneCapacity(job): boolean
+        -assignToLane(job): LaneType
+    }
+
+    class WorkerSettingsService {
+        -settingsModel: Model<WorkerSettings>
+        
+        +getHeavySlots(): number
+        +getFastSlots(): number
+        +getMaxRetries(): number
+        +getRetryDelay(): number
+        -updateConcurrency(heavy, fast): void
+        -validateSlotAllocation(): boolean
+    }
+}
+
+package "Job Handlers" {
+    interface JobHandler {
+        +handle(job: Job, context: JobContext): Promise<JobResult>
+        +validate(job: Job): boolean
+        +cleanup(jobId): Promise<void>
+    }
+
+    class IngestHandler {
+        -fileService: FileService
+        -ffmpegService: FFmpegService
+        -metadataService: MetadataService
+        -checksumService: ChecksumService
+        -bookModel: Model<Book>
+        
+        +handle(job, context): Promise<JobResult>
+        -detectFormat(file): 'm4b'|'mp3'
+        -processUploadedFile(file): Promise<ProcessedFile>
+        -calculateChecksum(filePath): Promise<string>
+        -saveBookMetadata(bookData): Promise<Book>
+        -cleanup(jobId): Promise<void>
+    }
+
+    class IngestMp3AsM4bHandler {
+        -ffmpegService: FFmpegService
+        -fileService: FileService
+        
+        +handle(job, context): Promise<JobResult>
+        -startTranscode(mp3Path): Promise<m4bPath>
+        -monitorProgress(proc): Promise<void>
+        -validateOutput(m4bPath): Promise<boolean>
+    }
+
+    class SanitizeMp3ToM4bHandler {
+        -ffmpegService: FFmpegService
+        -fileService: FileService
+        
+        +handle(job, context): Promise<JobResult>
+        -detectIssues(mp3Path): Promise<Issue[]>
+        -reencodeIfNeeded(mp3Path): Promise<m4bPath>
+    }
+
+    class RescanHandler {
+        -ffmpegService: FFmpegService
+        -bookModel: Model<Book>
+        -metadataService: MetadataService
+        
+        +handle(job, context): Promise<JobResult>
+        -probeFile(filePath): Promise<FileProbe>
+        -updateBookDuration(bookId, duration): Promise<void>
+        -extractChapters(filePath): Promise<Chapter[]>
+    }
+
+    class SyncTagsHandler {
+        -ffmpegService: FFmpegService
+        -metadataService: MetadataService
+        -bookModel: Model<Book>
+        
+        +handle(job, context): Promise<JobResult>
+        -readTags(filePath): Promise<Tags>
+        -syncToDatabase(tags, bookId): Promise<void>
+    }
+
+    class WriteMetadataHandler {
+        -ffmpegService: FFmpegService
+        -metadataService: MetadataService
+        -fileService: FileService
+        
+        +handle(job, context): Promise<JobResult>
+        -generateFFmetadata(bookData): Promise<string>
+        -writeMetadata(filePath, metadata): Promise<void>
+        -validateWritten(filePath): Promise<boolean>
+    }
+
+    class ExtractCoverHandler {
+        -ffmpegService: FFmpegService
+        -fileService: FileService
+        -bookModel: Model<Book>
+        
+        +handle(job, context): Promise<JobResult>
+        -extractFromFile(audioPath): Promise<Buffer>
+        -resizeCover(buffer): Promise<Buffer>
+        -saveCoverFile(bookId, buffer): Promise<string>
+    }
+
+    class ReplaceCoverHandler {
+        -fileService: FileService
+        -bookModel: Model<Book>
+        
+        +handle(job, context): Promise<JobResult>
+        -validateCoverFile(path): Promise<boolean>
+        -transferCoverFile(from, to): Promise<void>
+    }
+
+    class DeleteBookHandler {
+        -fileService: FileService
+        -bookModel: Model<Book>
+        -progressModel: Model<Progress>
+        
+        +handle(job, context): Promise<JobResult>
+        -deleteBookFiles(bookId): Promise<void>
+        -clearProgress(bookId): Promise<void>
+        -removeFromCollections(bookId): Promise<void>
+    }
+
+    class ReplaceFileHandler {
+        -ffmpegService: FFmpegService
+        -fileService: FileService
+        -bookModel: Model<Book>
+        
+        +handle(job, context): Promise<JobResult>
+        -validateReplacementFile(newFile): Promise<boolean>
+        -computeChecksum(file): Promise<string>
+        -swapFiles(old, new): Promise<void>
+    }
+}
+
+package "FFmpeg Integration" {
+    class FFmpegService {
+        -ffprobePath: string
+        -ffmpegPath: string
+        -tempDir: string
+        -logger: Logger
+        
+        +probe(filePath): Promise<FileProbe>
+        +encode(input, output, options): Promise<Process>
+        +transcode(input, output, codec, bitrate): Promise<Process>
+        +extractMetadata(filePath): Promise<FFmetadata>
+        +extractCover(filePath): Promise<Buffer>
+        +writeMetadata(filePath, ffmetadataFile): Promise<void>
+        -executeCommand(args): Promise<Output>
+        -parseOutput(stdout): Object
+        -handleError(error): WorkerError
+    }
+
+    class MetadataService {
+        -templatePath: string = '/ffmpeg/templates/ffmetadata.template.txt'
+        
+        +parseFFmetadata(filePath): Promise<FFmetadata>
+        +extractChapters(ffmetadata): Chapter[]
+        +generateFFmetadataFile(book, chapters): Promise<string>
+        +readTags(filePath): Promise<Tags>
+        -parseTimestamp(str): number
+        -formatTimestamp(seconds): string
+    }
+
+    class FileProbeResult {
+        +format.filename: string
+        +format.duration: number
+        +format.bit_rate: number
+        +format.nb_streams: number
+        +streams: Stream[]
+        +chapters?: Chapter[]
+    }
+}
+
+package "File Operations" {
+    class FileService {
+        -basePath: string = '/audiobooks'
+        -logger: Logger
+        
+        +exists(path): Promise<boolean>
+        +copy(from, to): Promise<void>
+        +move(from, to): Promise<void>
+        +delete(path): Promise<void>
+        +getSize(path): Promise<number>
+        +getStats(path): Promise<Stats>
+        +createReadStream(path): Stream
+        +assertWritable(dir): Promise<void>
+        -validatePath(path): boolean
+        -ensureDirExists(path): Promise<void>
+    }
+
+    class ChecksumService {
+        +calculateSHA256(filePath): Promise<string>
+        +calculateMD5(filePath): Promise<string>
+        -readFileChunks(path, chunkSize): AsyncIterator
+    }
+}
+
+package "Schedulers & Automation" {
+    class ParitySchedulerService {
+        -jobModel: Model<Job>
+        -bookModel: Model<Book>
+        -schedule: CronExpression = '0 2 * * *' (daily 2am)
+        
+        +start(): void
+        +stop(): void
+        -checkParity(): Promise<void>
+        -detectDrifts(book): Promise<Drift[]>
+        -scheduleRepair(book, drift): Promise<Job>
+    }
+
+    class TagSyncSchedulerService {
+        -jobModel: Model<Job>
+        -bookModel: Model<Book>
+        -schedule: CronExpression = '0 3 * * 0' (weekly)
+        
+        +start(): void
+        +stop(): void
+        -syncAllTags(): Promise<void>
+        -hasTagDrift(book): Promise<boolean>
+        -queueSyncJob(bookId): Promise<Job>
+    }
+}
+
+package "Data Models (Worker)" {
+    class JobModel {
+        -_id: ObjectId
+        -type: JobType
+        -status: 'QUEUED'|'RUNNING'|'RETRYING'|'DONE'|'FAILED'
+        -bookId: ObjectId {ref: BookModel}
+        -userId?: ObjectId {ref: UserModel}
+        -lane: 'heavy'|'fast'
+        -payload: Object
+        -result?: Object
+        -error.message?: string
+        -error.code?: string
+        -retryCount: number = 0
+        -maxRetries: number = 3
+        -createdAt: Date
+        -startedAt?: Date
+        -completedAt?: Date
+        -claimedBy?: ObjectId
+    }
+
+    class WorkerSettingsModel {
+        -_id: ObjectId
+        -heavySlots: number = 2
+        -fastSlots: number = 4
+        -maxRetries: number = 3
+        -retryDelay: number = 60000 (1 min)
+        -pollInterval: number = 5000
+        -tempDirCleanupAge: number = 86400000 (1 day)
+    }
+}
+
+package "Job Context & Results" {
+    class JobContext {
+        +jobId: ObjectId
+        +bookId: ObjectId
+        +userId?: ObjectId
+        +logger: Logger
+        +emitter: EventEmitter
+        
+        +emit(event, data): void
+        +progress(percent): void
+    }
+
+    class JobResult {
+        +status: 'success'|'failed'|'retry'
+        +data?: Object
+        +error?: Error
+        +duration: number
+        +metadata.filesCreated: string[]
+        +metadata.filesModified: string[]
+    }
+}
+
+package "Concurrency Control" {
+    class LaneManager {
+        -lanes: Map<LaneType, Lane>
+        -workerSettings: WorkerSettingsService
+        
+        +assignJob(job): LaneType
+        +claimSlot(lane): Promise<boolean>
+        +releaseSlot(lane): void
+        +getCapacity(lane): {used, total}
+        -preferLane(jobType): LaneType
+    }
+
+    class Lane {
+        +type: 'heavy'|'fast'
+        +totalSlots: number
+        +activeJobs: Job[] = []
+        +queue: Job[] = []
+        
+        +canAccept(): boolean
+        +add(job): void
+        +remove(jobId): void
+        -getCurrentLoad(): number
+    }
+}
+
+' Relationships
+JobRunner --> JobProcessor
+JobRunner --> WorkerSettingsService
+JobProcessor --> JobHandler
+JobProcessor --> LaneManager
+
+IngestHandler --|> JobHandler
+IngestMp3AsM4bHandler --|> JobHandler
+SanitizeMp3ToM4bHandler --|> JobHandler
+RescanHandler --|> JobHandler
+SyncTagsHandler --|> JobHandler
+WriteMetadataHandler --|> JobHandler
+ExtractCoverHandler --|> JobHandler
+ReplaceCoverHandler --|> JobHandler
+DeleteBookHandler --|> JobHandler
+ReplaceFileHandler --|> JobHandler
+
+IngestHandler --> FFmpegService
+IngestHandler --> MetadataService
+IngestHandler --> FileService
+IngestHandler --> ChecksumService
+
+IngestMp3AsM4bHandler --> FFmpegService
+IngestMp3AsM4bHandler --> FileService
+
+RescanHandler --> FFmpegService
+RescanHandler --> MetadataService
+
+SyncTagsHandler --> FFmpegService
+SyncTagsHandler --> MetadataService
+
+WriteMetadataHandler --> FFmpegService
+WriteMetadataHandler --> MetadataService
+WriteMetadataHandler --> FileService
+
+ExtractCoverHandler --> FFmpegService
+ExtractCoverHandler --> FileService
+
+ReplaceCoverHandler --> FileService
+
+DeleteBookHandler --> FileService
+
+ReplaceFileHandler --> FFmpegService
+ReplaceFileHandler --> FileService
+
+LaneManager --> Lane
+JobProcessor --> JobContext
+JobProcessor --> JobResult
+
+ParitySchedulerService --> JobModel
+TagSyncSchedulerService --> JobModel
+
+note right of JobRunner
+    Job Polling:
+    1. Query JobModel for QUEUED
+    2. Sort by createdAt (FIFO)
+    3. Poll interval: 5s
+    4. Batch process jobs
+    5. Poll again
+end note
+
+note right of JobProcessor
+    Lane Assignment:
+    HEAVY jobs: Ingest, Transcode
+    FAST jobs: Rescan, Sync, Delete
+    
+    Concurrency:
+    - Heavy: 2 slots
+    - Fast: 4 slots
+end note
+
+note right of JobModel
+    Retry Strategy:
+    - Status: RUNNING → ERROR
+    - Mark: RETRYING
+    - Delay: 60s (exponential)
+    - Max attempts: 3
+    
+    Atomic Claim:
+    - Query { status: QUEUED, claimedBy: null }
+    - Update { status: RUNNING, claimedBy: worker }
+    - Prevents double-processing
+end note
+
+note bottom of FFmpegService
+    FFprobe + FFmpeg Commands:
+    - ffprobe: duration, streams, chapters
+    - ffmpeg: transcode MP3→M4B
+    - ffmpeg -i file.mp4 -f ffmetadata: extract tags
+    - FFmetadata: write chapters/tags
+end note
+
+@enduml

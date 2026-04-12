@@ -1,0 +1,508 @@
+@startuml Frontend Angular Architecture
+
+skinparam backgroundColor white
+skinparam defaultFontColor black
+skinparam classBorderColor black
+skinparam classBackgroundColor white
+skinparam classHeaderBackgroundColor #e0e0e0
+skinparam defaultFontName sans-serif
+skinparam shadowing false
+left to right direction
+skinparam nodesep 10
+skinparam ranksep 30
+
+title Frontend Angular 21 - Service & Reactive Architecture\n<size:14>Signals + Dependency Injection + Service-Oriented Design</size>
+
+package "Core Services" {
+    class AuthService {
+        -tokenService: TokenService
+        -apiService: ApiService
+        -realtimeService: RealtimeService
+        -logger: Logger
+        
+        -accessTokenSignal: WritableSignal<string>
+        -refreshTokenSignal: WritableSignal<string>
+        -currentUserSignal: WritableSignal<User>
+        -isAuthenticatedSignal: WritableSignal<boolean>
+        -rolesSignal: computed<Role[]>
+        
+        +register(email, password): Promise<void>
+        +login(email, password): Promise<void>
+        +logout(): Promise<void>
+        +refreshToken(): Promise<void>
+        +getOAuthUrl(provider): string
+        +handleOAuthCallback(code, state): Promise<void>
+        +mergeWithExisting(token): Promise<void>
+        -persistTokens(access, refresh): void
+        -clearTokens(): void
+        -subscribeToAuthEvents(): void
+    }
+
+    class TokenService {
+        -storageService: StorageService
+        
+        -accessTokenSignal: WritableSignal<string>
+        -refreshTokenSignal: WritableSignal<string>
+        -expirationSignal: WritableSignal<Date>
+        -isExpiredSignal: computed<boolean>
+        
+        +setTokens(access, refresh, expiresIn): void
+        +getAccessToken(): string
+        +getRefreshToken(): string
+        +clearTokens(): void
+        +isExpired(): boolean
+        -scheduleRefresh(expiresIn): void
+    }
+
+    class ApiService {
+        -httpClient: HttpClient
+        -apiBaseUrl: string
+        -logger: Logger
+        
+        +get<T>(path, options?): Observable<T>
+        +post<T>(path, body, options?): Observable<T>
+        +put<T>(path, body, options?): Observable<T>
+        +delete<T>(path): Observable<T>
+        +patch<T>(path, body): Observable<T>
+        -buildHeaders(includeAuth?): HttpHeaders
+        -handleError(error): Observable<never>
+    }
+
+    class RealtimeService {
+        -socket: WebSocket
+        -apiService: ApiService
+        -logger: Logger
+        -reconnectDelay: number = 3000
+        -maxReconnectAttempts: number = 5
+        
+        -isConnectedSignal: WritableSignal<boolean>
+        -connectionStateSignal: WritableSignal<'connecting'|'connected'|'disconnected'>
+        
+        +connect(): Promise<void>
+        +disconnect(): Promise<void>
+        +subscribe(eventName, callback): Subscription
+        +emit(eventName, data): void
+        -handleReconnect(): void
+        -bindEventHandlers(): void
+        +on(event): Observable<any>
+    }
+
+    class PlayerService {
+        -audioElement: HTMLAudioElement
+        -mediaSession: MediaSession
+        -apiService: ApiService
+        -progressService: ProgressService
+        -realtimeService: RealtimeService
+        -settingsService: SettingsService
+        -logger: Logger
+        
+        -currentBookSignal: WritableSignal<Book>
+        -isPlayingSignal: WritableSignal<boolean>
+        -currentPositionSignal: WritableSignal<number>
+        -durationSignal: WritableSignal<number>
+        -playbackRateSignal: WritableSignal<number>
+        -volumeSignal: WritableSignal<number>
+        -availableRatesSignal: WritableSignal<number[]>
+        -canResumeSignal: computed<boolean>
+        
+        +playBook(book): Promise<void>
+        +pause(): void
+        +resume(): void
+        +seek(seconds): void
+        +setPlaybackRate(rate): void
+        +setVolume(volume): void
+        +stop(): void
+        -loadAudio(bookId): Promise<string>
+        -setupAudioElement(): void
+        -setupMediaSession(): void
+        -setupAutoSave(): void
+        +applyProgressSync(progress): void
+        -validateProgressSync(progress): boolean
+        -emitProgressUpdate(): void
+    }
+
+    class ProgressService {
+        -apiService: ApiService
+        -realtimeService: RealtimeService
+        -playerService: PlayerService
+        -logger: Logger
+        
+        +saveProgress(userId, bookId, position): Promise<void>
+        +getProgress(bookId): Promise<Progress>
+        +markAsCompleted(bookId): Promise<void>
+        +getUserProgress(userId): Promise<Progress[]>
+        +subscribeToProgressSync(bookId): Observable<Progress>
+        -debounceProgressSave(): void
+    }
+
+    class LibraryService {
+        -apiService: ApiService
+        -realtimeService: RealtimeService
+        
+        -booksSignal: WritableSignal<Book[]>
+        -collectionsSignal: WritableSignal<Collection[]>
+        -seriesSignal: WritableSignal<Series[]>
+        -isLoadingSignal: WritableSignal<boolean>
+        
+        +loadLibrary(): Promise<void>
+        +getBooks(filters?): Observable<Book[]>
+        +getCollections(): Observable<Collection[]>
+        +getSeries(): Observable<Series[]>
+        +searchBooks(query): Observable<Book[]>
+        +getBookDetails(bookId): Observable<Book>
+        -subscribeToLibraryEvents(): void
+    }
+
+    class SettingsService {
+        -apiService: ApiService
+        -storageService: StorageService
+        
+        -settingsSignal: WritableSignal<Settings>
+        -themeSignal: WritableSignal<'light'|'dark'>
+        -languageSignal: WritableSignal<string>
+        -resumeRewindSignal: WritableSignal<number>
+        -playbackRateSignal: WritableSignal<number>
+        
+        +updateSettings(settings): Promise<void>
+        +setTheme(theme): void
+        +setLanguage(lang): void
+        +getSettings(): Observable<Settings>
+        -applyTheme(theme): void
+        -loadSettingsFromStorage(): void
+    }
+
+    class DiscussionService {
+        -apiService: ApiService
+        -realtimeService: RealtimeService
+        
+        +getDiscussions(bookId): Observable<Discussion[]>
+        +createDiscussion(bookId, content): Promise<void>
+        +likeDiscussion(discussionId): Promise<void>
+        +subscribeToNewDiscussions(bookId): Observable<Discussion>
+    }
+
+    class AdminService {
+        -apiService: ApiService
+        
+        +getDashboard(): Observable<DashboardData>
+        +getUsers(page, limit): Observable<User[]>
+        +deleteUser(userId): Promise<void>
+        +banUser(userId): Promise<void>
+        +getModLogs(): Observable<ModLog[]>
+    }
+
+    class StatsService {
+        -apiService: ApiService
+        -realtimeService: RealtimeService
+        
+        +getUserStats(): Observable<UserStats>
+        +getLibraryStats(): Observable<LibraryStats>
+        +getSystemStats(): Observable<SystemStats>
+        +subscribeToStatsUpdates(): Observable<any>
+    }
+
+    class I18nService {
+        -language: WritableSignal<string> = 'en'
+        -translations: Map<string, Object>
+        -apiService: ApiService
+        
+        +loadTranslations(lang): Promise<void>
+        +translate(key, params?): string
+        +setLanguage(lang): void
+        +getLanguage(): string
+        +getAvailableLanguages(): string[]
+    }
+
+    class AppConfigService {
+        -config: WritableSignal<AppConfig>
+        -apiService: ApiService
+        
+        +loadConfig(): Promise<void>
+        +getConfig(): Observable<AppConfig>
+        -parseEnvConfig(): AppConfig
+    }
+}
+
+package "HTTP Interceptors" {
+    class AuthInterceptor {
+        -tokenService: TokenService
+        
+        +intercept(req, next): Observable<HttpEvent>
+        -addAuthHeader(req): HttpRequest
+    }
+
+    class AuthRefreshInterceptor {
+        -tokenService: TokenService
+        -authService: AuthService
+        -apiService: ApiService
+        
+        +intercept(req, next): Observable<HttpEvent>
+        -handleUnauthorized(error): Observable<HttpEvent>
+        -refreshAndRetry(req, next): Observable<HttpEvent>
+    }
+
+    class ErrorInterceptor {
+        -logger: Logger
+        -toastService: ToastService
+        
+        +intercept(req, next): Observable<HttpEvent>
+        -handleError(error): void
+        -showErrorNotification(error): void
+    }
+}
+
+package "Route Guards" {
+    class AuthGuard {
+        -authService: AuthService
+        -router: Router
+        
+        +canActivate(route, state): boolean|Promise<boolean>
+        +canActivateChild(childRoute, state): boolean|Promise<boolean>
+    }
+
+    class AdminGuard {
+        -authService: AuthService
+        -router: Router
+        
+        +canActivate(route, state): boolean|Promise<boolean>
+        -isAdmin(user): boolean
+    }
+
+    class RoleGuard {
+        -authService: AuthService
+        -router: Router
+        
+        +canActivate(route, state): boolean|Promise<boolean>
+        -hasRequiredRole(route): boolean
+    }
+}
+
+package "Data Models & DTOs" {
+    class User {
+        +id: string
+        +email: string
+        +displayName: string
+        +avatar?: string
+        +authType: 'email'|'google'|'apple'
+        +roles: Role[]
+        +createdAt: Date
+        +preferences: UserPreferences
+    }
+
+    class Book {
+        +id: string
+        +title: string
+        +author: string
+        +description: string
+        +duration: number
+        +coverUrl: string
+        +format: 'm4b'|'mp3'
+        +chapters: Chapter[]
+        +tags: string[]
+        +published: boolean
+        +createdAt: Date
+    }
+
+    class Progress {
+        +bookId: string
+        +positionSeconds: number
+        +completed: boolean
+        +completedAt?: Date
+        +updatedAt: Date
+    }
+
+    class Collection {
+        +id: string
+        +name: string
+        +books: Book[]
+        +createdAt: Date
+    }
+
+    class Discussion {
+        +id: string
+        +bookId: string
+        +userId: string
+        +content: string
+        +likes: number
+        +createdAt: Date
+    }
+
+    class Settings {
+        +userId: string
+        +playbackRate: number = 1.0
+        +resumeRewind: number = 0
+        +autoMarkThreshold: number = 95
+        +jumpSeconds: number = 15
+    }
+}
+
+package "Component Lifecycle Hooks" {
+    class LibraryComponent {
+        +books: Signal<Book[]>
+        +isLoading: Signal<boolean>
+        
+        +ngOnInit(): void
+        +loadBooks(): void
+        +onBookClick(book): void
+    }
+
+    class PlayerComponent {
+        +currentBook: Signal<Book>
+        +isPlaying: Signal<boolean>
+        +progress: Signal<number>
+        
+        +ngOnInit(): void
+        +setupPlayer(): void
+    }
+
+    class AdminComponent {
+        +dashboard: Signal<DashboardData>
+        -canAccess: Signal<boolean>
+        
+        +ngOnInit(): void
+        +loadDashboard(): void
+    }
+}
+
+package "Reactive Patterns" {
+    class SignalState {
+        +audioState: WritableSignal<AudioState>
+        +libraryState: WritableSignal<LibraryState>
+        +authState: WritableSignal<AuthState>
+        +settingsState: WritableSignal<SettingsState>
+    }
+
+    class EffectManager {
+        +effect(signal, callback): void
+        +computed(signals, compute): Signal
+        -unsubscribe(): void
+    }
+}
+
+package "Storage & Utilities" {
+    class StorageService {
+        +setItem(key, value): void
+        +getItem(key): any
+        +removeItem(key): void
+        +clear(): void
+    }
+
+    class LoggerService {
+        +log(msg, context?): void
+        +warn(msg, context?): void
+        +error(msg, context?): void
+    }
+
+    class ToastService {
+        +success(message): void
+        +error(message): void
+        +info(message): void
+        +warning(message): void
+    }
+}
+
+' Relationships
+AuthService --> TokenService
+AuthService --> ApiService
+AuthService --> RealtimeService
+
+PlayerService --> AudioElement
+PlayerService --> ProgressService
+PlayerService --> SettingsService
+PlayerService --> RealtimeService
+
+ProgressService --> ApiService
+ProgressService --> RealtimeService
+
+LibraryService --> ApiService
+LibraryService --> RealtimeService
+
+SettingsService --> StorageService
+SettingsService --> ApiService
+
+DiscussionService --> ApiService
+DiscussionService --> RealtimeService
+
+AdminService --> ApiService
+
+StatsService --> ApiService
+StatsService --> RealtimeService
+
+I18nService --> ApiService
+
+AuthInterceptor --> TokenService
+AuthRefreshInterceptor --> TokenService
+AuthRefreshInterceptor --> AuthService
+
+ErrorInterceptor --> LoggerService
+ErrorInterceptor --> ToastService
+
+AuthGuard --> AuthService
+AdminGuard --> AuthService
+RoleGuard --> AuthService
+
+LibraryComponent --> LibraryService
+PlayerComponent --> PlayerService
+AdminComponent --> AdminService
+
+note right of AuthService
+    Signals for Reactive State:
+    - accessToken, refreshToken
+    - currentUser (User object)
+    - isAuthenticated (boolean)
+    - roles (computed from user)
+    
+    Components subscribe via:
+    - authService.isAuthenticated()
+    - authService.currentUser()
+end note
+
+note right of PlayerService
+    Audio Playback State:
+    - currentBook (which book playing)
+    - isPlaying (boolean toggle)
+    - currentPosition (seconds)
+    - duration (total)
+    - playbackRate (0.5x - 2.5x)
+    - volume (0-100)
+    
+    Setup:
+    1. HTMLAudioElement control
+    2. MediaSession API integration
+    3. Auto-save progress (15s)
+    4. Resume on load
+end note
+
+note right of ProgressService
+    Progress Sync Flow:
+    1. PlayerService emits currentPosition
+    2. ProgressService debounces (5s)
+    3. POST to /api/books/{id}/progress
+    4. API emits WebSocket event
+    5. RealtimeService broadcasts
+    6. Other tabs receive & update
+end note
+
+note right of RealtimeService
+    Event Types:
+    - job.* (job.state.changed)
+    - book.* (book.added, book.updated)
+    - progress.* (progress.synced)
+    - discussion.* (discussion.created)
+    - admin.* (mod actions)
+    
+    Auto-reconnect:
+    - Delay: 3s exponential backoff
+    - Max attempts: 5
+    - Exponential backoff: 3s, 6s, 12s, 24s, 48s
+end note
+
+note bottom of SignalState
+    No NgRx/Redux:
+    - Signals for local reactive state
+    - Services emit events via WebSocket
+    - Components subscribe to signals
+    - RxJS for async operations
+end note
+
+@enduml
