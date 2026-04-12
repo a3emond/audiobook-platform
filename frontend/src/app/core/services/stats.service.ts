@@ -1,3 +1,21 @@
+/**
+ * ============================================================
+ * stats.service.ts
+ * ============================================================
+ *
+ * Wraps listening-analytics endpoints used by the profile page and
+ * the player's automatic session-flush logic.
+ *
+ * Exported:
+ *   StatsService        — root-level injectable
+ *   UserStatsResponse   — shape of the /stats/me response
+ *
+ * Methods:
+ *   getMine()                       — Observable<UserStatsResponse>: lifetime + rolling stats
+ *   listSessions(query?)            — Observable<ListListeningSessionsResponse>
+ *   createSession(payload, key)     — Observable<{id}> with idempotency key
+ * ============================================================
+ */
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 

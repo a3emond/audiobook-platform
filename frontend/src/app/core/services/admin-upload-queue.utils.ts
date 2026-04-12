@@ -1,3 +1,21 @@
+/**
+ * ============================================================
+ * admin-upload-queue.utils.ts
+ * ============================================================
+ *
+ * Pure helper functions for AdminUploadQueueService. Keeps
+ * immutable queue updates and job-tracking logic out of the
+ * service class.
+ *
+ * Functions:
+ *   createQueueItem(file, index)             — build a new UploadQueueItem from a File
+ *   patchQueueItem(items, index, patch)      — immutably update one item by index
+ *   patchQueueItemById(items, id, mutate)    — immutably update one item by id
+ *   mergeTrackedJobs(current, jobs, ids)     — merge an incoming job list into the
+ *                                              tracked-jobs record (ignores untracked)
+ *   allTrackedJobsTerminal(ids, jobsById)    — true when every tracked job is done/failed
+ * ============================================================
+ */
 import type { AdminJob } from './admin.types';
 import type { UploadQueueItem } from './admin-upload-queue.service';
 

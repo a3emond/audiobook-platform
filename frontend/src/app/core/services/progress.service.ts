@@ -1,3 +1,27 @@
+/**
+ * ============================================================
+ * progress.service.ts
+ * ============================================================
+ *
+ * Wraps the listening-progress read/write API and emits a simple
+ * invalidation signal so caching layers (e.g. LibraryProgressService)
+ * can refresh without tight coupling to the player.
+ *
+ * Exported:
+ *   ProgressService — root-level injectable
+ *
+ * Observable:
+ *   progressChanged$ — void stream; emits after any write operation
+ *
+ * Methods:
+ *   listMine(limit, offset)           — paginated GET /progress
+ *   listMineAll(limit)                — auto-paginated Observable<Progress[]>
+ *   getForBook(bookId)                — GET /progress/:bookId
+ *   saveForBook(bookId, payload, key) — idempotent PUT; emits progressChanged$
+ *   markCompleted(bookId)             — POST /progress/:bookId/complete
+ *   unmarkCompleted(bookId)           — DELETE /progress/:bookId/complete
+ * ============================================================
+ */
 import { Injectable } from '@angular/core';
 import { EMPTY, Observable, Subject, expand, map, reduce, tap } from 'rxjs';
 

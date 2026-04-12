@@ -1,3 +1,28 @@
+/**
+ * ============================================================
+ * library-progress.service.ts
+ * ============================================================
+ *
+ * Client-side cache of per-book progress. Refreshes automatically
+ * when the user logs in or when ProgressService emits progressChanged$.
+ * Provides synchronous accessors used by list and detail components
+ * during rendering without additional API calls.
+ *
+ * Exported:
+ *   LibraryProgressService  — root-level injectable
+ *   AggregateProgress       — combined progress summary for a set of books
+ *
+ * Methods:
+ *   progressForBook(bookId)          — Progress | null: raw cache lookup
+ *   isCompleted(bookId)              — boolean
+ *   progressPercentForBook(book)     — number | null (0–100) by book duration
+ *   progressPercentByBookId(bookId)  — number | null (0–100) from cache only
+ *   progressRatioForBook(book)       — number 0–1 fraction
+ *   listenedSecondsForBook(book)     — number: clamped listened seconds
+ *   aggregateProgressForBooks(books) — AggregateProgress for a set of books
+ *   refresh()                        — force a cache reload from /progress
+ * ============================================================
+ */
 import { Injectable, effect, signal } from '@angular/core';
 
 import type { Book, Progress } from '../models/api.models';
@@ -16,9 +41,11 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+/**
+ * Client-side cache of per-book progress. Refreshes on login and on
+ * ProgressService.progressChanged$ events. Provides synchronous accessors.
+ */
 @Injectable({ providedIn: 'root' })
-// LibraryProgressService keeps a client-side cache of per-book progress so list
-// pages do not each reimplement progress math or duplicate API traffic.
 export class LibraryProgressService {
   private readonly progressByBookIdState = signal<Map<string, Progress>>(new Map());
   private loading = false;

@@ -1,3 +1,38 @@
+/**
+ * ============================================================
+ * admin.types.ts
+ * ============================================================
+ *
+ * Shared type definitions for AdminService and admin feature components.
+ * All interfaces are exported so they can be imported individually
+ * without pulling in the service class.
+ *
+ * Interfaces:
+ *   AdminJob                       — worker-job record (id, type, status, timestamps)
+ *   AdminOverview                  — dashboard summary counters and job-status breakdown
+ *   AdminCoverageItem              — one admin-only endpoint descriptor
+ *   AdminCoverage                  — full endpoint coverage report
+ *   AdminUser                      — user record for admin view (includes role, profile)
+ *   AdminUserSession               — active auth session for a user
+ *   ListAdminUsersResponse         — paginated AdminUser list
+ *   ListAdminUserSessionsResponse  — paginated AdminUserSession list
+ *   JobLog                         — one log line (timestamp, level, message)
+ *   GetJobLogsResponse             — paginated JobLog list for a specific job
+ *   SearchLogsResponse             — cross-job log search results
+ *   ListJobsResponse               — paginated AdminJob list
+ *   WorkerQueueSettings            — concurrency, heavy-window, and job-type config
+ *   WorkerParitySettings           — parity-check scheduler config
+ *   WorkerTaxonomySettings         — taxonomy-sync scheduler config (optional)
+ *   WorkerSettings                 — root settings object (queue + parity + taxonomy)
+ *   JobEventStreamHandle           — control handle returned by startJobsRealtimeStream
+ *   UpdateBookMetadataPayload      — PATCH body for book metadata edits
+ *   UpdateBookChaptersPayload      — PATCH body for chapter list replacement
+ *
+ * Re-exported:
+ *   ListBooksResponse (from api.models)
+ *   Book              (from api.models via ListBooksResponse)
+ * ============================================================
+ */
 import type { Book, ListBooksResponse } from '../models/api.models';
 
 export type { ListBooksResponse };

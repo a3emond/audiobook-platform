@@ -1,3 +1,34 @@
+/**
+ * ============================================================
+ * auth.service.ts
+ * ============================================================
+ *
+ * Single source of truth for tokens, current user identity, and
+ * session lifecycle. Persists tokens to localStorage and exposes
+ * reactive signals consumed by guards, interceptors, and layout.
+ *
+ * Exported:
+ *   AuthService — root-level injectable
+ *
+ * Signals (readonly):
+ *   user          — authenticated User or null
+ *   initialized   — true after init() has completed
+ *
+ * Computed:
+ *   isAuthenticated — true when an access token is present
+ *   isAdmin         — true when user.role === 'admin'
+ *
+ * Methods:
+ *   accessToken()              — string | null: current access token value
+ *   init()                     — restore session from localStorage and validate
+ *   login(payload)             — POST /auth/login; stores tokens and user
+ *   register(payload)          — POST /auth/register; stores tokens and user
+ *   loginWithOAuth(prov, tok)  — POST /auth/oauth/:provider; stores tokens
+ *   logout()                   — POST /auth/logout; clears local session
+ *   refresh()                  — POST /auth/refresh; clears session on failure
+ *   reloadCurrentUser()        — re-fetch /auth/me without a new login flow
+ * ============================================================
+ */
 import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';

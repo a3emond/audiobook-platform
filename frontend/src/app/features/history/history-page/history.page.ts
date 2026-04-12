@@ -22,7 +22,8 @@ import {
 	templateUrl: './history.page.html',
 	styleUrl: './history.page.css',
 })
-// Main UI/state logic for this standalone view component.
+// HistoryPage composes listening sessions and catalog metadata into book-level
+// history rows with client-side filtering.
 export class HistoryPage implements OnInit {
 	private readonly stats = inject(StatsService);
 	private readonly library = inject(LibraryService);

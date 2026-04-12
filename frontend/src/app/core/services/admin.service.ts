@@ -1,3 +1,26 @@
+/**
+ * ============================================================
+ * admin.service.ts
+ * ============================================================
+ *
+ * Groups all backend admin endpoints so admin feature components
+ * can stay thin and declarative.
+ *
+ * Exported:
+ *   AdminService — root-level injectable
+ *   (plus re-exports of all types from admin.types.ts for convenience)
+ *
+ * Method groups:
+ *   Catalog:  listAdminBooks, getOverview, getCoverage, getBook
+ *   Jobs:     uploadBook, uploadMp3AsM4b, listJobs, enqueueAdminJob,
+ *             getJob, startJobsStream, getJobLogs, searchLogs
+ *   Worker:   getWorkerSettings, updateWorkerSettings
+ *   Users:    listUsers, getUser, updateUserRole,
+ *             listUserSessions, revokeUserSessions
+ *   Books:    updateBookMetadata, updateBookChapters, extractBookCover,
+ *             replaceBookCover, deleteBook
+ * ============================================================
+ */
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 

@@ -1,3 +1,24 @@
+/**
+ * ============================================================
+ * discussion.service.ts
+ * ============================================================
+ *
+ * Wraps the community-discussion API: channels, paginated message
+ * lists, posting, and deletion. Both admin and user operations are
+ * combined here since they share the same route tree.
+ *
+ * Exported:
+ *   DiscussionService — root-level injectable
+ *
+ * Methods:
+ *   listChannels(lang)                        — Observable<{channels}>
+ *   listMessages(lang, channel, limit, before?) — Observable<...Response>
+ *   postMessage(lang, channel, body, replyTo?) — Observable<DiscussionMessage>
+ *   deleteMessage(lang, channel, messageId)   — Observable<void>
+ *   createChannel(lang, title, desc, key?)    — Observable<DiscussionChannel>
+ *   deleteChannel(lang, channelKey)           — Observable<void>
+ * ============================================================
+ */
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
@@ -9,8 +30,8 @@ import type {
 } from '../models/api.models';
 import { ApiService } from './api.service';
 
+/** Wraps the community-discussion API: channels, paginated messages, post, and delete. */
 @Injectable({ providedIn: 'root' })
-// discussion: keeps UI and state logic readable for this frontend unit.
 export class DiscussionService {
   constructor(private readonly api: ApiService) {}
 

@@ -57,7 +57,8 @@ declare global {
   templateUrl: './oauth-buttons.html',
   styleUrl: './oauth-buttons.css',
 })
-// Main UI/state logic for this standalone view component.
+// OAuthButtonsComponent lazy-loads provider SDKs and emits normalized idToken
+// payloads to the auth page.
 export class OAuthButtonsComponent implements AfterViewInit, OnDestroy {
   @Input() googleEnabled = false;
   @Input() appleEnabled = false;

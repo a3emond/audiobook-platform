@@ -1,3 +1,20 @@
+/**
+ * ============================================================
+ * player.service.utils.ts
+ * ============================================================
+ *
+ * Pure helper functions for PlayerService. Keeps chapter math and
+ * stream-URL assembly separate from service orchestration so they
+ * can be unit-tested independently.
+ *
+ * Functions:
+ *   streamUrlForBook(bookId, token)           — build authenticated audio stream URL
+ *   chapterStartSeconds(chapter)              — chapter.start as seconds
+ *   chapterEndSeconds(chapter)                — chapter.end as seconds
+ *   currentChapterIndex(chapters, current)    — index of chapter at a given position
+ *   normalizeChapters(chapters, duration)     — convert ms → s, fill gaps, sort
+ * ============================================================
+ */
 import type { Chapter } from '../models/api.models';
 
 // Player service utilities: isolate chapter math and URL assembly from service orchestration.

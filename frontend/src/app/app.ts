@@ -29,7 +29,8 @@ import {
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
-// app: keeps UI and state logic readable for this frontend unit.
+// Root app shell: wires auth-sensitive layout, top-level realtime notifications,
+// and shared topbar/progress-strip behaviors.
 export class App implements OnDestroy {
   readonly mobileNavOpen  = signal(false);
   readonly inProgressBooks = signal<InProgressBookItem[]>([]);
@@ -48,6 +49,7 @@ export class App implements OnDestroy {
     private readonly realtime: RealtimeService,
     protected readonly player: PlayerService,
   ) {
+    // Keep in-progress strip synchronized with auth state.
     effect(() => {
       if (this.auth.isAuthenticated()) {
         this.loadInProgressBooks();
@@ -57,6 +59,7 @@ export class App implements OnDestroy {
       this.inProgressBooks.set([]);
     });
 
+    // User profile locale wins when available.
     effect(() => {
       const locale = this.auth.user()?.profile.preferredLocale;
       if (locale === 'en' || locale === 'fr') {
@@ -64,12 +67,14 @@ export class App implements OnDestroy {
       }
     });
 
+    // Any persisted progress change can affect the continue-listening strip.
     this.progressChangedSub = this.progressService.progressChanged$.subscribe(() => {
       if (this.auth.isAuthenticated()) {
         this.loadInProgressBooks();
       }
     });
 
+    // Realtime notifications are intentionally lightweight toast updates only.
     this.realtime.connect();
     this.realtimeSub = this.realtime
       .on<{ book?: { title?: string } }>('catalog.book.added')

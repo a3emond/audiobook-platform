@@ -1,3 +1,25 @@
+/**
+ * ============================================================
+ * realtime.service.ts
+ * ============================================================
+ *
+ * Typed event bus built on a single auto-reconnecting WebSocket
+ * connection. Consumers subscribe to specific event types rather
+ * than parsing raw socket messages.
+ *
+ * Exported:
+ *   RealtimeService — root-level injectable
+ *
+ * Signals:
+ *   connected — true when the WebSocket is in the OPEN state
+ *
+ * Methods:
+ *   connect()          — open (or reuse) the WebSocket; safe to call many times
+ *   disconnect()       — close the socket and cancel any pending reconnect
+ *   on<T>(type)        — Observable<T>: filtered stream for a single event type
+ *   send<T>(type, pl)  — boolean: fire-and-forget send; returns false if not connected
+ * ============================================================
+ */
 import { Injectable, signal } from '@angular/core';
 import { Observable, Subject, filter, map } from 'rxjs';
 

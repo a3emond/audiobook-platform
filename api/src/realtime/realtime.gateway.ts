@@ -16,6 +16,8 @@ export class RealtimeGateway {
   private booksCursor = new Date(Date.now() - 30_000);
   private unsubscribe?: () => void;
 
+  // Gateway combines pub/sub events with lightweight DB polling for entities
+  // not yet emitted through explicit domain events.
   start(server: HttpServer): void {
     this.wss = new WebSocketServer({
       server,
@@ -94,10 +96,12 @@ export class RealtimeGateway {
     this.wss = undefined;
   }
 
+  // Polling is intentionally grouped to keep each tick bounded and predictable.
   private async flushChanges(): Promise<void> {
     await Promise.all([this.broadcastJobUpdates(), this.broadcastBookInsertions()]);
   }
 
+  // Job cursor only advances after reading a sorted batch, preserving event order.
   private async broadcastJobUpdates(): Promise<void> {
     const jobs = await JobModel.find({ updatedAt: { $gt: this.jobsCursor } })
       .sort({ updatedAt: 1 })
@@ -130,6 +134,7 @@ export class RealtimeGateway {
     }
   }
 
+  // New-book events are broadcast from createdAt cursor to drive UI toasts/refreshes.
   private async broadcastBookInsertions(): Promise<void> {
     const books = await BookModel.find({ createdAt: { $gt: this.booksCursor } })
       .sort({ createdAt: 1 })
@@ -159,6 +164,7 @@ export class RealtimeGateway {
     }
   }
 
+  // Broadcast is best-effort across all currently open websocket clients.
   private broadcast(event: RealtimeEventEnvelope): void {
     if (!this.wss) {
       return;
@@ -183,6 +189,7 @@ export class RealtimeGateway {
     });
   }
 
+  // send() centralizes readyState checks to keep callers simple.
   private send(socket: WebSocket, payload: RealtimeEventEnvelope | string): boolean {
     if (socket.readyState !== socket.OPEN) {
       return false;
@@ -193,6 +200,8 @@ export class RealtimeGateway {
     return true;
   }
 
+  // Client-originated realtime messages are strictly whitelisted and validated
+  // before being rebroadcast to prevent arbitrary event injection.
   private handleClientMessage(raw: unknown): void {
     if (typeof raw !== "string" && !Buffer.isBuffer(raw)) {
       return;

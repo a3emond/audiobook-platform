@@ -1,3 +1,26 @@
+/**
+ * ============================================================
+ * api.service.ts
+ * ============================================================
+ *
+ * Central HTTP service for all API calls in the frontend.
+ * Resolves the base URL from the runtime env.js override, normalises
+ * query parameters, and exposes typed wrappers around HttpClient.
+ *
+ * Exported:
+ *   ApiService          — root-level injectable; injected by domain services
+ *   ApiRequestOptions   — optional params / headers for any request
+ *
+ * Methods:
+ *   get<T>(path, opts?)              — HTTP GET
+ *   post<T,B>(path, body, opts?)     — HTTP POST (JSON)
+ *   patch<T,B>(path, body, opts?)    — HTTP PATCH (JSON)
+ *   put<T,B>(path, body, opts?)      — HTTP PUT (JSON)
+ *   delete<T>(path, opts?)           — HTTP DELETE
+ *   postFormData<T>(path, form, opts?) — HTTP POST (multipart/form-data)
+ *   createEventSource(path, params?) — SSE EventSource for admin log streams
+ * ============================================================
+ */
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';

@@ -34,7 +34,8 @@ import {
   templateUrl: './library-page.component.html',
   styleUrl: './library-page.component.css',
 })
-// library-page: keeps UI and state logic readable for this frontend unit.
+// LibraryPageComponent composes catalog data, progress state, and collection
+// rails into a single browsing view.
 export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChildren('railEl', { read: ElementRef }) private railElements?: QueryList<ElementRef<HTMLElement>>;
 
@@ -124,6 +125,8 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.reload();
   }
 
+  // Reload orchestrates the page bootstrap: books, user settings, and progress
+  // are fetched together so filtering and rails stay consistent.
   reload(): void {
     this.loading.set(true);
     this.error.set(null);
@@ -153,6 +156,8 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  // Collections are loaded after series/books so derived activity data can reuse
+  // the same listened-book ordering.
   private loadCollections(): void {
     this.library.listCollections(24, 0).subscribe({
       next: (response) => {
@@ -214,6 +219,8 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
     append: boolean,
     onDone?: () => void,
   ): void {
+    // Series is paginated independently from books because each series rail
+    // requires additional detail calls.
     this.seriesLoading.set(true);
 
     this.library

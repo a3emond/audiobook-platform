@@ -41,8 +41,10 @@ import { PlayerSleepTimer } from './player-sleep-timer';
 	templateUrl: './player.page.html',
 	styleUrl: './player.page.css',
 })
-// Main UI/state logic for this standalone view component.
+// PlayerPage coordinates player UI concerns (resume, completion, sleep timer,
+// chapter navigation, and keyboard shortcuts) on top of PlayerService.
 export class PlayerPage implements OnInit, OnDestroy {
+	// View state signals for template rendering.
 	readonly book = signal<Book | null>(null);
 	readonly chapters = signal<Chapter[]>([]);
 	readonly coverUrl = signal('');
@@ -99,6 +101,10 @@ export class PlayerPage implements OnInit, OnDestroy {
 		});
 	}
 
+	// Initial load sequence:
+	// 1) fetch book metadata
+	// 2) bootstrap player source
+	// 3) resolve resume/progress and apply initial seek once both are known.
 	ngOnInit(): void {
 		this.progressMode.set('chapter');
 
@@ -134,6 +140,8 @@ export class PlayerPage implements OnInit, OnDestroy {
 		this.loadPlayerSettings();
 	}
 
+	// Player settings are loaded independently from book data so controls are
+	// usable even if resume/progress calls fail.
 	private loadPlayerSettings(): void {
 		this.settings.getMine().subscribe({
 			next: (settings) => {
@@ -154,6 +162,8 @@ export class PlayerPage implements OnInit, OnDestroy {
 		});
 	}
 
+	// Resume and completion state are fetched in parallel; seek is deferred until
+	// both have settled to avoid race-dependent initial positioning.
 	private loadResumeInfo(book: Book): void {
 		this.player.getResumeInfo(this.bookId).subscribe({
 			next: (resume) => {
@@ -187,6 +197,7 @@ export class PlayerPage implements OnInit, OnDestroy {
 		});
 	}
 
+	// Applies initial seek exactly once per page load.
 	private applyInitialPositionIfReady(book: Book): void {
 		if (this.initialPositionApplied || !this.resumeLoaded || !this.progressLoaded) {
 			return;
@@ -258,6 +269,8 @@ export class PlayerPage implements OnInit, OnDestroy {
 		this.player.claimListeningHere();
 	}
 
+	// Manual completion intentionally writes progress first (when duration is known)
+	// so completion and position remain consistent across devices.
 	markCompleted(): void {
 		this.progressMenuOpen.set(false);
 		const duration = this.player.durationSeconds() > 0 ? Math.floor(this.player.durationSeconds()) : 0;
@@ -302,6 +315,7 @@ export class PlayerPage implements OnInit, OnDestroy {
 			});
 	}
 
+	// Restart clears completion and rewinds both local playback and persisted progress.
 	restartBook(): void {
 		this.progressMenuOpen.set(false);
 		this.progress.unmarkCompleted(this.bookId).subscribe({
@@ -442,6 +456,8 @@ export class PlayerPage implements OnInit, OnDestroy {
 		this.activeChapterIndex.set(activeChapterIndexFromTime(this.chapters(), current));
 	}
 
+	// Sleep-timer behavior is delegated to PlayerSleepTimer; page logic only
+	// provides current playback state and callback hooks.
 	private handleSleepTimerTick(currentTime: number): void {
 		this.sleepTimer.handleTick(this.sleepTimerMode(), currentTime, this.player.paused(), () => this.player.pause());
 	}
@@ -496,6 +512,7 @@ export class PlayerPage implements OnInit, OnDestroy {
 		return this.activeChapterIndex() < this.chapters().length - 1;
 	}
 
+	// Hotkeys are intentionally limited to non-form contexts to avoid hijacking text input.
 	@HostListener('window:keydown', ['$event'])
 	onKeyDown(event: KeyboardEvent): void {
 		const target = event.target as HTMLElement | null;

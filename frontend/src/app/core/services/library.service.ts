@@ -1,3 +1,29 @@
+/**
+ * ============================================================
+ * library.service.ts
+ * ============================================================
+ *
+ * Public catalog service. Mirrors the books, series, and collections
+ * endpoints and injects a default language so most call-sites do not
+ * need to pass one explicitly.
+ *
+ * Exported:
+ *   LibraryService  — root-level injectable
+ *   BookFilters     — shared filter bag for book / series list queries
+ *   SeriesFilters   — alias of BookFilters scoped to series queries
+ *
+ * Methods:
+ *   listBooks(filters?)             — Observable<ListBooksResponse>
+ *   getBook(bookId)                 — Observable<Book>
+ *   listSeries(filters?)            — Observable<ListSeriesResponse>
+ *   getSeries(seriesName)           — Observable<SeriesDetail>
+ *   getCollection(collectionId)     — Observable<Collection>
+ *   listCollections(limit, offset)  — Observable<ListCollectionsResponse>
+ *   createCollection(name)          — Observable<Collection>
+ *   updateCollection(id, payload)   — Observable<Collection>
+ *   deleteCollection(id)            — Observable<void>
+ * ============================================================
+ */
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
@@ -26,9 +52,8 @@ export interface BookFilters {
 
 export interface SeriesFilters extends BookFilters {}
 
+/** Mirrors public catalog endpoints; injects a default language for most queries. */
 @Injectable({ providedIn: 'root' })
-// LibraryService mirrors public catalog endpoints and applies a default locale
-// so most callers do not need to pass one explicitly.
 export class LibraryService {
   constructor(private readonly api: ApiService) {}
 

@@ -30,7 +30,8 @@ import {
   templateUrl: './discussions.page.html',
   styleUrl: './discussions.page.css',
 })
-// Main UI/state logic for this standalone view component.
+// DiscussionsPage merges route language, channel/message CRUD, and realtime
+// updates for a lightweight chat/forum experience.
 export class DiscussionsPage implements OnInit, OnDestroy {
   @ViewChild('messageInput') messageInputRef?: ElementRef<HTMLInputElement>;
   @ViewChild('messageList') messageListRef?: ElementRef<HTMLElement>;
@@ -68,6 +69,7 @@ export class DiscussionsPage implements OnInit, OnDestroy {
     protected readonly i18n: I18nService,
   ) {}
 
+  // The page subscribes to route and realtime streams once and tears them down together.
   ngOnInit(): void {
     this.realtime.connect();
 
@@ -160,6 +162,7 @@ export class DiscussionsPage implements OnInit, OnDestroy {
       });
   }
 
+  // Deletion is optimistic in the local list after backend confirmation.
   deleteMessage(message: DiscussionMessage): void {
     if (!this.auth.isAdmin() || this.loading()) {
       return;
@@ -182,6 +185,7 @@ export class DiscussionsPage implements OnInit, OnDestroy {
     });
   }
 
+  // Channel creation/deletion is admin-only and intentionally guarded in UI and handler.
   createChannel(): void {
     if (!this.auth.isAdmin() || this.loading()) {
       return;

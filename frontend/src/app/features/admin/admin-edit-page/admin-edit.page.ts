@@ -16,7 +16,8 @@ import { buildMetadataPayload, hydrateEditableChapters, nextChapterRow, validate
 	templateUrl: './admin-edit.page.html',
 	styleUrl: './admin-edit.page.css',
 })
-// Main UI/state logic for this standalone view component.
+// AdminEditPage handles metadata/chapter editing and book maintenance actions
+// while delegating payload building/validation to helper utilities.
 export class AdminEditPage implements OnInit {
 	private readonly route = inject(ActivatedRoute);
 	private readonly router = inject(Router);
@@ -46,6 +47,7 @@ export class AdminEditPage implements OnInit {
 	chapterRows: EditableChapter[] = [];
 	private chapterRowCounter = 1;
 
+	// Bootstrap loads the editable snapshot for a single book id.
 	ngOnInit(): void {
 		const bookId = this.route.snapshot.paramMap.get('bookId');
 		if (!bookId) {
@@ -56,6 +58,8 @@ export class AdminEditPage implements OnInit {
 		this.loadBook();
 	}
 
+	// Metadata and chapters are saved independently so one section can be edited
+	// without blocking the other.
 	saveMetadata(): void {
 		if (!this.bookId) {
 			return;
@@ -198,6 +202,7 @@ export class AdminEditPage implements OnInit {
 		});
 	}
 
+	// Destructive actions are queued as jobs and surfaced with backend job ids.
 	deleteBook(): void {
 		if (!this.bookId) {
 			return;

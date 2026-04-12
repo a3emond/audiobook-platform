@@ -19,6 +19,7 @@ const BCRYPT_ROUNDS = Number(process.env.BCRYPT_ROUNDS || 10);
 const REFRESH_TTL_DAYS = Number(process.env.REFRESH_TOKEN_DAYS || 60);
 const REFRESH_TTL_MS = 1000 * 60 * 60 * 24 * REFRESH_TTL_DAYS;
 
+// Token/session helpers are intentionally pure so auth flows can reuse them.
 function generateRefreshToken(): string {
   return crypto.randomBytes(48).toString("base64url");
 }
@@ -81,6 +82,8 @@ function toUserDTO(user: {
 }
 
 export class AuthService {
+  // OAuth provider lookup by provider id is the fastest path when provider
+  // linkage already exists.
   private static async tryLoginByProvider(
     profile: OAuthProfile,
   ): Promise<AuthResponseDTO | null> {
@@ -105,6 +108,7 @@ export class AuthService {
     };
   }
 
+  // Access token is short-lived JWT; refresh token is persisted as hash only.
   private static async createAuthSession(
     userId: string,
     role: "admin" | "user",
@@ -126,6 +130,7 @@ export class AuthService {
     };
   }
 
+  // Local register creates both user profile and auth credentials records.
   static async register(
     email: string,
     password: string,
@@ -178,6 +183,7 @@ export class AuthService {
     };
   }
 
+  // Email/password login validates against the auth record and hydrates user DTO.
   static async login(
     email: string,
     password: string,
@@ -219,6 +225,8 @@ export class AuthService {
     };
   }
 
+  // OAuth login prefers provider link, then falls back to email association,
+  // then creates a new account when needed.
   static async loginWithOAuth(
     profile: OAuthProfile,
     preferredLocale?: "fr" | "en",

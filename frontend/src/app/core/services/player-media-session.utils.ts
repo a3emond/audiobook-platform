@@ -1,3 +1,23 @@
+/**
+ * ============================================================
+ * player-media-session.utils.ts
+ * ============================================================
+ *
+ * Pure functions that isolate browser MediaSession API integration
+ * from PlayerService's playback business logic. Guards against
+ * browsers that do not implement the API or reject certain state
+ * transitions.
+ *
+ * Interfaces:
+ *   MediaSessionHandlers — callbacks that PlayerService passes in
+ *
+ * Functions:
+ *   getMediaSession()                          — MediaSession | null: safe accessor
+ *   configureMediaSessionActions(ms, handlers) — wire all action handlers
+ *   updateMediaSessionMetadata(ms, book, url, paused) — update title/artwork/state
+ *   updateMediaSessionPosition(ms, dur, pos, rate)    — update position state
+ * ============================================================
+ */
 import type { Book } from '../models/api.models';
 
 interface MediaSessionHandlers {

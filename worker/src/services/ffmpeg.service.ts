@@ -22,6 +22,7 @@ const DEFAULT_MAX_BUFFER_BYTES = Number(
   process.env.FFMPEG_MAX_BUFFER_BYTES ?? 50 * 1024 * 1024,
 ); // 50 MB
 
+// ffprobe json validation is strict because downstream jobs require duration.
 function parseFFprobeJson(jsonStr: string): ProbeInfo {
   const data = JSON.parse(jsonStr);
 
@@ -44,6 +45,7 @@ function parseFFprobeJson(jsonStr: string): ProbeInfo {
 }
 
 export class FFmpegService {
+  // Probe is used for lightweight metadata reads prior to expensive transcodes.
   async probeFile(filePath: string): Promise<ProbeInfo> {
     const cmd = `ffprobe -v quiet -print_format json -show_format "${filePath}"`;
 
@@ -62,6 +64,7 @@ export class FFmpegService {
     }
   }
 
+  // execute() is the shared command runner for all ffmpeg operations.
   async execute(
     args: string[],
     timeoutMs: number = DEFAULT_TIMEOUT_MS,
@@ -93,6 +96,7 @@ export class FFmpegService {
     }
   }
 
+  // Metadata extraction/remux helpers are composed by job handlers in different flows.
   async extractMetadata(inputPath: string, outputPath: string): Promise<void> {
     const result = await this.execute([
       "-i",
@@ -187,6 +191,7 @@ export class FFmpegService {
     outputPath: string,
     coverPath?: string | null,
   ): Promise<void> {
+	// Building M4B can be long-running, so it uses the extended timeout.
     const args = [
       "-i",
       `"${inputPath}"`,

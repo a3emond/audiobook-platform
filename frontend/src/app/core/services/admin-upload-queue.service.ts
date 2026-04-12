@@ -1,3 +1,36 @@
+/**
+ * ============================================================
+ * admin-upload-queue.service.ts
+ * ============================================================
+ *
+ * Coordinates local upload-queue state with backend job creation
+ * and real-time job-status tracking. File objects stay in memory;
+ * only lightweight metadata (jobIds, lastQueuedJobId) is persisted
+ * to localStorage so the UI survives a page refresh.
+ *
+ * Exported:
+ *   AdminUploadQueueService — root-level injectable
+ *   UploadQueueItem         — one item in the upload queue
+ *   Mp3QueueMetadata        — optional cover-file metadata for MP3 uploads
+ *
+ * Signals:
+ *   queue            — UploadQueueItem[]: current upload queue
+ *   loading          — true while an upload is in flight
+ *   lastQueuedJobId  — id of the most recently created backend job
+ *   error            — last error message or null
+ *   trackedJobIds    — ids of jobs whose status is being watched
+ *   jobsById         — Record<id, AdminJob>: latest known state per tracked job
+ *
+ * Methods:
+ *   addFiles(files)                   — push files onto the queue
+ *   setError(message)                 — set or clear the error signal
+ *   updateItemLanguage(id, lang)      — patch language on a queued item
+ *   updateMp3Cover(id, coverFile)     — attach a cover image to an MP3 item
+ *   clearQueue()                      — reset all queue state
+ *   startQueue()                      — begin uploading the next pending item
+ *   trackedJobs()                     — AdminJob[]: jobs currently being tracked
+ * ============================================================
+ */
 import { Injectable, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 

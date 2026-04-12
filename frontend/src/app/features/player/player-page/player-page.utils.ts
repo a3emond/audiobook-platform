@@ -23,6 +23,7 @@ export function chapterDurationSeconds(chapter: Chapter): number {
   return Math.max(1, chapterEndSeconds(chapter) - chapterStartSeconds(chapter));
 }
 
+// Chapter index chooses the last chapter when current time is beyond known ranges.
 export function activeChapterIndexFromTime(chapters: Chapter[], current: number): number {
   if (chapters.length === 0) {
     return 0;
@@ -38,6 +39,7 @@ export function activeChapterIndexFromTime(chapters: Chapter[], current: number)
   return index >= 0 ? index : chapters.length - 1;
 }
 
+// Chapter-mode slider values are chapter-relative offsets; book mode is absolute seconds.
 export function resolveProgressInputTarget(
   mode: 'chapter' | 'book',
   inputValue: number,
@@ -125,6 +127,7 @@ export function sleepTimerLabel(mode: SleepTimerMode): string {
       return 'End chapter';
     default:
       return 'Disabled';
+  // Sleep labels are kept here so mode-to-text mapping stays consistent across UI call sites.
   }
 }
 
@@ -142,6 +145,7 @@ export function formatTime(totalSeconds: number): string {
 }
 
 export function formatLongDuration(totalSeconds: number): string {
+  // Short player timer format (h:mm:ss or m:ss).
   const value = Math.max(0, Math.floor(totalSeconds));
   const hours = Math.floor(value / 3600);
   const minutes = Math.floor((value % 3600) / 60);
@@ -155,6 +159,7 @@ export function formatLongDuration(totalSeconds: number): string {
   }
 
   return `${hours} hr ${minutes} min`;
+  // Human-readable long duration used in metadata panels.
 }
 
 export function resolvedDescription(book: Book | null): string | null {

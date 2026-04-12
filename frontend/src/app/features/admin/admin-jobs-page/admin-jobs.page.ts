@@ -20,7 +20,7 @@ import {
   templateUrl: './admin-jobs.page.html',
   styleUrl: './admin-jobs.page.css',
 })
-// Main UI/state logic for this standalone view component.
+// AdminJobsPage combines live job monitoring with worker-queue settings controls.
 export class AdminJobsPage implements OnInit, OnDestroy {
   readonly jobs = signal<AdminJob[]>([]);
   readonly connected = signal(false);

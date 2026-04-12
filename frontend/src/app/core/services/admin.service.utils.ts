@@ -1,3 +1,19 @@
+/**
+ * ============================================================
+ * admin.service.utils.ts
+ * ============================================================
+ *
+ * Pure helper functions that keep form-data construction and
+ * realtime-stream wiring separate from AdminService's endpoint
+ * definitions.
+ *
+ * Functions:
+ *   buildBookUploadForm(file, lang, cover?)  — build FormData for book upload
+ *   buildCoverUploadForm(coverFile)          — build FormData for cover-only upload
+ *   startJobsRealtimeStream(realtime, opts)  — subscribe to job.state.changed events
+ *     and return a JobEventStreamHandle that can be stopped by the caller
+ * ============================================================
+ */
 import { Subscription } from 'rxjs';
 
 import type { RealtimeService } from './realtime.service';

@@ -18,6 +18,7 @@ export function normalizeSeriesKey(seriesName: string): string {
   return normalizeSeriesName(seriesName).toLocaleLowerCase();
 }
 
+// In-progress books are listed first, then completed, both sorted by last activity.
 export function computeListenedBookOrder(progress: ProgressRow[]): string[] {
   const byLastListenedDesc = (a: { lastListenedAt: string | null }, b: { lastListenedAt: string | null }) => {
     const aTime = a.lastListenedAt ? Date.parse(a.lastListenedAt) : 0;
@@ -38,6 +39,7 @@ export function computeListenedBookOrder(progress: ProgressRow[]): string[] {
   return [...new Set([...inProgress, ...completed])];
 }
 
+// Preview URLs are limited and only emitted for books that actually have a cover.
 export function collectionPreviewUrls(
   collection: Collection,
   token: string | null,
@@ -58,6 +60,7 @@ export function collectionPreviewUrls(
     }));
 }
 
+// Deduping across rails ensures collection preview lookup stays O(1) with stable ids.
 export function dedupeBooks(latestBooks: Book[], seriesRails: SeriesRail[]): Book[] {
   const all = [...latestBooks];
   for (const series of seriesRails) {
@@ -74,6 +77,7 @@ export function dedupeBooks(latestBooks: Book[], seriesRails: SeriesRail[]): Boo
   return Array.from(byId.values());
 }
 
+// Unique series trimming keeps homepage rails compact when API returns duplicate aliases.
 export function uniqueTopSeries(series: SeriesSummary[], limit: number): SeriesSummary[] {
   const seenSeries = new Set<string>();
   return series
@@ -110,6 +114,7 @@ export function deriveCollections(
   query: string,
   activityLabel: string,
 ): CollectionDerivation {
+  // Activity collection is synthetic and always pinned first.
   const autoCollection: Collection = {
     id: AUTO_ACTIVITY_COLLECTION_ID,
     name: activityLabel,

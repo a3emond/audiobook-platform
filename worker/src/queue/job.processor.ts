@@ -41,6 +41,7 @@ const handlers: Record<JobType, JobHandler> = {
 	REPLACE_FILE: handleReplaceFileJob,
 };
 
+// Environment parsing helpers keep defaults centralized for worker behavior tuning.
 function parseNumberEnv(name: string, fallback: number): number {
 	const raw = process.env[name];
 	if (!raw) {
@@ -51,6 +52,7 @@ function parseNumberEnv(name: string, fallback: number): number {
 	return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+// Errors are normalized for durable storage in job.error payloads.
 function serializeError(error: unknown): SerializedJobError {
 	if (error instanceof Error) {
 		return {
@@ -68,6 +70,7 @@ function serializeError(error: unknown): SerializedJobError {
 	};
 }
 
+// Retry delay uses exponential backoff with jitter to avoid synchronized retries.
 function computeRetryDelayMs(attempt: number): number {
 	const baseMs = Math.max(250, parseNumberEnv("WORKER_RETRY_BASE_MS", 2000));
 	const maxMs = Math.max(baseMs, parseNumberEnv("WORKER_RETRY_MAX_MS", 60000));
@@ -84,6 +87,8 @@ export class JobProcessor {
 		private readonly lane: SlotLane = 'any',
 	) {}
 
+	// processNext claims one job, executes its handler, and persists either
+	// completion, retry scheduling, or terminal failure.
 	async processNext(): Promise<boolean> {
 		const job = await this.claimNextJob();
 		if (!job) {
@@ -177,6 +182,7 @@ export class JobProcessor {
 		return true;
 	}
 
+	// Stale lock reclamation recovers jobs from crashed workers.
 	async reclaimStaleLocks(): Promise<number> {
 		const lockTimeoutMs = parseNumberEnv("WORKER_JOB_LOCK_TIMEOUT_MS", 10 * 60 * 1000);
 		const staleThreshold = new Date(Date.now() - lockTimeoutMs);
@@ -206,6 +212,8 @@ export class JobProcessor {
 		return result.modifiedCount;
 	}
 
+	// Claim strategy is lane-aware: fast lanes permanently skip heavy types;
+	// any lanes skip heavy types only outside configured heavy windows.
 	private async claimNextJob(): Promise<JobDocument | null> {
 		const now = new Date();
 		const queueSettings = await WorkerSettingsService.getQueueSettings();

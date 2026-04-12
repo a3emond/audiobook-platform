@@ -1,3 +1,67 @@
+/**
+ * ============================================================
+ * player.service.ts
+ * ============================================================
+ *
+ * Core audio playback service. Owns the browser Audio element,
+ * progress persistence, MediaSession integration, and cross-device
+ * presence / session tracking via WebSocket.
+ *
+ * Exported:
+ *   PlayerService           — root-level injectable
+ *   PlaybackDeviceSession   — session entry in the presence list (re-exported)
+ *
+ * Signals (reactive state):
+ *   currentBook             — currently loaded Book or null
+ *   chapters                — normalized Chapter[] for currentBook
+ *   coverUrl                — authenticated cover image URL
+ *   currentSeconds          — current playback position (whole seconds)
+ *   durationSeconds         — total audio duration (whole seconds)
+ *   backwardJumpSeconds     — backward seek offset (default 15 s)
+ *   forwardJumpSeconds      — forward seek offset (default 30 s)
+ *   paused                  — true when audio is paused / not yet started
+ *   metadataLoaded          — true after HTMLAudioElement loadedmetadata fires
+ *   error                   — last playback error message or null
+ *   playbackDeviceId        — stable per-browser device id (localStorage)
+ *   listeningDevices        — presence list of all active sessions for the user
+ *   activeListeningDeviceId — id of the device currently owning playback
+ *   remoteBook              — Book loaded on the active remote device
+ *   remoteBookId            — id of the remote book
+ *
+ * Computed signals:
+ *   hasActiveBook               — whether a book is loaded locally
+ *   activeListeningDevice       — full PlaybackDeviceSession for activeListeningDeviceId
+ *   activeListeningDeviceLabel  — display label for the active device
+ *   isRemotePlaybackActive      — true when a different device is playing
+ *   shouldShowListeningBadge    — whether to show the "listening on" badge
+ *   topbarBookId                — book id to display in the mini-player topbar
+ *   topbarBook                  — Book object for the topbar
+ *   topbarTitle                 — title string for the topbar
+ *   topbarCoverUrl              — cover URL for the topbar
+ *   topbarFallbackInitials      — two-letter initials when cover image is absent
+ *   shouldShowTopbarPlayer      — controls topbar visibility
+ *   canControlTopbarPlayback    — whether local controls affect the topbar book
+ *
+ * Public methods:
+ *   getResumeInfo(bookId)        — Observable<ResumeInfo>: fetch resume point
+ *   streamUrl(bookId)            — string: build authenticated stream URL
+ *   claimListeningHere()         — claim playback ownership on this device
+ *   applyProgressSync(data)      — apply an incoming progress.synced event
+ *   loadBook(book, options?)     — load a book and optionally seek to a position
+ *   setInitialPosition(seconds)  — queue a seek before loadedmetadata fires
+ *   togglePlay()                 — toggle between play and pause
+ *   play() / pause()             — direct playback control
+ *   seek(deltaSeconds)           — seek relative to current position
+ *   setJumpSeconds(bwd, fwd)     — configure skip-back / skip-forward offsets
+ *   setPlaybackRate(rate)        — set playback speed (clamped 0.5–3)
+ *   setCurrentTime(seconds)      — seek to an absolute position in seconds
+ *   jumpToChapter(index)         — seek to the start of a chapter by index
+ *   jumpToPreviousChapter()      — smart previous-chapter with 3-second threshold
+ *   jumpToNextChapter()          — advance to the start of the next chapter
+ *   currentChapterIndex()        — return index of currently playing chapter
+ *   persistNow()                 — force an immediate progress save to the API
+ * ============================================================
+ */
 import { computed, Injectable, signal } from '@angular/core';
 import { firstValueFrom, Observable } from 'rxjs';
 
@@ -20,39 +84,22 @@ import {
 	normalizeChapters,
 	streamUrlForBook,
 } from './player.service.utils';
+import type {
+	PlaybackClaimPayload,
+	PlaybackDeviceSession,
+	PlaybackSessionPresencePayload,
+} from './player.service.types';
 
-// Realtime payload mirrored from the websocket gateway.
-interface PlaybackSessionPresencePayload {
-	userId: string;
-	deviceId: string;
-	label: string;
-	platform: string;
-	currentBookId: string | null;
-	paused: boolean;
-	timestamp: string;
-}
+export type { PlaybackDeviceSession };
 
-interface PlaybackClaimPayload {
-	userId: string;
-	deviceId: string;
-	bookId: string;
-	timestamp: string;
-}
-
-export interface PlaybackDeviceSession {
-	deviceId: string;
-	label: string;
-	platform: string;
-	currentBookId: string | null;
-	paused: boolean;
-	lastSeenAt: string;
-}
-
+/**
+ * PlayerService owns browser audio playback, progress persistence, and the
+ * cross-device session hints used by the player page and topbar mini-player.
+ */
 @Injectable({ providedIn: 'root' })
-// PlayerService owns browser audio playback, progress persistence, and the
-// cross-device session hints used by the player page and topbar mini-player.
 export class PlayerService {
-	// Reactive playback state consumed directly by UI components.
+
+	// ─── Reactive playback state ─────────────────────────────────────────────
 	readonly currentBook = signal<Book | null>(null);
 	readonly chapters = signal<Chapter[]>([]);
 	readonly coverUrl = signal('');
@@ -65,6 +112,7 @@ export class PlayerService {
 	readonly error = signal<string | null>(null);
 	readonly hasActiveBook = computed(() => Boolean(this.currentBook()));
 
+	// ─── Multi-device / remote session state ────────────────────────────────────
 	// Device/session state is kept separate from audio state so remote playback
 	// can be represented without taking over the local audio element.
 	readonly playbackDeviceId = signal('');
@@ -105,6 +153,8 @@ export class PlayerService {
 
 		return !active.paused;
 	});
+
+	// ─── Computed: topbar mini-player state ──────────────────────────────────────
 	readonly topbarBookId = computed<string | null>(() => {
 		if (this.isRemotePlaybackActive()) {
 			return this.activeListeningDevice()?.currentBookId ?? this.remoteBookId();
@@ -157,6 +207,7 @@ export class PlayerService {
 		return Boolean(current && topbarBookId && current.id === topbarBookId);
 	});
 
+	// ─── Private implementation fields ───────────────────────────────────────────
 	private readonly audio = new Audio();
 	private pendingInitialPosition: number | null = null;
 	private progressSaveTimer?: ReturnType<typeof setInterval>;
@@ -170,7 +221,8 @@ export class PlayerService {
 	private lastPresenceReplyAt = 0;
 	private remoteBookFetchRequestId = 0;
 
-	// The constructor wires browser integrations once; from there signals drive UI updates.
+	// ─── Constructor ─────────────────────────────────────────────────────────────
+	// Wires browser integrations once; from there signals drive UI updates.
 	constructor(
 		private readonly api: ApiService,
 		private readonly auth: AuthService,
@@ -186,7 +238,7 @@ export class PlayerService {
 		this.setupPlaybackSessions();
 	}
 
-	// Public playback API used by pages, controls, and the application shell.
+	// ─── Public API ──────────────────────────────────────────────────────────────
 	getResumeInfo(bookId: string): Observable<ResumeInfo> {
 		return this.api.get<ResumeInfo>(`/streaming/books/${bookId}/resume`);
 	}
@@ -225,48 +277,6 @@ export class PlayerService {
 		this.lastSyncedProgressTime = syncTime;
 		this.suppressLiveProgressUntil = Date.now() + 1500;
 		this.setCurrentTime(syncedData.positionSeconds);
-	}
-
-	// Realtime progress sync keeps idle tabs/devices aligned with the active listener.
-	private setupProgressSync(): void {
-		this.realtime.on<{
-			userId: string;
-			bookId: string;
-			positionSeconds: number;
-			durationAtSave: number;
-			completed: boolean;
-			timestamp: string;
-		}>('progress.synced').subscribe((progressData) => {
-			if (progressData.userId !== this.auth.user()?.id) {
-				return;
-			}
-			this.applyProgressSync(progressData);
-		});
-	}
-
-	// Presence and claim events are intentionally handled separately:
-	// presence answers "who is around" while claim answers "who owns playback now".
-	private setupPlaybackSessions(): void {
-		this.realtime.on<PlaybackSessionPresencePayload>('playback.session.presence').subscribe((presence) => {
-			this.applyPlaybackPresence(presence);
-		});
-
-		this.realtime.on<PlaybackClaimPayload>('playback.claimed').subscribe((claim) => {
-			this.applyPlaybackClaim(claim);
-		});
-
-		window.addEventListener('visibilitychange', () => {
-			if (document.visibilityState === 'visible') {
-				this.broadcastPlaybackPresence();
-			}
-		});
-
-		window.addEventListener('beforeunload', () => {
-			this.broadcastPlaybackPresence();
-		});
-
-		this.startPlaybackPresenceTicker();
-		this.broadcastPlaybackPresence();
 	}
 
 	// Loading a book updates UI state immediately, then decides whether the audio
@@ -414,6 +424,7 @@ export class PlayerService {
 		void this.persistProgress();
 	}
 
+	// ─── Private: Audio element event wiring ────────────────────────────────
 	// Browser audio events are the source of truth for paused/playing state.
 	private configureAudioEvents(): void {
 		this.audio.addEventListener('loadedmetadata', () => {
@@ -475,6 +486,7 @@ export class PlayerService {
 		});
 	}
 
+	// ─── Private: MediaSession integration ───────────────────────────────────────
 	// MediaSession keeps lock-screen / headset controls wired to the same public API.
 	private configureMediaSessionActions(): void {
 		configureMediaSessionActions(getMediaSession(), {
@@ -502,6 +514,50 @@ export class PlayerService {
 		);
 	}
 
+	// ─── Private: Realtime subscriptions ──────────────────────────────────────────
+	// Realtime progress sync keeps idle tabs/devices aligned with the active listener.
+	private setupProgressSync(): void {
+		this.realtime.on<{
+			userId: string;
+			bookId: string;
+			positionSeconds: number;
+			durationAtSave: number;
+			completed: boolean;
+			timestamp: string;
+		}>('progress.synced').subscribe((progressData) => {
+			if (progressData.userId !== this.auth.user()?.id) {
+				return;
+			}
+			this.applyProgressSync(progressData);
+		});
+	}
+
+	// Presence and claim events are intentionally handled separately:
+	// presence answers "who is around" while claim answers "who owns playback now".
+	private setupPlaybackSessions(): void {
+		this.realtime.on<PlaybackSessionPresencePayload>('playback.session.presence').subscribe((presence) => {
+			this.applyPlaybackPresence(presence);
+		});
+
+		this.realtime.on<PlaybackClaimPayload>('playback.claimed').subscribe((claim) => {
+			this.applyPlaybackClaim(claim);
+		});
+
+		window.addEventListener('visibilitychange', () => {
+			if (document.visibilityState === 'visible') {
+				this.broadcastPlaybackPresence();
+			}
+		});
+
+		window.addEventListener('beforeunload', () => {
+			this.broadcastPlaybackPresence();
+		});
+
+		this.startPlaybackPresenceTicker();
+		this.broadcastPlaybackPresence();
+	}
+
+	// ─── Private: Progress persistence ───────────────────────────────────────────
 	// Progress persistence is intentionally coarse-grained to limit API noise.
 	private startProgressSaveTicker(): void {
 		if (this.progressSaveTimer) {
@@ -546,6 +602,7 @@ export class PlayerService {
 		).catch(() => undefined);
 	}
 
+	// ─── Private: Listening session analytics ───────────────────────────────────
 	// Listening sessions are analytics-oriented and ignore accidental taps or very short bursts.
 	private flushListeningSession(): void {
 		const book = this.currentBook();
@@ -581,6 +638,7 @@ export class PlayerService {
 		).catch(() => undefined);
 	}
 
+	// ─── Private: Multi-device presence & session management ───────────────────
 	// Each browser installation gets a stable device id so other sessions can refer to it.
 	private initializePlaybackDevice(): void {
 		const storageKey = 'player.webDeviceId';
@@ -689,15 +747,15 @@ export class PlayerService {
 		}
 	}
 
-		private replyToPresenceProbe(): void {
-			const now = Date.now();
-			if (now - this.lastPresenceReplyAt < 1500) {
-				return;
-			}
-
-			this.lastPresenceReplyAt = now;
-			this.broadcastPlaybackPresence();
+	private replyToPresenceProbe(): void {
+		const now = Date.now();
+		if (now - this.lastPresenceReplyAt < 1500) {
+			return;
 		}
+
+		this.lastPresenceReplyAt = now;
+		this.broadcastPlaybackPresence();
+	}
 
 	// A claim declares playback ownership and is the event other active devices use to yield control.
 	private claimPlaybackOwnership(): void {
@@ -822,6 +880,7 @@ export class PlayerService {
 		return devices[0] ?? null;
 	}
 
+	// ─── Private: Remote book context ────────────────────────────────────────
 	// Remote book context is derived from the active remote device and fetched lazily
 	// so the topbar can show metadata without mutating local playback state.
 	private refreshRemoteBookContext(bookIdFromClaim?: string): void {
@@ -870,6 +929,7 @@ export class PlayerService {
 		}
 	}
 
+	// ─── Private: Helpers ─────────────────────────────────────────────────────
 	private coverUrlForBook(book: Book): string {
 		const token = this.auth.accessToken();
 		if (!book.coverPath || !token) {

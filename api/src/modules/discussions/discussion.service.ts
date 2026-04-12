@@ -82,6 +82,7 @@ const CHANNELS_BY_LANG: Record<DiscussionLang, DiscussionChannelDTO[]> = {
   ],
 };
 
+// Channel keys are user/admin input and must stay URL-safe and stable.
 function sanitizeChannelKey(value: string): string {
   return value
     .trim()
@@ -121,6 +122,7 @@ function toMessageDTO(
 }
 
 export class DiscussionService {
+  // Channel list is lazily bootstrapped with defaults per language.
   static async listChannels(lang: DiscussionLang): Promise<DiscussionChannelDTO[]> {
     await this.ensureDefaultChannels(lang);
 
@@ -140,6 +142,7 @@ export class DiscussionService {
     }));
   }
 
+  // Message listing loads author and reply-preview metadata in batches to avoid N+1 lookups.
   static async listMessages(
     lang: DiscussionLang,
     channelKey: DiscussionChannelKey,
@@ -236,6 +239,8 @@ export class DiscussionService {
     };
   }
 
+  // Posting validates body, optional reply target, and emits realtime updates
+  // to keep active clients synchronized.
   static async postMessage(
     userId: string,
     lang: DiscussionLang,

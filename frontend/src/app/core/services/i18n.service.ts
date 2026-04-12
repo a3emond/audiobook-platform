@@ -1,7 +1,36 @@
+/**
+ * ============================================================
+ * i18n.service.ts
+ * ============================================================
+ *
+ * Lightweight internationalisation service. Loads a flat JSON
+ * dictionary from /i18n/:locale.json and persists the selected
+ * locale to localStorage. Supports token interpolation in
+ * translation strings via {tokenName} syntax.
+ *
+ * Exported:
+ *   I18nService — root-level injectable
+ *
+ * Signals (readonly):
+ *   locale    — 'fr' | 'en': currently active locale
+ *   messages  — Record<string, string>: loaded translation dictionary
+ *
+ * Computed:
+ *   isFrench  — true when locale === 'fr'
+ *
+ * Methods:
+ *   init()                   — detect locale from storage / browser, then load
+ *   setLocale(locale)        — switch locale and reload dictionary
+ *   t(key, fallback?, params?) — translate a key with optional interpolation
+ * ============================================================
+ */
 import { Injectable, computed, signal } from '@angular/core';
 
+/**
+ * Lightweight i18n service: loads a locale dictionary from /i18n/:locale.json
+ * and persists the selected locale to localStorage.
+ */
 @Injectable({ providedIn: 'root' })
-// i18n: keeps UI and state logic readable for this frontend unit.
 export class I18nService {
 	private readonly localeState = signal<'fr' | 'en'>('en');
 	private readonly messagesState = signal<Record<string, string>>({});

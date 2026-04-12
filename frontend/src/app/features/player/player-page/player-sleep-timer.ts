@@ -21,6 +21,7 @@ export class PlayerSleepTimer {
     this.clearTimeout();
   }
 
+  // Countdown text is mode-aware: chapter mode shows a semantic label instead of wall clock.
   countdownText(mode: SleepTimerMode, nowMs: number): string | null {
     if (mode === 'off') {
       return null;
@@ -45,6 +46,7 @@ export class PlayerSleepTimer {
     return `${minutes}:${String(seconds).padStart(2, '0')}`;
   }
 
+  // Chapter mode relies on playback ticks instead of setTimeout so chapter seeks can retarget safely.
   handleTick(mode: SleepTimerMode, currentTime: number, paused: boolean, onPause: () => void): void {
     if (mode !== 'chapter' || paused || this.chapterTargetSeconds === null) {
       return;
@@ -56,6 +58,7 @@ export class PlayerSleepTimer {
     }
   }
 
+  // Mode reset fully clears runtime state before arming the next mode.
   resetForMode(
     mode: SleepTimerMode,
     paused: boolean,
@@ -78,6 +81,7 @@ export class PlayerSleepTimer {
     }
   }
 
+  // Arm is idempotent for current state and preserves remaining time across short pauses.
   armForPlayback(
     mode: SleepTimerMode,
     paused: boolean,
@@ -114,6 +118,7 @@ export class PlayerSleepTimer {
     this.timeout = setTimeout(() => this.triggerPause(onPause), this.remainingMs);
   }
 
+  // Pause stores remaining countdown time for timed modes.
   pauseCountdown(mode: SleepTimerMode): void {
     if (mode === 'chapter') {
       this.pausedAtMs = Date.now();
@@ -130,6 +135,7 @@ export class PlayerSleepTimer {
     this.pausedAtMs = Date.now();
   }
 
+  // Chapter target is refreshed when chapter boundaries change during playback.
   refreshChapterTarget(mode: SleepTimerMode, paused: boolean, chapterEndSeconds: number | null): void {
     if (mode !== 'chapter' || paused) {
       return;

@@ -36,7 +36,8 @@ import { validateEmailForm, validatePasswordForm } from './profile-page.validato
   templateUrl: './profile.page.html',
   styleUrl: './profile.page.css',
 })
-// Profile page container: delegates data shaping to helpers and keeps UI behavior focused.
+// ProfilePage coordinates account settings, stats, and listening history while
+// delegating data transforms/validation to helper modules.
 export class ProfilePage implements OnInit, AfterViewInit, OnDestroy {
   private readonly authService = inject(AuthService);
   private readonly statsService = inject(StatsService);
@@ -92,6 +93,7 @@ export class ProfilePage implements OnInit, AfterViewInit, OnDestroy {
   private filterTimeout?: ReturnType<typeof setTimeout>;
   private sectionObserver: IntersectionObserver | null = null;
 
+  // Startup loads are independent so one failing section does not block others.
   ngOnInit(): void {
     this.loadPreferences();
     this.loadStats();
@@ -109,6 +111,7 @@ export class ProfilePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  // Preferences save keeps profile + playback options in one transaction from the page perspective.
   savePreferences(): void {
     this.preferencesSaving.set(true);
     this.preferencesError.set(null);
@@ -202,6 +205,7 @@ export class ProfilePage implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  // History filter is debounced to avoid expensive recompute on every keystroke.
   onFilterChange(): void {
     if (this.filterTimeout) {
       clearTimeout(this.filterTimeout);
