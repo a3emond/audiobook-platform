@@ -223,6 +223,8 @@ export class RealtimeGateway {
         label?: unknown;
         platform?: unknown;
         currentBookId?: unknown;
+        currentBookTitle?: unknown;
+        currentBookCoverPath?: unknown;
         paused?: unknown;
       };
 
@@ -239,6 +241,8 @@ export class RealtimeGateway {
           label: typeof payload.label === "string" ? payload.label : "Browser",
           platform: typeof payload.platform === "string" ? payload.platform : "web",
           currentBookId: typeof payload.currentBookId === "string" ? payload.currentBookId : null,
+          currentBookTitle: typeof payload.currentBookTitle === "string" ? payload.currentBookTitle : null,
+          currentBookCoverPath: typeof payload.currentBookCoverPath === "string" ? payload.currentBookCoverPath : null,
           paused: typeof payload.paused === "boolean" ? payload.paused : true,
           timestamp: new Date().toISOString(),
         },

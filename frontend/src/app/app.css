@@ -64,10 +64,18 @@
   align-items: center;
   gap: 0.45rem;
   padding: 0.2rem 0.35rem;
-  border: 1px solid rgb(255 138 0 / 0.18);
+  border: 1px solid rgb(46 204 113 / 0.4);
   border-radius: 999px;
-  background: var(--color-overlay);
+  background: linear-gradient(180deg, rgb(19 44 28 / 0.86) 0%, rgb(10 23 16 / 0.9) 100%);
+  box-shadow: 0 0 0 1px rgb(17 94 52 / 0.24) inset;
   min-width: 0;
+}
+
+.topbar-player.topbar-player-remote {
+  border-color: rgb(56 232 129 / 0.56);
+  box-shadow:
+    0 0 0 1px rgb(44 172 99 / 0.3) inset,
+    0 0 14px rgb(44 172 99 / 0.24);
 }
 
 .topbar-player-link {
@@ -79,7 +87,7 @@
   height: 1.7rem;
   object-fit: cover;
   border-radius: 999px;
-  border: 1px solid rgb(255 138 0 / 0.24);
+  border: 1px solid rgb(46 204 113 / 0.45);
 }
 
 .topbar-player-cover-fallback {
@@ -88,7 +96,7 @@
   color: var(--color-on-primary);
   font-size: 0.58rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #ff8a00, #402000 78%);
+  background: linear-gradient(135deg, #24a860, #0f2f21 78%);
 }
 
 .topbar-player-meta {
@@ -98,7 +106,7 @@
 }
 
 .topbar-player-title {
-  color: var(--color-warning);
+  color: #c9f8de;
   text-decoration: none;
   font-weight: 700;
   font-size: 0.7rem;
@@ -110,18 +118,42 @@
 .topbar-player-device {
   display: inline-flex;
   align-items: center;
+  gap: 0.22rem;
   max-width: 100%;
   width: fit-content;
   padding: 0.08rem 0.4rem;
   border-radius: 999px;
-  border: 1px solid rgb(255 138 0 / 0.38);
-  background: rgb(255 138 0 / 0.12);
-  color: #ffe0b0;
+  border: 1px solid rgb(56 232 129 / 0.45);
+  background: rgb(36 168 96 / 0.16);
+  color: #d2ffe8;
   font-size: 0.56rem;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.topbar-player-live-dot {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: #48ff94;
+  box-shadow:
+    0 0 0 2px rgb(72 255 148 / 0.22),
+    0 0 8px rgb(72 255 148 / 0.66);
+  animation: topbar-player-live-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes topbar-player-live-pulse {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
 }
 
 .topbar-player-progress {
@@ -135,7 +167,7 @@
 .topbar-player-progress-fill {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #ffab45, #ff8a00);
+  background: linear-gradient(90deg, #2de67f, #1ba35a);
 }
 
 .topbar-player-controls {
@@ -155,9 +187,13 @@
 }
 
 .topbar-player-btn-main {
-  border-color: rgb(255 138 0 / 0.42);
-  background: rgb(255 138 0 / 0.12);
-  color: var(--color-warning);
+  border-color: rgb(56 232 129 / 0.5);
+  background: rgb(36 168 96 / 0.2);
+  color: #d5ffe8;
+}
+
+.topbar-player-btn-link {
+  text-decoration: none;
 }
 
 .progress-strip-inner {
