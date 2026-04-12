@@ -73,14 +73,37 @@
 			.listening-badge {
 				display: inline-flex;
 				align-items: center;
+				gap: 0.32rem;
 				margin-top: 0.5rem;
-				padding: 0.2rem 0.56rem;
+				padding: 0.2rem 0.62rem;
 				border-radius: 999px;
-				border: 1px solid rgb(255 138 0 / 0.42);
-				background: rgb(255 138 0 / 0.12);
-				color: #ffe0b0;
+				border: 1px solid rgb(56 232 129 / 0.45);
+				background: rgb(36 168 96 / 0.16);
+				color: #d2ffe8;
 				font-size: 0.72rem;
 				font-weight: 700;
+			}
+			.listening-badge-dot {
+				width: 0.46rem;
+				height: 0.46rem;
+				border-radius: 50%;
+				background: #48ff94;
+				box-shadow:
+					0 0 0 2px rgb(72 255 148 / 0.22),
+					0 0 8px rgb(72 255 148 / 0.66);
+				animation: listening-badge-pulse 1.6s ease-in-out infinite;
+			}
+			@keyframes listening-badge-pulse {
+				0%,
+				100% {
+					opacity: 0.72;
+					transform: scale(0.95);
+				}
+
+				50% {
+					opacity: 1;
+					transform: scale(1.08);
+				}
 			}
 			.btn-admin-edit {
 				display: inline-flex;

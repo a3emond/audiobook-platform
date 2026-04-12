@@ -167,6 +167,7 @@ export class PlayerService {
 	private lastPlayClaimTime = 0;
 	private lastLiveProgressEmitAt = 0;
 	private suppressLiveProgressUntil = 0;
+	private lastPresenceReplyAt = 0;
 	private remoteBookFetchRequestId = 0;
 
 	// The constructor wires browser integrations once; from there signals drive UI updates.
@@ -668,6 +669,12 @@ export class PlayerService {
 		const nextActive = this.resolveActiveListeningDevice(sorted, presence.deviceId);
 		this.activeListeningDeviceId.set(nextActive?.deviceId ?? ownDeviceId ?? null);
 		this.refreshRemoteBookContext();
+
+		// Fast handshake: when a new device announces itself, reply quickly so it
+		// can discover active playback without waiting for the 10s presence ticker.
+		if (presence.deviceId !== ownDeviceId) {
+			this.replyToPresenceProbe();
+		}
 	}
 
 	// Stale devices are pruned aggressively to avoid showing ghost listeners.
@@ -681,6 +688,16 @@ export class PlayerService {
 			this.refreshRemoteBookContext();
 		}
 	}
+
+		private replyToPresenceProbe(): void {
+			const now = Date.now();
+			if (now - this.lastPresenceReplyAt < 1500) {
+				return;
+			}
+
+			this.lastPresenceReplyAt = now;
+			this.broadcastPlaybackPresence();
+		}
 
 	// A claim declares playback ownership and is the event other active devices use to yield control.
 	private claimPlaybackOwnership(): void {

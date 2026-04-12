@@ -15,7 +15,8 @@
       </button>
       <a routerLink="/library" class="brand" (click)="closeMobileNav()">
         <img src="/logo.png" [alt]="t('app.brand.logoAlt')" class="brand-logo" />
-        <span>StoryWave</span>
+        <span class="brand-full">StoryWave</span>
+        <span class="brand-short" aria-hidden="true">SW</span>
       </a>
     </div>
 
@@ -57,7 +58,7 @@
 
     <div class="topbar-end" [class.authenticated]="auth.isAuthenticated()">
       @if (auth.isAuthenticated() && player.shouldShowTopbarPlayer()) {
-      <div class="topbar-player" [class.topbar-player-remote]="player.isRemotePlaybackActive() && !player.canControlTopbarPlayback()" aria-label="Mini player">
+      <div class="topbar-player" aria-label="Mini player">
         @if (player.topbarBookId(); as topbarBookId) {
         <a class="topbar-player-link" [routerLink]="['/player', topbarBookId]" [attr.aria-label]="'Open player for ' + player.topbarTitle()">
           <img *ngIf="player.topbarCoverUrl()" [src]="player.topbarCoverUrl()" [alt]="player.topbarTitle() + ' cover'" class="topbar-player-cover" />
@@ -69,12 +70,9 @@
         </span>
         }
         <div class="topbar-player-meta">
-        <div class="topbar-player-status" *ngIf="player.shouldShowListeningBadge()">
-          <span class="topbar-player-status-tag">LIVE</span>
-          <span class="topbar-player-device">
+        <div class="topbar-player-device" *ngIf="player.shouldShowListeningBadge()">
             <span class="topbar-player-live-dot" aria-hidden="true"></span>
             Listening on {{ player.activeListeningDeviceLabel() }}
-          </span>
         </div>
         @if (player.topbarBookId(); as topbarBookId) {
           <a class="topbar-player-title" [routerLink]="['/player', topbarBookId]">{{ player.topbarTitle() }}</a>

@@ -74,14 +74,6 @@
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
-.topbar-player.topbar-player-remote {
-  border-color: rgb(56 232 129 / 0.56);
-  background: linear-gradient(180deg, rgb(19 44 28 / 0.86) 0%, rgb(10 23 16 / 0.9) 100%);
-  box-shadow:
-    0 0 0 1px rgb(44 172 99 / 0.3) inset,
-    0 0 14px rgb(44 172 99 / 0.24);
-}
-
 .topbar-player:hover {
   transform: translateY(-1px);
   box-shadow:
@@ -118,27 +110,6 @@
   gap: 0.18rem;
 }
 
-.topbar-player-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.28rem;
-  min-width: 0;
-}
-
-.topbar-player-status-tag {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.08rem 0.32rem;
-  border-radius: 999px;
-  background: rgb(72 255 148 / 0.14);
-  color: #9bffc2;
-  border: 1px solid rgb(72 255 148 / 0.3);
-  font-size: 0.49rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-}
-
 .topbar-player-title {
   color: #fff1d3;
   text-decoration: none;
@@ -148,10 +119,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.topbar-player.topbar-player-remote .topbar-player-title {
-  color: #f2fff7;
 }
 
 .topbar-player-device {
@@ -239,12 +206,6 @@
   border-color: rgb(255 138 0 / 0.42);
   background: linear-gradient(180deg, rgb(255 170 69 / 0.24) 0%, rgb(255 138 0 / 0.12) 100%);
   color: var(--color-warning);
-}
-
-.topbar-player.topbar-player-remote .topbar-player-btn-main {
-  border-color: rgb(72 255 148 / 0.36);
-  background: linear-gradient(180deg, rgb(72 255 148 / 0.22) 0%, rgb(36 168 96 / 0.12) 100%);
-  color: #e6fff1;
 }
 
 .topbar-player-btn-link {
@@ -391,6 +352,14 @@
   white-space: nowrap;
 }
 .brand:hover { opacity: 0.85; text-decoration: none; }
+
+.brand-full {
+  display: inline;
+}
+
+.brand-short {
+  display: none;
+}
 
 .brand-logo {
   width: 1.42rem;
@@ -595,6 +564,25 @@
 @media (max-width: 768px) {
   .hamburger { display: flex; }
 
+  .brand {
+    gap: 0;
+  }
+
+  .brand-full {
+    display: none;
+  }
+
+  .brand-short {
+    display: inline;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+  }
+
+  .brand-logo {
+    width: 1.24rem;
+    height: 1.24rem;
+  }
+
   .topbar-end .username { display: none; }
 
   .topbar-end.authenticated .locale-toggle,
@@ -678,10 +666,6 @@
 
   .topbar-player-controls {
     gap: 0.2rem;
-  }
-
-  .topbar-player-status-tag {
-    display: none;
   }
 
   .topbar-player-device {

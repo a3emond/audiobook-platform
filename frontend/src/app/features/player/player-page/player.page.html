@@ -18,6 +18,7 @@
 					<h1>{{ currentBook.title }}</h1>
 					<p>by {{ currentBook.author }}</p>
 					<div class="listening-badge" *ngIf="player.shouldShowListeningBadge()">
+						<span class="listening-badge-dot" aria-hidden="true"></span>
 						Listening on {{ player.activeListeningDeviceLabel() }}
 					</div>
 					<a
