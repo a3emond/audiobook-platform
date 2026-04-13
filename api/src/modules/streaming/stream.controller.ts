@@ -9,6 +9,7 @@ import { type Response } from "express";
 
 import type { AuthenticatedRequest } from "../../middlewares/auth.middleware.js";
 import { ApiError } from "../../utils/api-error.js";
+import { logger } from "../../config/logger.js";
 import { StreamingService } from "./stream.service.js";
 
 function parseRange(rangeHeader: string, fileSize: number): { start: number; end: number } {
@@ -131,6 +132,26 @@ export class StreamingController {
 		res.setHeader('Content-Type', mimeType);
 
 		const stream = fs.createReadStream(filePath);
+		
+		stream.on("error", (error) => {
+			logger.error("Stream error reading cover file", {
+				bookId,
+				userId: req.user?.id,
+				error: error instanceof Error ? error.message : String(error),
+			});
+			if (!res.headersSent) {
+				res.status(500).end();
+			} else if (!res.closed && !res.destroyed) {
+				res.destroy();
+			}
+		});
+
+		res.on("close", () => {
+			if (!stream.destroyed) {
+				stream.destroy();
+			}
+		});
+
 		stream.pipe(res);
 	}
 
@@ -226,6 +247,26 @@ export class StreamingController {
 			res.setHeader("Content-Type", mimeType);
 
 			const stream = fs.createReadStream(filePath, { start, end });
+			
+			stream.on("error", (error) => {
+				logger.error("Stream error reading audio file", {
+					bookId,
+					userId: req.user?.id,
+					error: error instanceof Error ? error.message : String(error),
+				});
+				if (!res.headersSent) {
+					res.status(416).end();
+				} else if (!res.closed && !res.destroyed) {
+					res.destroy();
+				}
+			});
+
+			res.on("close", () => {
+				if (!stream.destroyed) {
+					stream.destroy();
+				}
+			});
+
 			stream.pipe(res);
 			return;
 		}
@@ -236,6 +277,26 @@ export class StreamingController {
 		res.setHeader("Accept-Ranges", "bytes");
 
 		const stream = fs.createReadStream(filePath);
+		
+		stream.on("error", (error) => {
+			logger.error("Stream error reading audio file", {
+				bookId,
+				userId: req.user?.id,
+				error: error instanceof Error ? error.message : String(error),
+			});
+			if (!res.headersSent) {
+				res.status(500).end();
+			} else if (!res.closed && !res.destroyed) {
+				res.destroy();
+			}
+		});
+
+		res.on("close", () => {
+			if (!stream.destroyed) {
+				stream.destroy();
+			}
+		});
+
 		stream.pipe(res);
 	}
 }
