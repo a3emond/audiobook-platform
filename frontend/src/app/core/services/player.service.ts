@@ -650,15 +650,19 @@ export class PlayerService {
 	}
 
 	// ─── Private: Multi-device presence & session management ───────────────────
-	// Each browser installation gets a stable device id so other sessions can refer to it.
+	// Each browser tab gets its own device id via sessionStorage so multi-tab
+	// sessions are treated as separate devices for presence and mini-player sync.
+	// sessionStorage persists across page reloads within the same tab but is
+	// isolated between tabs, unlike localStorage which would make all tabs share
+	// one id and collapse into a single presence entry (hiding the mini-player).
 	private initializePlaybackDevice(): void {
 		const storageKey = 'player.webDeviceId';
-		let deviceId = localStorage.getItem(storageKey);
+		let deviceId = sessionStorage.getItem(storageKey);
 		if (!deviceId) {
 			deviceId = typeof crypto !== 'undefined' && crypto.randomUUID
 				? crypto.randomUUID()
 				: `web-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-			localStorage.setItem(storageKey, deviceId);
+			sessionStorage.setItem(storageKey, deviceId);
 		}
 
 		this.playbackDeviceId.set(deviceId);

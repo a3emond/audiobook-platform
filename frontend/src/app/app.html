@@ -70,7 +70,19 @@
         </span>
         }
         <div class="topbar-player-meta">
-        <div class="topbar-player-device" *ngIf="player.shouldShowListeningBadge()">
+        <div
+          class="topbar-player-device topbar-player-device-local"
+          [class.topbar-player-device-local-paused]="player.paused()"
+          *ngIf="player.canControlTopbarPlayback()"
+        >
+            <span
+              class="topbar-player-live-dot topbar-player-live-dot-local"
+              [class.topbar-player-live-dot-local-paused]="player.paused()"
+              aria-hidden="true"
+            ></span>
+            {{ player.paused() ? 'Paused on this tab' : 'Playing on this tab' }}
+        </div>
+        <div class="topbar-player-device topbar-player-device-remote" *ngIf="player.shouldShowListeningBadge()">
             <span class="topbar-player-live-dot" aria-hidden="true"></span>
             Listening on {{ player.activeListeningDeviceLabel() }}
         </div>

@@ -140,6 +140,24 @@
   text-overflow: ellipsis;
 }
 
+.topbar-player-device-local {
+  border-color: rgb(255 170 69 / 0.45);
+  background: rgb(255 138 0 / 0.14);
+  color: #ffe8cb;
+}
+
+.topbar-player-device-local-paused {
+  border-color: rgb(186 149 105 / 0.42);
+  background: rgb(94 77 58 / 0.24);
+  color: #e8dccb;
+}
+
+.topbar-player-device-remote {
+  border-color: rgb(56 232 129 / 0.45);
+  background: rgb(36 168 96 / 0.16);
+  color: #d2ffe8;
+}
+
 .topbar-player-live-dot {
   width: 0.42rem;
   height: 0.42rem;
@@ -149,6 +167,21 @@
     0 0 0 2px rgb(72 255 148 / 0.22),
     0 0 8px rgb(72 255 148 / 0.66);
   animation: topbar-player-live-pulse 1.6s ease-in-out infinite;
+}
+
+.topbar-player-live-dot-local {
+  background: #ffb45e;
+  box-shadow:
+    0 0 0 2px rgb(255 180 94 / 0.24),
+    0 0 8px rgb(255 180 94 / 0.64);
+}
+
+.topbar-player-live-dot-local-paused {
+  background: #c7b08f;
+  box-shadow:
+    0 0 0 2px rgb(199 176 143 / 0.2),
+    0 0 6px rgb(199 176 143 / 0.35);
+  animation: none;
 }
 
 @keyframes topbar-player-live-pulse {
