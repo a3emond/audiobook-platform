@@ -8,6 +8,14 @@ import { Request, Response, NextFunction } from "express";
 import { ApiError } from "../utils/api-error.js";
 import { logger } from "../config/logger.js";
 
+function shouldLogAsInfo(status: number, message: string): boolean {
+  return status === 409 && message.startsWith("idempotency_");
+}
+
+function shouldLogAsWarn(status: number): boolean {
+  return status >= 400 && status < 500;
+}
+
 export function errorMiddleware(
   err: any,
   req: Request,
@@ -15,19 +23,26 @@ export function errorMiddleware(
   next: NextFunction,
 ) {
   const isApiError = err instanceof ApiError;
-
   const status = isApiError ? err.status : 500;
-
-  logger.error("Request failed", {
+  const message = isApiError ? err.message : "Internal server error";
+  const meta = {
     method: req.method,
     path: req.path,
     status,
-    message: isApiError ? err.message : "Internal server error",
+    message,
     stack:
-      err && typeof err === "object" && "stack" in err
+      !isApiError && err && typeof err === "object" && "stack" in err
         ? String((err as { stack?: unknown }).stack)
         : undefined,
-  });
+  };
+
+  if (shouldLogAsInfo(status, message)) {
+    logger.info("Request failed", meta);
+  } else if (shouldLogAsWarn(status)) {
+    logger.warn("Request failed", meta);
+  } else {
+    logger.error("Request failed", meta);
+  }
 
   res.status(status).json({
     message: isApiError && err.expose ? err.message : "Internal server error",

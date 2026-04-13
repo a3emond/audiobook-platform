@@ -52,11 +52,16 @@ export function idempotencyMiddleware(req: Request, res: Response, next: NextFun
 
 	if (existing && existing.expiresAt > now) {
 		if (existing.bodyHash !== bodyHash) {
+			// Same key but different body is always a client bug — keep 409.
 			throw new ApiError(409, "idempotency_key_reused_with_different_payload");
 		}
 
 		if (existing.inFlight) {
-			throw new ApiError(409, "idempotency_request_in_progress");
+			// The original request is still processing. Return 202 so the client
+			// gets a clean non-error response instead of a misleading 409; the
+			// original write will complete normally and the response is safe to discard.
+			res.status(202).setHeader("Idempotent-Replayed", "true").json({ message: "processing" });
+			return;
 		}
 
 		res.status(existing.statusCode).setHeader("Idempotent-Replayed", "true").json(existing.body);

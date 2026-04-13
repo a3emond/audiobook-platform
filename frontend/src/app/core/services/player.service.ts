@@ -596,12 +596,16 @@ export class PlayerService {
 			return;
 		}
 
-		const idempotencyKey = `${book.id}:${Math.floor(Date.now() / 15000)}`;
+		// Key includes the floored position so two saves at different positions
+		// within the same 15-second window are never treated as conflicting retries
+		// of the same request (e.g. auto-save ticker fires, then pause fires seconds later).
+		const pos = Math.floor(this.audio.currentTime);
+		const idempotencyKey = `${book.id}:${pos}:${Math.floor(Date.now() / 15000)}`;
 		await firstValueFrom(
 			this.progress.saveForBook(
 				book.id,
 				{
-					positionSeconds: Math.floor(this.audio.currentTime),
+					positionSeconds: pos,
 					durationAtSave: Math.floor(this.audio.duration),
 				},
 				idempotencyKey,
