@@ -66,39 +66,42 @@ public final class AuthService {
 
     public func authenticatedPost<Response: Decodable, Body: Encodable>(
         path: String,
-        body: Body
+        body: Body,
+        extraHeaders: [String: String] = [:]
     ) async throws -> Response {
         try await executeWithAuthRetry { token in
             try await apiClient.postJSON(
                 path: path,
                 body: body,
-                headers: ["Authorization": "Bearer \(token)"]
+                headers: mergedHeaders(token: token, extraHeaders: extraHeaders)
             )
         }
     }
 
     public func authenticatedPut<Response: Decodable, Body: Encodable>(
         path: String,
-        body: Body
+        body: Body,
+        extraHeaders: [String: String] = [:]
     ) async throws -> Response {
         try await executeWithAuthRetry { token in
             try await apiClient.putJSON(
                 path: path,
                 body: body,
-                headers: ["Authorization": "Bearer \(token)"]
+                headers: mergedHeaders(token: token, extraHeaders: extraHeaders)
             )
         }
     }
 
     public func authenticatedPatch<Response: Decodable, Body: Encodable>(
         path: String,
-        body: Body
+        body: Body,
+        extraHeaders: [String: String] = [:]
     ) async throws -> Response {
         try await executeWithAuthRetry { token in
             try await apiClient.patchJSON(
                 path: path,
                 body: body,
-                headers: ["Authorization": "Bearer \(token)"]
+                headers: mergedHeaders(token: token, extraHeaders: extraHeaders)
             )
         }
     }
@@ -110,6 +113,12 @@ public final class AuthService {
                 headers: ["Authorization": "Bearer \(token)"]
             )
             return true
+        }
+    }
+
+    public func authenticatedDeleteJSON<Response: Decodable>(path: String) async throws -> Response {
+        try await executeWithAuthRetry { token in
+            try await apiClient.deleteJSON(path: path, headers: ["Authorization": "Bearer \(token)"])
         }
     }
 
@@ -134,6 +143,14 @@ public final class AuthService {
 
             return try await request(refreshedToken)
         }
+    }
+
+    private func mergedHeaders(token: String, extraHeaders: [String: String]) -> [String: String] {
+        var headers = ["Authorization": "Bearer \(token)"]
+        for (key, value) in extraHeaders {
+            headers[key] = value
+        }
+        return headers
     }
 }
 

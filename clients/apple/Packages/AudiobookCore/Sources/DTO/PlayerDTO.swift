@@ -34,6 +34,13 @@ public struct ProgressDTO: Decodable {
     public let positionSeconds: Int?
     public let durationAtSave: Int?
     public let completed: Bool?
+
+    public init(bookId: String?, positionSeconds: Int?, durationAtSave: Int?, completed: Bool?) {
+        self.bookId = bookId
+        self.positionSeconds = positionSeconds
+        self.durationAtSave = durationAtSave
+        self.completed = completed
+    }
 }
 
 public struct PlayerChapterDTO: Decodable, Identifiable {
@@ -49,4 +56,10 @@ public struct PlaybackDetailsDTO: Decodable {
     public let author: String?
     public let coverPath: String?
     public let chapters: [PlayerChapterDTO]
+
+    public init(author: String?, coverPath: String?, chapters: [PlayerChapterDTO]) {
+        self.author = author
+        self.coverPath = coverPath
+        self.chapters = chapters
+    }
 }

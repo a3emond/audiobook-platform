@@ -5,37 +5,24 @@ import AudiobookCore
 struct AudiobookApp: App {
     @StateObject private var bootstrap: AppBootstrap
     @StateObject private var connectivity: APIReachabilityViewModel
-    @StateObject private var authViewModel: AuthViewModel
-    @StateObject private var libraryViewModel: LibraryViewModel
-    @StateObject private var playerViewModel: PlayerViewModel
-    @StateObject private var discussionViewModel: DiscussionViewModel
-    @StateObject private var profileViewModel: ProfileViewModel
+    @StateObject private var container: AppContainer
     @State private var selectedBookId: String?
     @State private var selectedTab: AppTab = .library
 
-    enum AppTab {
+    enum AppTab: Hashable {
         case library
         case discussions
         case profile
+        case admin
     }
 
     init() {
-        let gatewayBaseURL = URL(string: "https://audiobook.aedev.pro")!
-        let apiClient = APIClient(baseURL: gatewayBaseURL)
-        let sessionManager = AuthSessionManager()
-        let authService = AuthService(apiClient: apiClient, sessionManager: sessionManager)
-        let libraryRepository = LibraryRepository(authService: authService)
-        let playerRepository = PlayerRepository(authService: authService, apiClient: apiClient)
-        let discussionRepository = DiscussionRepositoryImpl(authService: authService)
-        let realtimeClient = RealtimeClient(baseURL: gatewayBaseURL)
-        
+        let gatewayBaseURL = Self.resolveGatewayURL()
+        let container = AppContainer(baseURL: gatewayBaseURL)
+
+        _container = StateObject(wrappedValue: container)
         _bootstrap = StateObject(wrappedValue: AppBootstrap())
-        _connectivity = StateObject(wrappedValue: APIReachabilityViewModel(apiClient: apiClient))
-        _authViewModel = StateObject(wrappedValue: AuthViewModel(authService: authService))
-        _libraryViewModel = StateObject(wrappedValue: LibraryViewModel(repository: libraryRepository))
-        _playerViewModel = StateObject(wrappedValue: PlayerViewModel(repository: playerRepository, authService: authService, realtime: realtimeClient))
-        _discussionViewModel = StateObject(wrappedValue: DiscussionViewModel(repository: discussionRepository))
-        _profileViewModel = StateObject(wrappedValue: ProfileViewModel(authService: authService))
+        _connectivity = StateObject(wrappedValue: APIReachabilityViewModel(apiClient: container.apiClient))
     }
 
     var body: some Scene {
@@ -59,51 +46,15 @@ struct AudiobookApp: App {
                                 Task { await connectivity.checkNow() }
                             }
                         )
-                    } else if !authViewModel.state.isAuthenticated {
-                        LoginView(viewModel: authViewModel)
+                    } else if !container.authViewModel.state.isAuthenticated {
+                        LoginView(viewModel: container.authViewModel)
                     } else if selectedBookId != nil {
-                        PlayerView(viewModel: playerViewModel) {
+                        PlayerView(viewModel: container.playerViewModel) {
                             selectedBookId = nil
-                            playerViewModel.reset()
+                            container.playerViewModel.reset()
                         }
                     } else {
-                        TabView(selection: $selectedTab) {
-                            // Library tab
-                            LibraryView(
-                                viewModel: libraryViewModel,
-                                onOpenBook: { bookId, title in
-                                    selectedBookId = bookId
-                                    Task { await playerViewModel.load(bookId: bookId, title: title) }
-                                },
-                                onSignOut: {
-                                    authViewModel.signOut()
-                                    libraryViewModel.reset()
-                                    playerViewModel.reset()
-                                    selectedBookId = nil
-                                }
-                            )
-                            .tag(AppTab.library)
-                            .tabItem {
-                                Label("Library", systemImage: "books.vertical")
-                            }
-
-                            // Discussions tab
-                            DiscussionView(viewModel: discussionViewModel)
-                                .tag(AppTab.discussions)
-                                .tabItem {
-                                    Label("Discussions", systemImage: "bubble.left.and.bubble.right")
-                                }
-
-                            // Profile tab
-                            ProfileView(viewModel: profileViewModel)
-                                .tag(AppTab.profile)
-                                .tabItem {
-                                    Label("Profile", systemImage: "person")
-                                }
-                        }
-                        .onChangeCompat(of: selectedTab) { _ in
-                            // Reset selections when switching tabs if needed
-                        }
+                        tabsView
                     }
                 }
             }
@@ -115,16 +66,59 @@ struct AudiobookApp: App {
             }
         }
     }
-}
 
-// Compatibility for onChange across Swift versions
-extension View {
     @ViewBuilder
-    func onChangeCompat<V: Equatable>(of value: V, perform action: @escaping (V) -> Void) -> some View {
-        if #available(iOS 17.0, macOS 14.0, *) {
-            self.onChange(of: value, perform: action)
-        } else {
-            self.onChange(of: value) { action($0) }
+    private var tabsView: some View {
+        TabView(selection: $selectedTab) {
+            LibraryView(
+                viewModel: container.libraryViewModel,
+                onOpenBook: { bookId, title in
+                    selectedBookId = bookId
+                    Task { await container.playerViewModel.load(bookId: bookId, title: title) }
+                },
+                onSignOut: { signOutAndReset() }
+            )
+            .tag(AppTab.library)
+            .tabItem {
+                Label("Library", systemImage: "books.vertical")
+            }
+
+            DiscussionView(viewModel: container.discussionViewModel)
+                .tag(AppTab.discussions)
+                .tabItem {
+                    Label("Discussions", systemImage: "bubble.left.and.bubble.right")
+                }
+
+            ProfileView(viewModel: container.profileViewModel)
+                .tag(AppTab.profile)
+                .tabItem {
+                    Label("Profile", systemImage: "person")
+                }
+
+            #if os(macOS)
+            AdminView(viewModel: container.adminViewModel)
+                .tag(AppTab.admin)
+                .tabItem {
+                    Label("Admin", systemImage: "person.3.sequence")
+                }
+            #endif
         }
+    }
+
+    private func signOutAndReset() {
+        container.authViewModel.signOut()
+        container.libraryViewModel.reset()
+        container.playerViewModel.reset()
+        selectedBookId = nil
+    }
+
+    private static func resolveGatewayURL() -> URL {
+        if let configured = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String,
+           let url = URL(string: configured),
+           !configured.isEmpty {
+            return url
+        }
+
+        return URL(string: "https://audiobook.aedev.pro")!
     }
 }

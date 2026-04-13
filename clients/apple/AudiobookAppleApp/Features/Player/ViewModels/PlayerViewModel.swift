@@ -59,7 +59,7 @@ final class PlayerViewModel: ObservableObject {
             async let settingsTask = repository.fetchSettings()
             async let playbackDetailsTask = repository.fetchPlaybackDetails(bookId: bookId)
             let resume = try await repository.resumeInfo(bookId: bookId)
-            let dbProgress = try? await repository.fetchProgress(bookId: bookId)
+            let dbProgress = try? await repository.fetchProgressLegacy(bookId: bookId)
             let settings = try await settingsTask
             let playbackDetails = try await playbackDetailsTask
             let authoritativePosition = Double(dbProgress?.positionSeconds ?? Int(resume.startSeconds))
@@ -281,7 +281,7 @@ final class PlayerViewModel: ObservableObject {
             }
 
             Task {
-                guard let snapshot = try? await repository.fetchProgress(bookId: state.bookId) else {
+                guard let snapshot = try? await repository.fetchProgressLegacy(bookId: state.bookId) else {
                     return
                 }
                 await MainActor.run {

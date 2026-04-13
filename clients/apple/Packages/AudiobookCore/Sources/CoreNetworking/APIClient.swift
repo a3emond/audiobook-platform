@@ -73,6 +73,19 @@ public struct APIClient {
         )
     }
 
+    public func deleteJSON<Response: Decodable>(
+        path: String,
+        headers: [String: String] = [:]
+    ) async throws -> Response {
+        let data = try await request(
+            method: "DELETE",
+            path: path,
+            headers: headers
+        )
+
+        return try JSONDecoder().decode(Response.self, from: data)
+    }
+
     private func requestJSON<Response: Decodable, Body: Encodable>(
         method: String,
         path: String,
