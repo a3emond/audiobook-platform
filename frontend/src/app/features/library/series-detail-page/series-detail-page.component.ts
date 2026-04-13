@@ -1,6 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { skip } from 'rxjs';
 
 import type { SeriesDetail } from '../../../core/models/api.models';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
@@ -22,6 +24,7 @@ export class SeriesDetailPageComponent implements OnInit {
   private readonly library = inject(LibraryService);
   private readonly libraryProgress = inject(LibraryProgressService);
   protected readonly i18n = inject(I18nService);
+  private readonly destroyRef = inject(DestroyRef);
   private seriesName = '';
 
   readonly series = signal<SeriesDetail | null>(null);
@@ -37,24 +40,29 @@ export class SeriesDetailPageComponent implements OnInit {
   });
 
   constructor() {
-    effect(() => {
-      this.i18n.locale();
-      if (!this.seriesName) {
-        return;
-      }
-
-      this.loadSeries(this.seriesName);
-    });
+    // Reload when the locale changes (skip(1) ignores the initial emit).
+    toObservable(this.i18n.locale)
+      .pipe(skip(1), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        if (this.seriesName) {
+          this.loadSeries(this.seriesName);
+        }
+      });
   }
 
   ngOnInit(): void {
-    this.seriesName = this.route.snapshot.paramMap.get('seriesName') ?? '';
-    if (!this.seriesName) {
-      this.error.set(this.i18n.t('series.error.missingName'));
-      return;
-    }
-
-    this.loadSeries(this.seriesName);
+    // React to route param changes so the component works correctly when the router
+    // reuses the instance (e.g. navigating between series from a search result).
+    this.route.paramMap
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((params) => {
+        this.seriesName = params.get('seriesName') ?? '';
+        if (!this.seriesName) {
+          this.error.set(this.i18n.t('series.error.missingName'));
+          return;
+        }
+        this.loadSeries(this.seriesName);
+      });
   }
 
   private loadSeries(seriesName: string): void {

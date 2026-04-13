@@ -1,4 +1,4 @@
-import { Component, Input, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import type { Book } from '../../../core/models/api.models';
@@ -17,7 +17,7 @@ import { CoverTileComponent } from '../../../shared/ui/cover-tile/cover-tile.com
 })
 // book-card: keeps UI and state logic readable for this frontend unit.
 export class BookCardComponent {
-  @Input({ required: true }) book!: Book;
+  readonly book = input.required<Book>();
 
   protected readonly auth = inject(AuthService);
   private readonly libraryProgress = inject(LibraryProgressService);
@@ -25,7 +25,8 @@ export class BookCardComponent {
   readonly detailOpen = signal(false);
 
   readonly coverUrl = computed(() => {
-    if (!this.book?.coverPath) {
+    const b = this.book();
+    if (!b?.coverPath) {
       return '';
     }
 
@@ -34,11 +35,11 @@ export class BookCardComponent {
       return '';
     }
 
-    return `/streaming/books/${this.book.id}/cover?access_token=${encodeURIComponent(token)}`;
+    return `/streaming/books/${b.id}/cover?access_token=${encodeURIComponent(token)}`;
   });
 
   coverInitials(): string {
-    const fromTitle = (this.book?.title ?? '')
+    const fromTitle = (this.book()?.title ?? '')
       .split(' ')
       .filter(Boolean)
       .slice(0, 2)
@@ -64,11 +65,11 @@ export class BookCardComponent {
   }
 
   isCompleted(): boolean {
-    return this.libraryProgress.isCompleted(this.book.id);
+    return this.libraryProgress.isCompleted(this.book().id);
   }
 
   progressPercent(): number | null {
-    return this.libraryProgress.progressPercentForBook(this.book);
+    return this.libraryProgress.progressPercentForBook(this.book());
   }
 
   openDetails(): void {
@@ -81,9 +82,10 @@ export class BookCardComponent {
 
   descriptionText(): string {
     const locale = this.i18n.locale();
+    const b = this.book();
     const localized = locale === 'fr'
-      ? this.book.description?.fr ?? this.book.description?.default ?? this.book.description?.en
-      : this.book.description?.en ?? this.book.description?.default ?? this.book.description?.fr;
+      ? b.description?.fr ?? b.description?.default ?? b.description?.en
+      : b.description?.en ?? b.description?.default ?? b.description?.fr;
 
     return localized ?? this.i18n.t('book.description.empty');
   }

@@ -91,14 +91,14 @@ export class AdminJobLogsComponent implements OnInit, OnChanges, OnDestroy {
 		const current = this.autoRefresh();
 		this.autoRefresh.set(!current);
 
+		// Always clear before potentially re-arming so rapid toggles cannot leak an orphaned interval.
+		if (this.refreshInterval) {
+			clearInterval(this.refreshInterval);
+			this.refreshInterval = undefined;
+		}
+
 		if (!current) {
-			// Start auto-refresh
 			this.refreshInterval = setInterval(() => this.refreshLogs(), 2000);
-		} else {
-			// Stop auto-refresh
-			if (this.refreshInterval) {
-				clearInterval(this.refreshInterval);
-			}
 		}
 	}
 

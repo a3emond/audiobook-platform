@@ -4,7 +4,7 @@
  * ============================================================
  *
  * Client-side cache of per-book progress. Refreshes automatically
- * when the user logs in or when ProgressService emits progressChanged$.
+ * when the user logs in or when ProgressService invalidates progressVersion.
  * Provides synchronous accessors used by list and detail components
  * during rendering without additional API calls.
  *
@@ -23,7 +23,7 @@
  *   refresh()                        — force a cache reload from /progress
  * ============================================================
  */
-import { Injectable, effect, signal } from '@angular/core';
+import { Injectable, effect, signal, untracked } from '@angular/core';
 
 import type { Book, Progress } from '../models/api.models';
 import { AuthService } from './auth.service';
@@ -43,7 +43,7 @@ function clamp(value: number, min: number, max: number): number {
 
 /**
  * Client-side cache of per-book progress. Refreshes on login and on
- * ProgressService.progressChanged$ events. Provides synchronous accessors.
+ * ProgressService progressVersion invalidations. Provides synchronous accessors.
  */
 @Injectable({ providedIn: 'root' })
 export class LibraryProgressService {
@@ -64,8 +64,13 @@ export class LibraryProgressService {
       this.refresh();
     });
 
-    this.progress.progressChanged$.subscribe(() => {
-      if (this.auth.isAuthenticated()) {
+    effect(() => {
+      const version = this.progress.progressVersion();
+      if (version === 0) {
+        return;
+      }
+
+      if (untracked(() => this.auth.isAuthenticated())) {
         this.refresh();
       }
     });

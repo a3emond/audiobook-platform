@@ -293,6 +293,8 @@ export class PlayerService {
 		this.error.set(null);
 
 		if (!shouldReload) {
+			// Keep UI transport state aligned with the actual audio element.
+			this.paused.set(this.audio.paused);
 			if (typeof options?.startSeconds === 'number' && !this.metadataLoaded()) {
 				this.pendingInitialPosition = Math.max(0, options.startSeconds);
 			}
@@ -304,6 +306,7 @@ export class PlayerService {
 		this.flushListeningSession();
 		this.stopProgressSaveTicker();
 		this.pause();
+		this.paused.set(true);
 
 		this.metadataLoaded.set(false);
 		this.pendingInitialPosition = Math.max(0, options?.startSeconds ?? 0);
@@ -312,6 +315,7 @@ export class PlayerService {
 
 		this.audio.src = this.streamUrl(book.id);
 		this.audio.load();
+		this.paused.set(true);
 		this.updateMediaSessionMetadata();
 		this.broadcastPlaybackPresence();
 	}
@@ -337,11 +341,13 @@ export class PlayerService {
 
 	play(): void {
 		void this.audio.play().catch(() => {
+			this.paused.set(true);
 			this.error.set('Playback was blocked by the browser. Interact with the page and try again.');
 		});
 	}
 
 	pause(): void {
+		this.paused.set(true);
 		if (!this.audio.paused) {
 			this.audio.pause();
 		}
@@ -429,6 +435,7 @@ export class PlayerService {
 	private configureAudioEvents(): void {
 		this.audio.addEventListener('loadedmetadata', () => {
 			this.metadataLoaded.set(true);
+			this.paused.set(this.audio.paused);
 			if (this.pendingInitialPosition !== null) {
 				this.setCurrentTime(this.pendingInitialPosition);
 				this.pendingInitialPosition = null;

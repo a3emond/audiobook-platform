@@ -1,6 +1,6 @@
 <article class="book-card card">
-  <button type="button" class="cover-trigger" (click)="openDetails()" [attr.aria-label]="i18n.t('book.openDetails', { title: book.title })">
-    <app-cover-tile [imageUrl]="coverUrl()" [fallback]="coverInitials()" [alt]="book.title + ' cover'" [completed]="isCompleted()" [progressPercent]="progressPercent()" />
+  <button type="button" class="cover-trigger" (click)="openDetails()" [attr.aria-label]="i18n.t('book.openDetails', { title: book().title })">
+    <app-cover-tile [imageUrl]="coverUrl()" [fallback]="coverInitials()" [alt]="book().title + ' cover'" [completed]="isCompleted()" [progressPercent]="progressPercent()" />
   </button>
 </article>
 
@@ -11,43 +11,43 @@
 
       <div class="modal-hero">
         <div class="modal-cover">
-          <app-cover-tile [imageUrl]="coverUrl()" [fallback]="coverInitials()" [alt]="book.title + ' cover'" [completed]="isCompleted()" [progressPercent]="progressPercent()" />
+          <app-cover-tile [imageUrl]="coverUrl()" [fallback]="coverInitials()" [alt]="book().title + ' cover'" [completed]="isCompleted()" [progressPercent]="progressPercent()" />
         </div>
 
         <div class="modal-main">
-          <h3>{{ book.title }}</h3>
-          <p class="author">{{ book.author }}</p>
+          <h3>{{ book().title }}</h3>
+          <p class="author">{{ book().author }}</p>
 
           <div class="meta-grid">
-            <p><strong>{{ i18n.t('book.duration') }}</strong> {{ formatDuration(book.duration) }}</p>
-            @if (book.series) {
+            <p><strong>{{ i18n.t('book.duration') }}</strong> {{ formatDuration(book().duration) }}</p>
+            @if (book().series) {
               <p>
                 <strong>{{ i18n.t('book.series') }}</strong>
-                {{ book.series }}
-                @if (book.seriesIndex) {
-                  <span>#{{ book.seriesIndex }}</span>
+                {{ book().series }}
+                @if (book().seriesIndex) {
+                  <span>#{{ book().seriesIndex }}</span>
                 }
               </p>
             }
-            @if (book.genre) {
-              <p><strong>{{ i18n.t('book.genre') }}</strong> {{ book.genre }}</p>
+            @if (book().genre) {
+              <p><strong>{{ i18n.t('book.genre') }}</strong> {{ book().genre }}</p>
             }
-            @if (book.tags && book.tags.length > 0) {
-              <p><strong>{{ i18n.t('book.tags') }}</strong> <app-read-more [text]="book.tags.join(', ')" [limit]="80" /></p>
+            @if (book().tags && book().tags!.length > 0) {
+              <p><strong>{{ i18n.t('book.tags') }}</strong> <app-read-more [text]="book().tags!.join(', ')" [limit]="80" /></p>
             }
           </div>
 
           <app-read-more class="description" [text]="descriptionText()" [limit]="220" />
 
           <div class="actions">
-            <a class="play" [routerLink]="['/player', book.id]" (click)="closeDetails()">{{ i18n.t('common.play') }}</a>
-            @if (book.series) {
-              <a class="open-series" [routerLink]="['/series', book.series]" (click)="closeDetails()">{{ i18n.t('series.open') }}</a>
+            <a class="play" [routerLink]="['/player', book().id]" (click)="closeDetails()">{{ i18n.t('common.play') }}</a>
+            @if (book().series) {
+              <a class="open-series" [routerLink]="['/series', book().series]" (click)="closeDetails()">{{ i18n.t('series.open') }}</a>
             }
             @if (auth.isAdmin()) {
               <a
                 class="admin-edit"
-                [routerLink]="['/admin/books', book.id]"
+                [routerLink]="['/admin/books', book().id]"
                 target="_blank"
                 rel="noopener noreferrer"
               >

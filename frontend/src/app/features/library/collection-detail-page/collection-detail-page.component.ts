@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, effect, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { forkJoin } from 'rxjs';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { forkJoin, skip } from 'rxjs';
 
 import type { Book, Collection } from '../../../core/models/api.models';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
@@ -33,6 +34,7 @@ export class CollectionDetailPageComponent implements OnInit {
   private readonly library = inject(LibraryService);
   private readonly progress = inject(ProgressService);
   protected readonly i18n = inject(I18nService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly collection = signal<Collection | null>(null);
   readonly books = signal<Book[]>([]);
@@ -50,38 +52,41 @@ export class CollectionDetailPageComponent implements OnInit {
   private editorFilterTimeout?: ReturnType<typeof setTimeout>;
 
   constructor() {
-    effect(() => {
-      this.i18n.locale();
-      if (!this.collectionId) {
-        return;
-      }
-
-      if (this.isAutoCollection()) {
-        this.refreshAutoCollection();
-        return;
-      }
-
-      this.refreshCollectionAndBooks(true);
-    });
+    // Reload when the locale changes (skip(1) ignores the initial emit).
+    toObservable(this.i18n.locale)
+      .pipe(skip(1), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        if (!this.collectionId) return;
+        if (this.isAutoCollection()) {
+          this.refreshAutoCollection();
+        } else {
+          this.refreshCollectionAndBooks(true);
+        }
+      });
   }
 
   ngOnInit(): void {
-    const collectionId = this.route.snapshot.paramMap.get('collectionId');
-    if (!collectionId) {
-      this.error.set(this.i18n.t('collections.error.missingId'));
-      return;
-    }
+    // React to route param changes so this works when the router reuses the instance.
+    this.route.paramMap
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((params) => {
+        const collectionId = params.get('collectionId');
+        if (!collectionId) {
+          this.error.set(this.i18n.t('collections.error.missingId'));
+          return;
+        }
 
-    this.collectionId = collectionId;
+        if (collectionId === AUTO_ACTIVITY_COLLECTION_ID) {
+          this.collectionId = collectionId;
+          this.isAutoCollection.set(true);
+          this.refreshAutoCollection();
+          return;
+        }
 
-    if (this.collectionId === AUTO_ACTIVITY_COLLECTION_ID) {
-      this.isAutoCollection.set(true);
-      this.refreshAutoCollection();
-      return;
-    }
-
-    this.isAutoCollection.set(false);
-    this.refreshCollectionAndBooks(true);
+        this.collectionId = collectionId;
+        this.isAutoCollection.set(false);
+        this.refreshCollectionAndBooks(true);
+      });
   }
 
   renameCollection(): void {

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, signal } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 
@@ -16,7 +16,7 @@ import { OAuthButtonsComponent } from '../oauth-buttons/oauth-buttons.js';
   styleUrl: './register.page.css',
 })
 // Main UI/state logic for this standalone view component.
-export class RegisterPage implements OnDestroy {
+export class RegisterPage {
   displayName = '';
   email = '';
   password = '';
@@ -32,8 +32,6 @@ export class RegisterPage implements OnDestroy {
     private readonly auth: AuthService,
     private readonly router: Router,
   ) {}
-
-  ngOnDestroy(): void {}
 
   async submit(): Promise<void> {
     this.error.set(null);

@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { forkJoin } from 'rxjs';
 
 import type { PaginationMeta } from '../../../core/models/api.models';
 import { LibraryService } from '../../../core/services/library.service';
@@ -66,37 +67,30 @@ export class HistoryPage implements OnInit {
 		this.loading.set(true);
 		this.error.set(null);
 
-		this.stats
-			.listSessions({
+		forkJoin({
+			response: this.stats.listSessions({
 				limit: 50,
 				offset: 0,
-			})
-			.subscribe({
-				next: (response) => {
-					this.library.listBooks({ limit: 300, offset: 0 }).subscribe({
-						next: (booksResponse) => {
-							const byId = new Map(booksResponse.books.map((book) => [book.id, book]));
-							this.rows.set(groupSessionsByBook(response.sessions, byId));
-							this.meta.set({
-								total: response.total,
-								limit: response.limit,
-								offset: response.offset,
-								hasMore: response.hasMore,
-							});
-							this.applyFilter();
-							this.loading.set(false);
-						},
-						error: (error: unknown) => {
-							this.error.set(error instanceof Error ? error.message : 'Unable to load books');
-							this.loading.set(false);
-						},
-					});
-				},
-				error: (error: unknown) => {
-					this.error.set(error instanceof Error ? error.message : 'Unable to load sessions');
-					this.loading.set(false);
-				},
-			});
+			}),
+			booksResponse: this.library.listBooks({ limit: 300, offset: 0 }),
+		}).subscribe({
+			next: ({ response, booksResponse }) => {
+				const byId = new Map(booksResponse.books.map((book) => [book.id, book]));
+				this.rows.set(groupSessionsByBook(response.sessions, byId));
+				this.meta.set({
+					total: response.total,
+					limit: response.limit,
+					offset: response.offset,
+					hasMore: response.hasMore,
+				});
+				this.applyFilter();
+				this.loading.set(false);
+			},
+			error: (error: unknown) => {
+				this.error.set(error instanceof Error ? error.message : 'Unable to load history');
+				this.loading.set(false);
+			},
+		});
 	}
 
 	loadMore(): void {
@@ -108,35 +102,28 @@ export class HistoryPage implements OnInit {
 		const nextOffset = m.offset + m.limit;
 		this.loading.set(true);
 
-		this.stats
-			.listSessions({ limit: m.limit, offset: nextOffset })
-			.subscribe({
-				next: (response) => {
-					this.library.listBooks({ limit: 300, offset: 0 }).subscribe({
-						next: (booksResponse) => {
-							const byId = new Map(booksResponse.books.map((book) => [book.id, book]));
-							const newRows = groupSessionsByBook(response.sessions, byId);
-							this.rows.update((existing) => [...existing, ...newRows]);
-							this.meta.set({
-								total: response.total,
-								limit: response.limit,
-								offset: response.offset,
-								hasMore: response.hasMore,
-							});
-							this.applyFilter();
-							this.loading.set(false);
-						},
-						error: (error: unknown) => {
-							this.error.set(error instanceof Error ? error.message : 'Unable to load books');
-							this.loading.set(false);
-						},
-					});
-				},
-				error: (error: unknown) => {
-					this.error.set(error instanceof Error ? error.message : 'Unable to load sessions');
-					this.loading.set(false);
-				},
-			});
+		forkJoin({
+			response: this.stats.listSessions({ limit: m.limit, offset: nextOffset }),
+			booksResponse: this.library.listBooks({ limit: 300, offset: 0 }),
+		}).subscribe({
+			next: ({ response, booksResponse }) => {
+				const byId = new Map(booksResponse.books.map((book) => [book.id, book]));
+				const newRows = groupSessionsByBook(response.sessions, byId);
+				this.rows.update((existing) => [...existing, ...newRows]);
+				this.meta.set({
+					total: response.total,
+					limit: response.limit,
+					offset: response.offset,
+					hasMore: response.hasMore,
+				});
+				this.applyFilter();
+				this.loading.set(false);
+			},
+			error: (error: unknown) => {
+				this.error.set(error instanceof Error ? error.message : 'Unable to load history');
+				this.loading.set(false);
+			},
+		});
 	}
 
 	applyFilter(): void {

@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, QueryList, ViewChildren, effect, signal } from '@angular/core';
+import { AfterViewInit, Component, DestroyRef, ElementRef, OnDestroy, OnInit, QueryList, ViewChildren, inject, signal } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { forkJoin } from 'rxjs';
+import { forkJoin, skip } from 'rxjs';
 
 import type {
   Book,
@@ -77,16 +78,12 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
     private readonly settingsService: SettingsService,
     private readonly progressService: ProgressService,
   ) {
-    let initialized = false;
-    effect(() => {
-      this.i18n.locale();
-      if (!initialized) {
-        initialized = true;
-        return;
-      }
-
-      this.reload();
-    });
+    const destroyRef = inject(DestroyRef);
+    // Reload when the locale changes (skip(1) ignores the initial emit so reload()
+    // runs only on actual locale changes, not during construction).
+    toObservable(this.i18n.locale)
+      .pipe(skip(1), takeUntilDestroyed(destroyRef))
+      .subscribe(() => this.reload());
   }
 
   ngOnInit(): void {

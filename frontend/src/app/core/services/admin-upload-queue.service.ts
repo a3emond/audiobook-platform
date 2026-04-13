@@ -64,12 +64,18 @@ export interface UploadQueueItem {
 // creation and job-status tracking.
 export class AdminUploadQueueService {
 	// Queue state is persistent enough to survive refreshes, but file contents remain in memory only.
-	readonly queue = signal<UploadQueueItem[]>([]);
-	readonly loading = signal(false);
-	readonly lastQueuedJobId = signal<string | null>(null);
-	readonly error = signal<string | null>(null);
-	readonly trackedJobIds = signal<string[]>([]);
-	readonly jobsById = signal<Record<string, AdminJob>>({});
+	private readonly queueState = signal<UploadQueueItem[]>([]);
+	readonly queue = this.queueState.asReadonly();
+	private readonly loadingState = signal(false);
+	readonly loading = this.loadingState.asReadonly();
+	private readonly lastQueuedJobIdState = signal<string | null>(null);
+	readonly lastQueuedJobId = this.lastQueuedJobIdState.asReadonly();
+	private readonly errorState = signal<string | null>(null);
+	readonly error = this.errorState.asReadonly();
+	private readonly trackedJobIdsState = signal<string[]>([]);
+	readonly trackedJobIds = this.trackedJobIdsState.asReadonly();
+	private readonly jobsByIdState = signal<Record<string, AdminJob>>({});
+	readonly jobsById = this.jobsByIdState.asReadonly();
 
 	private jobsStreamHandle?: { stop: () => void };
 	private readonly storageKey = 'audiobook:upload-queue:metadata';
@@ -89,8 +95,8 @@ export class AdminUploadQueueService {
 				lastQueuedJobId: string | null;
 			};
 
-			this.trackedJobIds.set(data.trackedJobIds || []);
-			this.lastQueuedJobId.set(data.lastQueuedJobId || null);
+			this.trackedJobIdsState.set(data.trackedJobIds || []);
+			this.lastQueuedJobIdState.set(data.lastQueuedJobId || null);
 
 			if (data.trackedJobIds?.length) {
 				this.startRealtimeTracking();
@@ -106,8 +112,8 @@ export class AdminUploadQueueService {
 			localStorage.setItem(
 				this.storageKey,
 				JSON.stringify({
-					trackedJobIds: this.trackedJobIds(),
-					lastQueuedJobId: this.lastQueuedJobId(),
+					trackedJobIds: this.trackedJobIdsState(),
+					lastQueuedJobId: this.lastQueuedJobIdState(),
 				}),
 			);
 		} catch (error) {
@@ -121,22 +127,22 @@ export class AdminUploadQueueService {
 			return;
 		}
 
-		const queued = this.queue();
+		const queued = this.queueState();
 		const next = files.map((file, index) => createQueueItem(file, index));
-		this.queue.set([...queued, ...next]);
-		this.error.set(null);
+		this.queueState.set([...queued, ...next]);
+		this.errorState.set(null);
 	}
 
 	setError(message: string | null): void {
-		this.error.set(message);
+		this.errorState.set(message);
 	}
 
 	updateItemLanguage(itemId: string, language: 'fr' | 'en'): void {
-		this.queue.update((items) => patchQueueItemById(items, itemId, (item) => ({ ...item, language })));
+		this.queueState.update((items) => patchQueueItemById(items, itemId, (item) => ({ ...item, language })));
 	}
 
 	updateMp3Cover(itemId: string, coverFile: File | null): void {
-		this.queue.update((items) =>
+		this.queueState.update((items) =>
 			patchQueueItemById(items, itemId, (item) => {
 				if (item.type !== 'mp3' || !item.mp3) {
 					return item;
@@ -154,11 +160,11 @@ export class AdminUploadQueueService {
 	}
 
 	clearQueue(): void {
-		this.queue.set([]);
-		this.lastQueuedJobId.set(null);
-		this.error.set(null);
-		this.trackedJobIds.set([]);
-		this.jobsById.set({});
+		this.queueState.set([]);
+		this.lastQueuedJobIdState.set(null);
+		this.errorState.set(null);
+		this.trackedJobIdsState.set([]);
+		this.jobsByIdState.set({});
 		this.jobsStreamHandle?.stop();
 		this.jobsStreamHandle = undefined;
 		this.saveQueueMetadata();
@@ -166,34 +172,34 @@ export class AdminUploadQueueService {
 
 	// Queue processing is serialized because the worker/backend already handles the heavy parallelism.
 	startQueue(): void {
-		if (this.loading()) {
+		if (this.loadingState()) {
 			return;
 		}
 
-		const queue = this.queue();
+		const queue = this.queueState();
 		const nextIndex = queue.findIndex((item) => item.status === 'queued' || item.status === 'failed');
 		if (nextIndex < 0) {
 			return;
 		}
 
-		this.loading.set(true);
-		this.error.set(null);
-		this.lastQueuedJobId.set(null);
+		this.loadingState.set(true);
+		this.errorState.set(null);
+		this.lastQueuedJobIdState.set(null);
 		this.uploadQueueItem(nextIndex);
 	}
 
 	trackedJobs(): AdminJob[] {
-		const jobs = this.jobsById();
-		return this.trackedJobIds()
+		const jobs = this.jobsByIdState();
+		return this.trackedJobIdsState()
 			.map((id) => jobs[id])
 			.filter((job): job is AdminJob => Boolean(job));
 	}
 
 	// Uploads advance recursively so completion/failure handling stays in one place.
 	private uploadQueueItem(index: number): void {
-		const items = this.queue();
+		const items = this.queueState();
 		if (index >= items.length) {
-			this.loading.set(false);
+			this.loadingState.set(false);
 			return;
 		}
 
@@ -212,7 +218,7 @@ export class AdminUploadQueueService {
 
 		request.subscribe({
 			next: (response) => {
-				this.lastQueuedJobId.set(response.jobId);
+				this.lastQueuedJobIdState.set(response.jobId);
 				this.trackJob(response.jobId);
 				this.updateQueueItem(index, {
 					status: 'done',
@@ -227,20 +233,20 @@ export class AdminUploadQueueService {
 					status: 'failed',
 					error: message,
 				});
-				this.error.set(message);
+				this.errorState.set(message);
 				this.uploadQueueItem(index + 1);
 			},
 		});
 	}
 
 	private updateQueueItem(index: number, patch: Partial<UploadQueueItem>): void {
-		this.queue.set(patchQueueItem(this.queue(), index, patch));
+		this.queueState.set(patchQueueItem(this.queueState(), index, patch));
 	}
 
 	// Once a backend job exists, realtime tracking becomes the authoritative source of status.
 	private trackJob(jobId: string): void {
-		if (!this.trackedJobIds().includes(jobId)) {
-			this.trackedJobIds.update((ids) => [...ids, jobId]);
+		if (!this.trackedJobIdsState().includes(jobId)) {
+			this.trackedJobIdsState.update((ids) => [...ids, jobId]);
 		}
 		this.saveQueueMetadata();
 		this.startRealtimeTracking();
@@ -254,9 +260,9 @@ export class AdminUploadQueueService {
 
 		this.jobsStreamHandle = this.admin.startJobsStream({
 			onJobs: (jobs) => {
-				this.jobsById.update((current) => mergeTrackedJobs(current, jobs, this.trackedJobIds()));
+				this.jobsByIdState.update((current) => mergeTrackedJobs(current, jobs, this.trackedJobIdsState()));
 
-				const allTerminal = allTrackedJobsTerminal(this.trackedJobIds(), this.jobsById());
+				const allTerminal = allTrackedJobsTerminal(this.trackedJobIdsState(), this.jobsByIdState());
 
 				if (allTerminal) {
 					this.jobsStreamHandle?.stop();
@@ -265,10 +271,10 @@ export class AdminUploadQueueService {
 			},
 		});
 
-		for (const jobId of this.trackedJobIds()) {
+		for (const jobId of this.trackedJobIdsState()) {
 			void firstValueFrom(this.admin.getJob(jobId))
 				.then((job) => {
-					this.jobsById.update((current) => ({ ...current, [job.id]: job }));
+					this.jobsByIdState.update((current) => ({ ...current, [job.id]: job }));
 				})
 				.catch(() => undefined);
 		}

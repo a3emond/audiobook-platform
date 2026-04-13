@@ -85,6 +85,8 @@ export class OAuthButtonsComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     window.google?.accounts.id.disableAutoSelect();
+    this.googleScriptEl?.remove();
+    this.appleScriptEl?.remove();
   }
 
   // ── Google ──────────────────────────────────────────────────────────────────

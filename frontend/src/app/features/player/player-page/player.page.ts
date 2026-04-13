@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, effect, HostListener, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, computed, DestroyRef, effect, HostListener, OnDestroy, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { interval, Subscription } from 'rxjs';
 
@@ -46,7 +47,8 @@ import { PlayerSleepTimer } from './player-sleep-timer';
 export class PlayerPage implements OnInit, OnDestroy {
 	// View state signals for template rendering.
 	readonly book = signal<Book | null>(null);
-	readonly chapters = signal<Chapter[]>([]);
+	// chapters mirrors player.chapters() — computed keeps it in sync without a dead effect.
+	readonly chapters = computed(() => this.player.chapters());
 	readonly coverUrl = signal('');
 	readonly activeChapterIndex = signal(0);
 	readonly progressMode = signal<'chapter' | 'book'>('chapter');
@@ -56,29 +58,28 @@ export class PlayerPage implements OnInit, OnDestroy {
 	readonly isCompleted = signal(false);
 	readonly error = signal<string | null>(null);
 
-	private readonly bookId: string;
+	private bookId = '';
 	private sleepUiTicker?: Subscription;
+	private routeParamSub?: Subscription;
 	private readonly sleepTimer = new PlayerSleepTimer();
+	private readonly destroyRef: DestroyRef;
 	private resumeAt = 0;
 	private resumeLoaded = false;
 	private progressLoaded = false;
 	private initialPositionApplied = false;
 	private lastPausedState = true;
+	private routeLoadRequestId = 0;
 
 	constructor(
-		route: ActivatedRoute,
+		destroyRef: DestroyRef,
+		private readonly route: ActivatedRoute,
 		private readonly library: LibraryService,
 		protected readonly player: PlayerService,
 		private readonly progress: ProgressService,
 		private readonly settings: SettingsService,
 		protected readonly auth: AuthService,
 	) {
-		this.bookId = route.snapshot.paramMap.get('bookId') ?? '';
-
-		effect(() => {
-			this.chapters.set(this.player.chapters());
-		});
-
+		this.destroyRef = destroyRef;
 		effect(() => {
 			const current = this.player.currentSeconds();
 			this.updateActiveChapterFromCurrentTime(current);
@@ -108,30 +109,9 @@ export class PlayerPage implements OnInit, OnDestroy {
 	ngOnInit(): void {
 		this.progressMode.set('chapter');
 
-		if (!this.bookId) {
-			this.error.set('Missing book id');
-			return;
-		}
-
-		this.library.getBook(this.bookId).subscribe({
-			next: (book) => {
-				const hasActiveSession = this.player.currentBook()?.id === book.id && this.player.currentSeconds() > 0;
-				this.book.set(book);
-				const coverUrl = this.computeCoverUrl(book);
-				this.coverUrl.set(coverUrl);
-				this.player.loadBook(book, { coverUrl });
-				if (hasActiveSession) {
-					this.initialPositionApplied = true;
-				}
-				this.loadResumeInfo(book);
-			},
-			error: (error: unknown) => {
-				if (error instanceof HttpErrorResponse && error.status === 404) {
-					this.error.set('Book not found. It may have been deleted or the database was reset.');
-					return;
-				}
-				this.error.set('Unable to load book details');
-			},
+		this.routeParamSub = this.route.paramMap.subscribe((params) => {
+			const nextBookId = params.get('bookId') ?? '';
+			this.loadBookFromRoute(nextBookId);
 		});
 
 		this.sleepUiTicker = interval(1000).subscribe(() => {
@@ -143,7 +123,10 @@ export class PlayerPage implements OnInit, OnDestroy {
 	// Player settings are loaded independently from book data so controls are
 	// usable even if resume/progress calls fail.
 	private loadPlayerSettings(): void {
-		this.settings.getMine().subscribe({
+		this.settings
+			.getMine()
+			.pipe(takeUntilDestroyed(this.destroyRef))
+			.subscribe({
 			next: (settings) => {
 				this.player.setJumpSeconds(
 					settings.player.backwardJumpSeconds ?? 15,
@@ -159,46 +142,129 @@ export class PlayerPage implements OnInit, OnDestroy {
 				this.sleepTimerMode.set('off');
 				this.resetSleepTimerForMode();
 			},
-		});
+			});
+	}
+
+	private loadBookFromRoute(nextBookId: string): void {
+		const requestId = ++this.routeLoadRequestId;
+
+		if (!nextBookId) {
+			this.bookId = '';
+			this.book.set(null);
+			this.error.set('Missing book id');
+			return;
+		}
+
+		if (this.bookId && this.bookId !== nextBookId) {
+			this.player.persistNow();
+		}
+
+		this.bookId = nextBookId;
+		this.error.set(null);
+		this.book.set(null);
+		this.coverUrl.set('');
+		this.resumeAt = 0;
+		this.resumeLoaded = false;
+		this.progressLoaded = false;
+		this.initialPositionApplied = false;
+		this.isCompleted.set(false);
+
+		this.library
+			.getBook(nextBookId)
+			.pipe(takeUntilDestroyed(this.destroyRef))
+			.subscribe({
+			next: (book) => {
+				if (requestId !== this.routeLoadRequestId || this.bookId !== nextBookId) {
+					return;
+				}
+
+				const hasActiveSession = this.player.currentBook()?.id === book.id && this.player.currentSeconds() > 0;
+				this.book.set(book);
+				const coverUrl = this.computeCoverUrl(book);
+				this.coverUrl.set(coverUrl);
+				this.player.loadBook(book, { coverUrl });
+				if (hasActiveSession) {
+					this.initialPositionApplied = true;
+				}
+				this.loadResumeInfo(book, nextBookId, requestId);
+			},
+			error: (error: unknown) => {
+				if (requestId !== this.routeLoadRequestId || this.bookId !== nextBookId) {
+					return;
+				}
+
+				if (error instanceof HttpErrorResponse && error.status === 404) {
+					this.error.set('Book not found. It may have been deleted or the database was reset.');
+					return;
+				}
+				this.error.set('Unable to load book details');
+			},
+			});
 	}
 
 	// Resume and completion state are fetched in parallel; seek is deferred until
 	// both have settled to avoid race-dependent initial positioning.
-	private loadResumeInfo(book: Book): void {
-		this.player.getResumeInfo(this.bookId).subscribe({
+	private loadResumeInfo(book: Book, bookId: string, requestId: number): void {
+		this.player
+			.getResumeInfo(bookId)
+			.pipe(takeUntilDestroyed(this.destroyRef))
+			.subscribe({
 			next: (resume) => {
+				if (requestId !== this.routeLoadRequestId || this.bookId !== bookId) {
+					return;
+				}
+
 				this.resumeAt = resume.startSeconds;
 				this.resumeLoaded = true;
-				this.applyInitialPositionIfReady(book);
+				this.applyInitialPositionIfReady(book, bookId, requestId);
 			},
 			error: (error: unknown) => {
+				if (requestId !== this.routeLoadRequestId || this.bookId !== bookId) {
+					return;
+				}
+
 				this.resumeLoaded = true;
 				if (error instanceof HttpErrorResponse && error.status === 404) {
-					this.applyInitialPositionIfReady(book);
+					this.applyInitialPositionIfReady(book, bookId, requestId);
 					return;
 				}
 				this.error.set('Unable to load resume information');
-				this.applyInitialPositionIfReady(book);
+				this.applyInitialPositionIfReady(book, bookId, requestId);
 			},
-		});
+			});
 
-		this.progress.getForBook(this.bookId).subscribe({
+		this.progress
+			.getForBook(bookId)
+			.pipe(takeUntilDestroyed(this.destroyRef))
+			.subscribe({
 			next: (prog) => {
+				if (requestId !== this.routeLoadRequestId || this.bookId !== bookId) {
+					return;
+				}
+
 				this.isCompleted.set(prog.completed);
 				this.progressLoaded = true;
-				this.applyInitialPositionIfReady(book);
+				this.applyInitialPositionIfReady(book, bookId, requestId);
 			},
 			error: () => {
+				if (requestId !== this.routeLoadRequestId || this.bookId !== bookId) {
+					return;
+				}
+
 				// no progress record yet — not completed
 				this.isCompleted.set(false);
 				this.progressLoaded = true;
-				this.applyInitialPositionIfReady(book);
+				this.applyInitialPositionIfReady(book, bookId, requestId);
 			},
-		});
+			});
 	}
 
 	// Applies initial seek exactly once per page load.
-	private applyInitialPositionIfReady(book: Book): void {
+	private applyInitialPositionIfReady(book: Book, bookId: string, requestId: number): void {
+		if (requestId !== this.routeLoadRequestId || this.bookId !== bookId) {
+			return;
+		}
+
 		if (this.initialPositionApplied || !this.resumeLoaded || !this.progressLoaded) {
 			return;
 		}
@@ -221,6 +287,7 @@ export class PlayerPage implements OnInit, OnDestroy {
 	ngOnDestroy(): void {
 		this.player.persistNow();
 		this.pauseSleepTimerCountdown();
+		this.routeParamSub?.unsubscribe();
 		this.sleepUiTicker?.unsubscribe();
 		this.sleepTimer.dispose();
 	}
@@ -281,7 +348,10 @@ export class PlayerPage implements OnInit, OnDestroy {
 		}
 
 		const finalizeMark = () => {
-			this.progress.markCompleted(this.bookId).subscribe({
+			this.progress
+				.markCompleted(this.bookId)
+				.pipe(takeUntilDestroyed(this.destroyRef))
+				.subscribe({
 				next: (prog) => {
 					this.isCompleted.set(prog.completed);
 					if (prog.completed && duration > 0) {
@@ -291,7 +361,7 @@ export class PlayerPage implements OnInit, OnDestroy {
 				error: () => {
 					this.error.set('Unable to mark book as completed');
 				},
-			});
+				});
 		};
 
 		if (duration <= 0) {
@@ -309,6 +379,7 @@ export class PlayerPage implements OnInit, OnDestroy {
 				},
 				idempotencyKey,
 			)
+			.pipe(takeUntilDestroyed(this.destroyRef))
 			.subscribe({
 				next: () => finalizeMark(),
 				error: () => finalizeMark(),
@@ -318,7 +389,10 @@ export class PlayerPage implements OnInit, OnDestroy {
 	// Restart clears completion and rewinds both local playback and persisted progress.
 	restartBook(): void {
 		this.progressMenuOpen.set(false);
-		this.progress.unmarkCompleted(this.bookId).subscribe({
+		this.progress
+			.unmarkCompleted(this.bookId)
+			.pipe(takeUntilDestroyed(this.destroyRef))
+			.subscribe({
 			next: (prog) => {
 				this.isCompleted.set(prog.completed);
 				this.player.setCurrentTime(0);
@@ -334,13 +408,14 @@ export class PlayerPage implements OnInit, OnDestroy {
 							},
 							idempotencyKey,
 						)
+						.pipe(takeUntilDestroyed(this.destroyRef))
 						.subscribe({ error: () => undefined });
 				}
 			},
 			error: () => {
 				this.error.set('Unable to restart book');
 			},
-		});
+			});
 	}
 
 	setProgressMode(mode: 'chapter' | 'book'): void {
@@ -358,11 +433,14 @@ export class PlayerPage implements OnInit, OnDestroy {
 		this.resetSleepTimerForMode();
 		this.progressMenuOpen.set(false);
 
-		this.settings.updateMine({ player: { sleepTimerMode: mode } }).subscribe({
+		this.settings
+			.updateMine({ player: { sleepTimerMode: mode } })
+			.pipe(takeUntilDestroyed(this.destroyRef))
+			.subscribe({
 			error: () => {
 				this.error.set('Unable to save sleep timer preference');
 			},
-		});
+			});
 	}
 
 	sleepTimerLabel(): string {

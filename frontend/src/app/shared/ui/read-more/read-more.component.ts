@@ -1,4 +1,4 @@
-import { Component, Input, signal, computed } from '@angular/core';
+import { Component, computed, input, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -10,21 +10,21 @@ import { CommonModule } from '@angular/common';
 })
 // Main UI/state logic for this standalone view component.
 export class ReadMoreComponent {
-  @Input() text = '';
-  @Input() limit = 220;
+  readonly text = input('');
+  readonly limit = input(220);
 
   readonly expanded = signal(false);
 
-  readonly isTruncatable = computed(() => (this.text?.length ?? 0) > this.limit);
+  readonly isTruncatable = computed(() => (this.text()?.length ?? 0) > this.limit());
 
   readonly displayText = computed(() => {
-    if (!this.text) {
+    if (!this.text()) {
       return '';
     }
     if (this.expanded() || !this.isTruncatable()) {
-      return this.text;
+      return this.text();
     }
-    return this.text.slice(0, this.limit).trimEnd() + '…';
+    return this.text().slice(0, this.limit()).trimEnd() + '…';
   });
 
   toggle(): void {

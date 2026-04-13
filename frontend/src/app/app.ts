@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, effect, signal } from '@angular/core';
+import { Component, OnDestroy, effect, signal, untracked } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Subscription } from 'rxjs';
 
@@ -35,7 +35,6 @@ export class App implements OnDestroy {
   readonly mobileNavOpen  = signal(false);
   readonly inProgressBooks = signal<InProgressBookItem[]>([]);
   readonly notifications = signal<ToastItem[]>([]);
-  private progressChangedSub?: Subscription;
   private realtimeSub?: Subscription;
 
   constructor(
@@ -67,9 +66,34 @@ export class App implements OnDestroy {
       }
     });
 
+    // Optimistically surface the active book at the top of the strip the moment it
+    // becomes the current book, without waiting for the next 15-second progress save.
+    // This prevents the strip from reordering under the user's cursor mid-click.
+    effect(() => {
+      const activeBook = this.player.currentBook();
+      if (!activeBook) {
+        return;
+      }
+
+      this.inProgressBooks.update((items) => {
+        const idx = items.findIndex((item) => item.book.id === activeBook.id);
+        if (idx <= 0) {
+          return items;
+        }
+        const copy = [...items];
+        const [active] = copy.splice(idx, 1);
+        return [active, ...copy];
+      });
+    });
+
     // Any persisted progress change can affect the continue-listening strip.
-    this.progressChangedSub = this.progressService.progressChanged$.subscribe(() => {
-      if (this.auth.isAuthenticated()) {
+    effect(() => {
+      const version = this.progressService.progressVersion();
+      if (version === 0) {
+        return;
+      }
+
+      if (untracked(() => this.auth.isAuthenticated())) {
         this.loadInProgressBooks();
       }
     });
@@ -85,7 +109,6 @@ export class App implements OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.progressChangedSub?.unsubscribe();
     this.realtimeSub?.unsubscribe();
   }
 
@@ -166,6 +189,18 @@ export class App implements OnDestroy {
   private loadInProgressBooks(): void {
     loadInProgressBooks(this.progressService, this.libraryService, {
       onLoaded: (items) => {
+        // After any API reload, re-apply the active-book pin so a fetch that arrives
+        // slightly after a book switch doesn't silently reorder the strip again.
+        const activeBookId = this.player.currentBook()?.id;
+        if (activeBookId) {
+          const idx = items.findIndex((item) => item.book.id === activeBookId);
+          if (idx > 0) {
+            const copy = [...items];
+            const [active] = copy.splice(idx, 1);
+            this.inProgressBooks.set([active, ...copy]);
+            return;
+          }
+        }
         this.inProgressBooks.set(items);
       },
       onError: () => {

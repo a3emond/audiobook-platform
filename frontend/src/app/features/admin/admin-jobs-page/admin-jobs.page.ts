@@ -48,6 +48,7 @@ export class AdminJobsPage implements OnInit, OnDestroy {
   ];
 
   private streamHandle?: JobEventStreamHandle;
+  private actionMessageTimer?: ReturnType<typeof setTimeout>;
 
   constructor(private readonly admin: AdminService) {}
 
@@ -125,6 +126,7 @@ export class AdminJobsPage implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.streamHandle?.stop();
+    clearTimeout(this.actionMessageTimer);
   }
 
   loadMoreJobs(): void {
@@ -150,7 +152,8 @@ export class AdminJobsPage implements OnInit, OnDestroy {
     // Job rerun would require a backend endpoint to re-enqueue a specific job type
     // with the same parameters. This is a placeholder for future implementation.
     this.jobActionMessage.set('Job rerun requires backend API endpoint implementation');
-    setTimeout(() => this.jobActionMessage.set(null), 3000);
+    clearTimeout(this.actionMessageTimer);
+    this.actionMessageTimer = setTimeout(() => this.jobActionMessage.set(null), 3000);
   }
 
   triggerManualParityScan(): void {
@@ -163,12 +166,14 @@ export class AdminJobsPage implements OnInit, OnDestroy {
         next: (job) => {
           this.jobActionInProgress.set(null);
           this.jobActionMessage.set(`Manual parity scan queued (${job.id})`);
-          setTimeout(() => this.jobActionMessage.set(null), 3500);
+          clearTimeout(this.actionMessageTimer);
+          this.actionMessageTimer = setTimeout(() => this.jobActionMessage.set(null), 3500);
         },
         error: (error: unknown) => {
           this.jobActionInProgress.set(null);
           this.jobActionMessage.set(error instanceof Error ? error.message : 'Could not queue parity scan');
-          setTimeout(() => this.jobActionMessage.set(null), 3500);
+          clearTimeout(this.actionMessageTimer);
+          this.actionMessageTimer = setTimeout(() => this.jobActionMessage.set(null), 3500);
         },
       });
   }
@@ -183,12 +188,14 @@ export class AdminJobsPage implements OnInit, OnDestroy {
         next: (job) => {
           this.jobActionInProgress.set(null);
           this.jobActionMessage.set(`Tag sync queued (${job.id})`);
-          setTimeout(() => this.jobActionMessage.set(null), 3500);
+          clearTimeout(this.actionMessageTimer);
+          this.actionMessageTimer = setTimeout(() => this.jobActionMessage.set(null), 3500);
         },
         error: (error: unknown) => {
           this.jobActionInProgress.set(null);
           this.jobActionMessage.set(error instanceof Error ? error.message : 'Could not queue tag sync');
-          setTimeout(() => this.jobActionMessage.set(null), 3500);
+          clearTimeout(this.actionMessageTimer);
+          this.actionMessageTimer = setTimeout(() => this.jobActionMessage.set(null), 3500);
         },
       });
   }

@@ -10,20 +10,20 @@
  * Exported:
  *   ProgressService — root-level injectable
  *
- * Observable:
- *   progressChanged$ — void stream; emits after any write operation
+ * Signal:
+ *   progressVersion — number; increments after any write operation
  *
  * Methods:
  *   listMine(limit, offset)           — paginated GET /progress
  *   listMineAll(limit)                — auto-paginated Observable<Progress[]>
  *   getForBook(bookId)                — GET /progress/:bookId
- *   saveForBook(bookId, payload, key) — idempotent PUT; emits progressChanged$
+ *   saveForBook(bookId, payload, key) — idempotent PUT; increments progressVersion
  *   markCompleted(bookId)             — POST /progress/:bookId/complete
  *   unmarkCompleted(bookId)           — DELETE /progress/:bookId/complete
  * ============================================================
  */
-import { Injectable } from '@angular/core';
-import { EMPTY, Observable, Subject, expand, map, reduce, tap } from 'rxjs';
+import { Injectable, signal } from '@angular/core';
+import { EMPTY, Observable, expand, map, reduce, tap } from 'rxjs';
 
 import type { PaginationMeta, Progress } from '../models/api.models';
 import { ApiService } from './api.service';
@@ -43,8 +43,7 @@ interface ListProgressResponse extends PaginationMeta {
 // ProgressService wraps reading/writing listening progress and emits a simple
 // invalidation signal for any UI that caches progress-derived state.
 export class ProgressService {
-	private readonly progressChangedSubject = new Subject<void>();
-	readonly progressChanged$ = this.progressChangedSubject.asObservable();
+	readonly progressVersion = signal(0);
 
 	constructor(private readonly api: ApiService) {}
 
@@ -68,22 +67,24 @@ export class ProgressService {
 		return this.api.get<Progress>(`/progress/${bookId}`);
 	}
 
-	// Any write emits progressChanged$ so library views can refresh without tight coupling.
+	// Any write bumps progressVersion so library views can refresh without tight coupling.
 	saveForBook(bookId: string, payload: SaveProgressPayload, idempotencyKey: string): Observable<Progress> {
 		return this.api
 			.put<Progress, SaveProgressPayload>(`/progress/${bookId}`, payload, {
 				headers: { 'Idempotency-Key': idempotencyKey },
 			})
-			.pipe(tap(() => this.progressChangedSubject.next()));
+			.pipe(tap(() => this.progressVersion.update((value) => value + 1)));
 	}
 
 	markCompleted(bookId: string): Observable<Progress> {
 		return this.api
 			.post<Progress, { manual: boolean }>(`/progress/${bookId}/complete`, { manual: true })
-			.pipe(tap(() => this.progressChangedSubject.next()));
+			.pipe(tap(() => this.progressVersion.update((value) => value + 1)));
 	}
 
 	unmarkCompleted(bookId: string): Observable<Progress> {
-		return this.api.delete<Progress>(`/progress/${bookId}/complete`).pipe(tap(() => this.progressChangedSubject.next()));
+		return this.api
+			.delete<Progress>(`/progress/${bookId}/complete`)
+			.pipe(tap(() => this.progressVersion.update((value) => value + 1)));
 	}
 }
