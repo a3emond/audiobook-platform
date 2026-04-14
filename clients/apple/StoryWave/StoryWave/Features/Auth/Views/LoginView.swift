@@ -295,15 +295,16 @@ private enum GoogleOAuthSession {
 
         let state = randomToken(length: 32)
         
-        // Backend endpoint that handles full Google OAuth flow:
-        // Use the configured API host so dev/staging/prod all work consistently.
-        let authorizeURL = config.apiBaseURL.appendingPathComponent("api/v1/auth/oauth/google")
-        guard var components = URLComponents(url: authorizeURL, resolvingAgainstBaseURL: false) else {
+        // Bridge through a frontend page that runs Google Identity Services
+        // and returns a web-style id_token to the app callback URI.
+        let bridgeURL = config.apiBaseURL.appendingPathComponent("google-native-auth.html")
+        guard var components = URLComponents(url: bridgeURL, resolvingAgainstBaseURL: false) else {
             throw GoogleOAuthSessionError.invalidAuthorizationURL
         }
 
         components.queryItems = [
-            URLQueryItem(name: "client", value: "storywave"),
+            URLQueryItem(name: "client_id", value: config.googleClientId),
+            URLQueryItem(name: "app_redirect_uri", value: config.googleRedirectURI),
             URLQueryItem(name: "state", value: state),
         ]
 
@@ -311,7 +312,7 @@ private enum GoogleOAuthSession {
             throw GoogleOAuthSessionError.invalidAuthorizationURL
         }
 
-        print("🔍 OAuth Debug: Starting Google OAuth with backend intermediary URL: \(authURL.absoluteString)")
+        print("🔍 OAuth Debug: Starting Google OAuth with web bridge URL: \(authURL.absoluteString)")
 
         var session: ASWebAuthenticationSession?
         return try await withCheckedThrowingContinuation { continuation in
@@ -350,7 +351,7 @@ private enum GoogleOAuthSession {
                     return
                 }
 
-                print("🔍 OAuth Debug: Google OAuth successful, got id_token from backend")
+                print("🔍 OAuth Debug: Google OAuth successful, got web id_token")
                 continuation.resume(returning: idToken)
             }
 
