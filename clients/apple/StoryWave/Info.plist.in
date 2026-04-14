@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>NSlokalizedString</key>
+	<string></string>
+	<key>GOOGLE_CLIENT_ID</key>
+	<string>$(INFOPLIST_KEY_GOOGLE_CLIENT_ID)</string>
+	<key>GOOGLE_REDIRECT_URI</key>
+	<string>$(INFOPLIST_KEY_GOOGLE_REDIRECT_URI)</string>
+	<key>APPLE_CLIENT_ID</key>
+	<string>$(INFOPLIST_KEY_APPLE_CLIENT_ID)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>StoryWave OAuth Callback</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>storywave</string>
+			</array>
+		</dict>
+	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>StoryWave uses local network for streaming audio.</string>
+	<key>NSBonjourServiceUsageDescription</key>
+	<string>StoryWave discovers local services for audio streaming.</string>
+</dict>
+</plist>

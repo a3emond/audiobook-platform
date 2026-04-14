@@ -17,7 +17,11 @@ public final class DiscussionRepositoryImpl: DiscussionRepository {
     }
 
     public func listChannels(language: String = "en") async throws -> [DiscussionChannelDTO] {
-        try await authService.authenticatedGet(path: "api/v1/discussions/channels", queryParams: ["language": language])
+        let response: DiscussionChannelsResponseDTO = try await authService.authenticatedGet(
+            path: "api/v1/discussions/channels",
+            queryParams: ["lang": language]
+        )
+        return response.channels
     }
 
     public func listChannels() async throws -> [DiscussionChannelDTO] {
@@ -25,14 +29,11 @@ public final class DiscussionRepositoryImpl: DiscussionRepository {
     }
 
     public func listMessages(channelId: String, language: String = "en", limit: Int = 100, offset: Int = 0) async throws -> [DiscussionMessageDTO] {
-        try await authService.authenticatedGet(
-            path: "api/v1/discussions/\(channelId)/messages",
-            queryParams: [
-                "language": language,
-                "limit": String(limit),
-                "offset": String(offset)
-            ]
+        let response: DiscussionMessagesResponseDTO = try await authService.authenticatedGet(
+            path: "api/v1/discussions/\(language)/\(channelId)/messages",
+            queryParams: ["limit": String(limit)]
         )
+        return response.messages
     }
 
     public func listMessages(channelId: String) async throws -> [DiscussionMessageDTO] {
@@ -41,13 +42,13 @@ public final class DiscussionRepositoryImpl: DiscussionRepository {
 
     public func postMessage(channelId: String, text: String, language: String = "en") async throws -> DiscussionMessageDTO {
         struct PostMessagePayload: Encodable {
-            let text: String
-            let language: String
+            let body: String
+            let replyToMessageId: String?
         }
 
         return try await authService.authenticatedPost(
-            path: "api/v1/discussions/\(channelId)/messages",
-            body: PostMessagePayload(text: text, language: language)
+            path: "api/v1/discussions/\(language)/\(channelId)/messages",
+            body: PostMessagePayload(body: text, replyToMessageId: nil)
         )
     }
 

@@ -23,7 +23,7 @@ public class LocalizationService {
         self.locale = currentLocale
         
         Task {
-            await loadDictionary(for: currentLocale)
+            try? await loadDictionary(for: currentLocale)
         }
     }
     
@@ -50,14 +50,12 @@ public class LocalizationService {
     
     private func detectLocaleChangeAndReload() {
         Task {
-            try await loadDictionary(for: locale)
+            try? await loadDictionary(for: locale)
         }
     }
     
     private func loadDictionary(for locale: String) async throws {
         // Construct URL to fetch from backend or local bundle
-        let fileName = "\(locale).json"
-        
         if let bundleURL = Bundle.main.url(forResource: locale, withExtension: "json") {
             // Load from bundle
             let data = try Data(contentsOf: bundleURL)

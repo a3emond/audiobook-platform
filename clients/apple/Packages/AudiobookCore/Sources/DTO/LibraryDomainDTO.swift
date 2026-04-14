@@ -139,6 +139,12 @@ public struct SettingsDTO: Codable, Sendable {
             public let enabled: Bool?
             public let thresholdSinceLastListenSeconds: Int?
             public let rewindSeconds: Int?
+
+            public init(enabled: Bool?, thresholdSinceLastListenSeconds: Int?, rewindSeconds: Int?) {
+                self.enabled = enabled
+                self.thresholdSinceLastListenSeconds = thresholdSinceLastListenSeconds
+                self.rewindSeconds = rewindSeconds
+            }
         }
 
         public let forwardJumpSeconds: Int?
@@ -146,11 +152,30 @@ public struct SettingsDTO: Codable, Sendable {
         public let playbackRate: Double?
         public let sleepTimerMode: String?
         public let resumeRewind: ResumeRewindDTO?
+
+        public init(
+            forwardJumpSeconds: Int?,
+            backwardJumpSeconds: Int?,
+            playbackRate: Double?,
+            sleepTimerMode: String?,
+            resumeRewind: ResumeRewindDTO?
+        ) {
+            self.forwardJumpSeconds = forwardJumpSeconds
+            self.backwardJumpSeconds = backwardJumpSeconds
+            self.playbackRate = playbackRate
+            self.sleepTimerMode = sleepTimerMode
+            self.resumeRewind = resumeRewind
+        }
     }
 
     public struct LibraryDTO: Codable, Sendable {
         public let completionThresholdPercent: Int?
         public let showCompleted: Bool?
+
+        public init(completionThresholdPercent: Int?, showCompleted: Bool?) {
+            self.completionThresholdPercent = completionThresholdPercent
+            self.showCompleted = showCompleted
+        }
     }
 
     public let locale: String?

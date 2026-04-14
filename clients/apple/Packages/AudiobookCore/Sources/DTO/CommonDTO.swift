@@ -1,5 +1,30 @@
 import Foundation
 
+public struct BookDescriptionDTO: Codable, Sendable {
+    public let defaultText: String?
+    public let fr: String?
+    public let en: String?
+
+    public init(defaultText: String? = nil, fr: String? = nil, en: String? = nil) {
+        self.defaultText = defaultText
+        self.fr = fr
+        self.en = en
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case defaultText = "default"
+        case fr, en
+    }
+
+    /// Returns the most appropriate description string for the given locale.
+    public func text(for locale: String = "en") -> String? {
+        switch locale {
+        case "fr": return fr ?? defaultText ?? en
+        default:   return en ?? defaultText ?? fr
+        }
+    }
+}
+
 public struct PaginationDTO: Decodable, Sendable {
     public let total: Int
     public let limit: Int
@@ -44,6 +69,7 @@ public struct BookDTO: Codable, Identifiable, Sendable {
     public let coverPath: String?
     public let tags: [String]?
     public let genre: String?
+    public let description: BookDescriptionDTO?
     public let createdAt: String?
     public let updatedAt: String?
 
@@ -61,6 +87,7 @@ public struct BookDTO: Codable, Identifiable, Sendable {
         coverPath: String? = nil,
         tags: [String]? = nil,
         genre: String? = nil,
+        description: BookDescriptionDTO? = nil,
         createdAt: String? = nil,
         updatedAt: String? = nil
     ) {
@@ -77,6 +104,7 @@ public struct BookDTO: Codable, Identifiable, Sendable {
         self.coverPath = coverPath
         self.tags = tags
         self.genre = genre
+        self.description = description
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }

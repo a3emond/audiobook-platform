@@ -65,6 +65,28 @@ public struct APIClient {
         )
     }
 
+    public func postMultipart<Response: Decodable>(
+        path: String,
+        parts: [MultipartFormPart],
+        fields: [String: String] = [:],
+        headers: [String: String] = [:]
+    ) async throws -> Response {
+        let boundary = "Boundary-\(UUID().uuidString)"
+        let body = try buildMultipartBody(parts: parts, fields: fields, boundary: boundary)
+
+        var mergedHeaders = headers
+        mergedHeaders["Content-Type"] = "multipart/form-data; boundary=\(boundary)"
+
+        let data = try await request(
+            method: "POST",
+            path: path,
+            body: body,
+            headers: mergedHeaders
+        )
+
+        return try JSONDecoder().decode(Response.self, from: data)
+    }
+
     public func delete(path: String, headers: [String: String] = [:]) async throws {
         _ = try await request(
             method: "DELETE",
@@ -162,9 +184,66 @@ public struct APIClient {
 
         return data
     }
+
+    private func buildMultipartBody(
+        parts: [MultipartFormPart],
+        fields: [String: String],
+        boundary: String
+    ) throws -> Data {
+        var body = Data()
+        let lineBreak = "\r\n"
+
+        for (name, value) in fields {
+            guard let headerData = "--\(boundary)\(lineBreak)".data(using: .utf8),
+                  let dispositionData = "Content-Disposition: form-data; name=\"\(name)\"\(lineBreak)\(lineBreak)".data(using: .utf8),
+                  let valueData = "\(value)\(lineBreak)".data(using: .utf8) else {
+                throw APIClientError.multipartEncodingFailed
+            }
+            body.append(headerData)
+            body.append(dispositionData)
+            body.append(valueData)
+        }
+
+        for part in parts {
+            guard let headerData = "--\(boundary)\(lineBreak)".data(using: .utf8),
+                  let dispositionData = "Content-Disposition: form-data; name=\"\(part.name)\"; filename=\"\(part.fileName)\"\(lineBreak)".data(using: .utf8),
+                  let mimeTypeData = "Content-Type: \(part.mimeType)\(lineBreak)\(lineBreak)".data(using: .utf8),
+                  let trailingBreak = lineBreak.data(using: .utf8) else {
+                throw APIClientError.multipartEncodingFailed
+            }
+
+            body.append(headerData)
+            body.append(dispositionData)
+            body.append(mimeTypeData)
+            body.append(part.data)
+            body.append(trailingBreak)
+        }
+
+        guard let closingData = "--\(boundary)--\(lineBreak)".data(using: .utf8) else {
+            throw APIClientError.multipartEncodingFailed
+        }
+        body.append(closingData)
+
+        return body
+    }
+}
+
+public struct MultipartFormPart {
+    public let name: String
+    public let fileName: String
+    public let mimeType: String
+    public let data: Data
+
+    public init(name: String, fileName: String, mimeType: String, data: Data) {
+        self.name = name
+        self.fileName = fileName
+        self.mimeType = mimeType
+        self.data = data
+    }
 }
 
 public enum APIClientError: Error {
     case invalidResponse
     case httpError(code: Int, message: String)
+    case multipartEncodingFailed
 }

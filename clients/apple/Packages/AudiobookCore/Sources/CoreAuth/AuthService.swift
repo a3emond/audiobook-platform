@@ -1,6 +1,8 @@
 import Foundation
 
 public final class AuthService {
+    private struct EmptyResponseDTO: Decodable {}
+
     private let apiClient: APIClient
     private let sessionManager: AuthSessionManager
 
@@ -17,6 +19,10 @@ public final class AuthService {
         sessionManager.accessToken
     }
 
+    public var refreshToken: String? {
+        sessionManager.refreshToken
+    }
+
     public var userId: String? {
         sessionManager.userId
     }
@@ -25,6 +31,35 @@ public final class AuthService {
         let response: AuthResponseDTO = try await apiClient.postJSON(
             path: "api/v1/auth/login",
             body: LoginRequestDTO(email: email, password: password)
+        )
+        sessionManager.updateSession(
+            accessToken: response.tokens.accessToken,
+            refreshToken: response.tokens.refreshToken,
+            userId: response.user.id
+        )
+    }
+
+    public func register(email: String, password: String, displayName: String?, preferredLocale: String?) async throws {
+        let response: AuthResponseDTO = try await apiClient.postJSON(
+            path: "api/v1/auth/register",
+            body: RegisterRequestDTO(
+                email: email,
+                password: password,
+                displayName: displayName,
+                preferredLocale: preferredLocale
+            )
+        )
+        sessionManager.updateSession(
+            accessToken: response.tokens.accessToken,
+            refreshToken: response.tokens.refreshToken,
+            userId: response.user.id
+        )
+    }
+
+    public func loginWithOAuth(provider: OAuthProviderDTO, idToken: String) async throws {
+        let response: AuthResponseDTO = try await apiClient.postJSON(
+            path: "api/v1/auth/oauth/\(provider.rawValue)",
+            body: OAuthLoginRequestDTO(idToken: idToken)
         )
         sessionManager.updateSession(
             accessToken: response.tokens.accessToken,
@@ -50,8 +85,37 @@ public final class AuthService {
         )
     }
 
-    public func signOut() {
-        sessionManager.clear()
+    public func signOut() async {
+        defer {
+            sessionManager.clear()
+        }
+
+        guard let refreshToken = sessionManager.refreshToken else {
+            return
+        }
+
+        do {
+            let _: EmptyResponseDTO = try await apiClient.postJSON(
+                path: "api/v1/auth/logout",
+                body: LogoutRequestDTO(refreshToken: refreshToken)
+            )
+        } catch {
+            // Clear local auth state even if logout revocation fails.
+        }
+    }
+
+    public func changePassword(currentPassword: String, newPassword: String) async throws {
+        let _: EmptyResponseDTO = try await authenticatedPost(
+            path: "api/v1/auth/change-password",
+            body: ChangePasswordRequestDTO(currentPassword: currentPassword, newPassword: newPassword)
+        )
+    }
+
+    public func changeEmail(currentPassword: String, newEmail: String) async throws {
+        let _: EmptyResponseDTO = try await authenticatedPost(
+            path: "api/v1/auth/change-email",
+            body: ChangeEmailRequestDTO(currentPassword: currentPassword, newEmail: newEmail)
+        )
     }
 
     public func authenticatedGet<Response: Decodable>(path: String, queryParams: [String: String] = [:]) async throws -> Response {
