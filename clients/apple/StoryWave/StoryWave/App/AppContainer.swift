@@ -19,6 +19,11 @@ final class AppContainer: ObservableObject {
     let statsRepository: StatsRepository
     let settingsRepository: SettingsRepository
 
+    let audioSessionAdapter: AudioSessionAdapter
+    let remoteCommandsAdapter: RemoteCommandsAdapter
+    let keyboardCommandsAdapter: KeyboardCommandsAdapter
+    let windowingAdapter: WindowingAdapter
+
     let authViewModel: AuthViewModel
     let libraryViewModel: LibraryViewModel
     let playerViewModel: PlayerViewModel
@@ -43,6 +48,23 @@ final class AppContainer: ObservableObject {
         let settingsRepository = SettingsRepositoryImpl(authService: authService)
         let playerCache = PlayerPlaybackCache()
 
+        // Platform adapters - create before PlayerViewModel since it depends on them
+        #if os(iOS)
+        let audioSessionAdapter: AudioSessionAdapter = IOSAudioSessionAdapter()
+        let keyboardCommandsAdapter: KeyboardCommandsAdapter = IOSKeyboardCommandsAdapter()
+        let windowingAdapter: WindowingAdapter = IOSWindowingAdapter()
+        #else
+        let audioSessionAdapter: AudioSessionAdapter = MacOSAudioSessionAdapter()
+        let keyboardCommandsAdapter: KeyboardCommandsAdapter = MacMenuCommandsAdapter()
+        let windowingAdapter: WindowingAdapter = MacOSWindowingAdapter()
+        #endif
+        
+        let remoteCommandsAdapter = RemoteCommandsAdapterImpl(
+            playerActions: nil, // Will be set by PlayerViewModel
+            authService: authService,
+            repositoryStreamURLProvider: { playerRepository.streamURL(streamPath: $0) }
+        )
+
         self.apiClient = apiClient
         self.authSessionManager = authSessionManager
         self.authService = authService
@@ -54,15 +76,45 @@ final class AppContainer: ObservableObject {
         self.adminRepository = adminRepository
         self.statsRepository = statsRepository
         self.settingsRepository = settingsRepository
+        self.audioSessionAdapter = audioSessionAdapter
+        self.remoteCommandsAdapter = remoteCommandsAdapter
+        self.keyboardCommandsAdapter = keyboardCommandsAdapter
+        self.windowingAdapter = windowingAdapter
 
         self.authViewModel = AuthViewModel(authService: authService)
-            self.libraryViewModel = LibraryViewModel(repository: libraryRepository, apiClient: apiClient, authService: authService, appCacheService: appCacheService)
-        self.playerViewModel = PlayerViewModel(repository: playerRepository, authService: authService, realtime: realtimeClient, cache: playerCache)
+        self.libraryViewModel = LibraryViewModel(repository: libraryRepository, apiClient: apiClient, authService: authService, appCacheService: appCacheService)
+        self.playerViewModel = PlayerViewModel(
+            repository: playerRepository,
+            authService: authService,
+            realtime: realtimeClient,
+            cache: playerCache,
+            audioSessionAdapter: audioSessionAdapter,
+            remoteCommandsAdapter: remoteCommandsAdapter
+        )
         self.discussionViewModel = DiscussionViewModel(repository: discussionRepository, appCacheService: appCacheService)
         self.profileViewModel = ProfileViewModel(authService: authService)
         self.profileStatsViewModel = ProfileStatsViewModel(repository: statsRepository, libraryRepository: libraryRepository, appCacheService: appCacheService)
         self.profileSettingsViewModel = ProfileSettingsViewModel(settingsRepository: settingsRepository, authService: authService)
         self.adminViewModel = AdminViewModel(repository: adminRepository, appCacheService: appCacheService)
+
+        // Set PlayerViewModel as the actions handler for remote commands
+        (remoteCommandsAdapter as? RemoteCommandsAdapterImpl)?.playerActions = playerViewModel
+
+        // Wire audio interruption callbacks to player actions
+        #if os(iOS)
+        (audioSessionAdapter as? IOSAudioSessionAdapter)?.interruptionHandler = playerViewModel
+        #else
+        (audioSessionAdapter as? MacOSAudioSessionAdapter)?.interruptionHandler = playerViewModel
+        #endif
+
+        // Setup platform adapters
+        keyboardCommandsAdapter.registerKeyboardCommands()
+        windowingAdapter.configureWindow()
+        
+        // Also set playerActions for keyboard commands on macOS
+        #if os(macOS)
+        (keyboardCommandsAdapter as? MacMenuCommandsAdapter)?.playerActions = playerViewModel
+        #endif
 
         // Forward auth state changes so any view observing AppContainer re-renders
         self.authViewModel.objectWillChange
@@ -75,9 +127,9 @@ final class AppContainer: ObservableObject {
             .sink { [weak self] _ in self?.objectWillChange.send() }
             .store(in: &cancellables)
 
-            // Forward profile changes so the admin tab visibility (role check) reacts immediately
-            self.profileViewModel.objectWillChange
-                .sink { [weak self] _ in self?.objectWillChange.send() }
-                .store(in: &cancellables)
+        // Forward profile changes so the admin tab visibility (role check) reacts immediately
+        self.profileViewModel.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
     }
 }

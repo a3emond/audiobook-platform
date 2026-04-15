@@ -11,20 +11,21 @@ struct ProfileView: View {
     enum ProfileTab: String, CaseIterable, Identifiable {
         case profile = "Profile"
         case stats = "Stats"
-        case settings = "Settings"
 
         var id: String { rawValue }
     }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                Picker("Section", selection: $selectedTab) {
+            VStack(spacing: 12) {
+                Picker("", selection: $selectedTab) {
                     ForEach(ProfileTab.allCases) { tab in
                         Text(tab.rawValue).tag(tab)
                     }
                 }
                 .pickerStyle(.segmented)
+                .labelsHidden()
+                .padding(.horizontal)
 
                 if viewModel.isLoading {
                     ProgressView()
@@ -48,9 +49,8 @@ struct ProfileView: View {
                 } else {
                     Text("No profile data available.")
                         .foregroundStyle(Branding.textMuted)
+                        .frame(maxHeight: .infinity)
                 }
-
-                Spacer()
             }
             .navigationTitle("Profile")
         }
@@ -64,92 +64,60 @@ struct ProfileView: View {
         switch selectedTab {
         case .profile:
             profileSection(user: user)
-                .padding(.horizontal)
         case .stats:
             ProfileStatsView(viewModel: statsViewModel)
-        case .settings:
-            ProfileSettingsView(viewModel: settingsViewModel)
         }
     }
 
     private func profileSection(user: UserProfileDTO) -> some View {
-        VStack(spacing: 16) {
-            VStack(spacing: 8) {
-                Image(systemName: "person.crop.circle.fill")
-                    .font(.system(size: 64))
-                    .foregroundStyle(Branding.accent)
-                Text(user.displayName ?? "User")
-                    .font(.title2.weight(.semibold))
-                Text(user.email)
-                    .font(.body)
-                    .foregroundStyle(Branding.textMuted)
-            }
-            .padding(20)
-            .frame(maxWidth: .infinity)
-            .background(Branding.surface)
-            .cornerRadius(12)
-
-            VStack(spacing: 12) {
-                InfoRow(label: "Email", value: user.email)
-                if let role = user.role {
-                    InfoRow(label: "Role", value: role.capitalized)
+        ScrollView {
+            VStack(spacing: 16) {
+                VStack(spacing: 8) {
+                    Image(systemName: "person.crop.circle.fill")
+                        .font(.system(size: 64))
+                        .foregroundStyle(Branding.accent)
+                    Text(user.displayName ?? "User")
+                        .font(.title2.weight(.semibold))
+                    Text(user.email)
+                        .font(.body)
+                        .foregroundStyle(Branding.textMuted)
                 }
-                if let createdAt = user.createdAt {
-                    InfoRow(label: "Member Since", value: createdAt.prefix(10).description)
-                }
-            }
-            .padding(16)
-            .background(Branding.surface)
-            .cornerRadius(12)
-
-            VStack(spacing: 12) {
-                Text("Quick Language")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                HStack(spacing: 8) {
-                    Button {
-                        Task { await viewModel.changeLanguage(to: "en") }
-                    } label: {
-                        Text("English")
-                            .frame(maxWidth: .infinity)
-                            .padding(10)
-                            .background(viewModel.selectedLocale == "en" ? Branding.accent : Color.gray.opacity(0.2))
-                            .foregroundStyle(viewModel.selectedLocale == "en" ? .white : Branding.textMuted)
-                            .cornerRadius(8)
-                    }
-
-                    Button {
-                        Task { await viewModel.changeLanguage(to: "fr") }
-                    } label: {
-                        Text("Français")
-                            .frame(maxWidth: .infinity)
-                            .padding(10)
-                            .background(viewModel.selectedLocale == "fr" ? Branding.accent : Color.gray.opacity(0.2))
-                            .foregroundStyle(viewModel.selectedLocale == "fr" ? .white : Branding.textMuted)
-                            .cornerRadius(8)
-                    }
-                }
-            }
-            .padding(16)
-            .background(Branding.surface)
-            .cornerRadius(12)
-
-            Button {
-                Task { await onSignOut() }
-            } label: {
-                HStack {
-                    Image(systemName: "arrow.left.circle")
-                    Text("Sign Out")
-                }
+                .padding(20)
                 .frame(maxWidth: .infinity)
-                .padding(12)
-                .background(Color.red.opacity(0.2))
-                .foregroundStyle(Color.red)
-                .cornerRadius(8)
-            }
+                .background(Branding.surface)
+                .cornerRadius(12)
 
-            Spacer()
+                VStack(spacing: 12) {
+                    InfoRow(label: "Email", value: user.email)
+                    if let role = user.role {
+                        InfoRow(label: "Role", value: role.capitalized)
+                    }
+                    if let createdAt = user.createdAt {
+                        InfoRow(label: "Member Since", value: createdAt.prefix(10).description)
+                    }
+                }
+                .padding(16)
+                .background(Branding.surface)
+                .cornerRadius(12)
+
+                ProfileSettingsView(viewModel: settingsViewModel, isEmbedded: true)
+
+                Button {
+                    Task { await onSignOut() }
+                } label: {
+                    HStack {
+                        Image(systemName: "arrow.left.circle")
+                        Text("Sign Out")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(12)
+                    .background(Color.red.opacity(0.2))
+                    .foregroundStyle(Color.red)
+                    .cornerRadius(8)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 16)
         }
     }
 }

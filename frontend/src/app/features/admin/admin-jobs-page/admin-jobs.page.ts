@@ -3,14 +3,18 @@ import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { AdminService } from '../../../core/services/admin.service';
-import type { AdminJob, JobEventStreamHandle, WorkerQueueSettings } from '../../../core/services/admin.types';
+import type {
+  AdminJob,
+  JobEventStreamHandle,
+  WorkerQueueSettings,
+} from '../../../core/services/admin.types';
 import { AdminJobLogsComponent } from '../admin-job-logs/admin-job-logs.component';
 import {
-	fromWorkerSettingsDraft,
-	mergeJobs,
-	toWorkerSettingsDraft,
-	toggleHeavyTypeSelection,
-	type WorkerSettingsDraft,
+  fromWorkerSettingsDraft,
+  mergeJobs,
+  toWorkerSettingsDraft,
+  toggleHeavyTypeSelection,
+  type WorkerSettingsDraft,
 } from './admin-jobs-page.utils';
 
 @Component({
@@ -82,7 +86,20 @@ export class AdminJobsPage implements OnInit, OnDestroy {
   }
 
   selectJob(job: AdminJob): void {
-    this.selectedJobId.set(job.id);
+    this.selectedJobId.set(this.selectedJobId() === job.id ? null : job.id);
+  }
+
+  clearSelectedJob(): void {
+    this.selectedJobId.set(null);
+  }
+
+  selectedJob(): AdminJob | null {
+    const selectedId = this.selectedJobId();
+    if (!selectedId) {
+      return null;
+    }
+
+    return this.jobs().find((job) => job.id === selectedId) ?? null;
   }
 
   toggleHeavyType(
@@ -160,43 +177,43 @@ export class AdminJobsPage implements OnInit, OnDestroy {
     this.jobActionInProgress.set('parity-scan');
     this.jobActionMessage.set(null);
 
-    this.admin
-      .enqueueAdminJob('RESCAN', { force: true, trigger: 'manual-admin' })
-      .subscribe({
-        next: (job) => {
-          this.jobActionInProgress.set(null);
-          this.jobActionMessage.set(`Manual parity scan queued (${job.id})`);
-          clearTimeout(this.actionMessageTimer);
-          this.actionMessageTimer = setTimeout(() => this.jobActionMessage.set(null), 3500);
-        },
-        error: (error: unknown) => {
-          this.jobActionInProgress.set(null);
-          this.jobActionMessage.set(error instanceof Error ? error.message : 'Could not queue parity scan');
-          clearTimeout(this.actionMessageTimer);
-          this.actionMessageTimer = setTimeout(() => this.jobActionMessage.set(null), 3500);
-        },
-      });
+    this.admin.enqueueAdminJob('RESCAN', { force: true, trigger: 'manual-admin' }).subscribe({
+      next: (job) => {
+        this.jobActionInProgress.set(null);
+        this.jobActionMessage.set(`Manual parity scan queued (${job.id})`);
+        clearTimeout(this.actionMessageTimer);
+        this.actionMessageTimer = setTimeout(() => this.jobActionMessage.set(null), 3500);
+      },
+      error: (error: unknown) => {
+        this.jobActionInProgress.set(null);
+        this.jobActionMessage.set(
+          error instanceof Error ? error.message : 'Could not queue parity scan',
+        );
+        clearTimeout(this.actionMessageTimer);
+        this.actionMessageTimer = setTimeout(() => this.jobActionMessage.set(null), 3500);
+      },
+    });
   }
 
   triggerSyncTags(): void {
     this.jobActionInProgress.set('sync-tags');
     this.jobActionMessage.set(null);
 
-    this.admin
-      .enqueueAdminJob('SYNC_TAGS', { trigger: 'manual-admin' })
-      .subscribe({
-        next: (job) => {
-          this.jobActionInProgress.set(null);
-          this.jobActionMessage.set(`Tag sync queued (${job.id})`);
-          clearTimeout(this.actionMessageTimer);
-          this.actionMessageTimer = setTimeout(() => this.jobActionMessage.set(null), 3500);
-        },
-        error: (error: unknown) => {
-          this.jobActionInProgress.set(null);
-          this.jobActionMessage.set(error instanceof Error ? error.message : 'Could not queue tag sync');
-          clearTimeout(this.actionMessageTimer);
-          this.actionMessageTimer = setTimeout(() => this.jobActionMessage.set(null), 3500);
-        },
-      });
+    this.admin.enqueueAdminJob('SYNC_TAGS', { trigger: 'manual-admin' }).subscribe({
+      next: (job) => {
+        this.jobActionInProgress.set(null);
+        this.jobActionMessage.set(`Tag sync queued (${job.id})`);
+        clearTimeout(this.actionMessageTimer);
+        this.actionMessageTimer = setTimeout(() => this.jobActionMessage.set(null), 3500);
+      },
+      error: (error: unknown) => {
+        this.jobActionInProgress.set(null);
+        this.jobActionMessage.set(
+          error instanceof Error ? error.message : 'Could not queue tag sync',
+        );
+        clearTimeout(this.actionMessageTimer);
+        this.actionMessageTimer = setTimeout(() => this.jobActionMessage.set(null), 3500);
+      },
+    });
   }
 }

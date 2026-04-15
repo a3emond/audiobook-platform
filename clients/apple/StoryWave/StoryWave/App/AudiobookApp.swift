@@ -143,7 +143,10 @@ struct AudiobookApp: App {
                 Label("Library", systemImage: "books.vertical")
             }
 
-            DiscussionView(viewModel: container.discussionViewModel)
+            DiscussionView(
+                viewModel: container.discussionViewModel,
+                isAdmin: container.profileViewModel.user?.role == "admin"
+            )
                 .tag(AppTab.discussions)
                 .tabItem {
                     Label("Discussions", systemImage: "bubble.left.and.bubble.right")

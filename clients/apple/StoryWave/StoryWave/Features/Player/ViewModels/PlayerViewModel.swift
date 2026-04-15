@@ -19,6 +19,8 @@ final class PlayerViewModel: ObservableObject {
     let authService: AuthService
     let realtime: RealtimeClient
     let cache: PlayerPlaybackCache
+    let audioSessionAdapter: AudioSessionAdapter
+    let remoteCommandsAdapter: RemoteCommandsAdapter
 
     // MARK: Device Identity
 
@@ -50,19 +52,6 @@ final class PlayerViewModel: ObservableObject {
 
     var autosaveTask: Task<Void, Never>?
 
-    // MARK: Media Center State
-
-    var remoteCommandsConfigured = false
-    var playCommandTarget: Any?
-    var pauseCommandTarget: Any?
-    var skipForwardCommandTarget: Any?
-    var skipBackwardCommandTarget: Any?
-    var nextTrackCommandTarget: Any?
-    var previousTrackCommandTarget: Any?
-    var artworkTask: Task<Void, Never>?
-    var lastArtworkBookId: String?
-    var artworkLoadingBookId: String?
-
     // MARK: Sleep Timer State
 
     var sleepTimerTask: Task<Void, Never>?
@@ -85,12 +74,16 @@ final class PlayerViewModel: ObservableObject {
         repository: PlayerRepository,
         authService: AuthService,
         realtime: RealtimeClient,
-        cache: PlayerPlaybackCache
+        cache: PlayerPlaybackCache,
+        audioSessionAdapter: AudioSessionAdapter,
+        remoteCommandsAdapter: RemoteCommandsAdapter
     ) {
         self.repository = repository
         self.authService = authService
         self.realtime = realtime
         self.cache = cache
+        self.audioSessionAdapter = audioSessionAdapter
+        self.remoteCommandsAdapter = remoteCommandsAdapter
 
         let defaults = UserDefaults.standard
         if let existing = defaults.string(forKey: "player_apple_device_id") {
@@ -117,9 +110,8 @@ final class PlayerViewModel: ObservableObject {
         state.bookId = bookId
         state.title = title
 
-        // New book load => reset command targets and reconfigure them for the new media item.
-        remoteCommandsConfigured = false
-        removeRemoteCommandTargets()
+        // New book load => reset remote commands and reconfigure them for the new media item.
+        remoteCommandsAdapter.removeRemoteCommandTargets()
 
         do {
             guard !Task.isCancelled else { return }
@@ -166,9 +158,8 @@ final class PlayerViewModel: ObservableObject {
             resetSleepTimerForMode()
             configurePlayerIfNeeded()
             seekPlayer(to: authoritativePosition)
-            configureRemoteCommandsIfNeeded()
+            remoteCommandsAdapter.configureRemoteCommandsIfNeeded()
             updateNowPlayingInfo()
-            loadNowPlayingArtworkIfNeeded()
             broadcastPresence()
 
         } catch {
@@ -185,6 +176,8 @@ final class PlayerViewModel: ObservableObject {
         state.isPlaying = false
         broadcastPresence()
         stopAutosaveLoop()
+        presenceTask?.cancel()
+        presenceTask = nil
 
         sleepTimerTask?.cancel()
         sleepTimerTask = nil
@@ -193,7 +186,7 @@ final class PlayerViewModel: ObservableObject {
         sleepPausedAt = nil
         chapterSleepTargetSeconds = nil
 
-        artworkTask?.cancel()
+        remoteCommandsAdapter.removeRemoteCommandTargets()
         clearNowPlayingInfo()
         state = PlayerViewState()
     }
@@ -203,24 +196,15 @@ final class PlayerViewModel: ObservableObject {
     deinit {
         autosaveTask?.cancel()
         presenceTask?.cancel()
-        artworkTask?.cancel()
 
         if let periodicObserver {
             player?.removeTimeObserver(periodicObserver)
         }
         player?.pause()
 
-        if remoteCommandsConfigured {
-            let center = MPRemoteCommandCenter.shared()
-            if let playCommandTarget { center.playCommand.removeTarget(playCommandTarget) }
-            if let pauseCommandTarget { center.pauseCommand.removeTarget(pauseCommandTarget) }
-            if let skipForwardCommandTarget { center.skipForwardCommand.removeTarget(skipForwardCommandTarget) }
-            if let skipBackwardCommandTarget { center.skipBackwardCommand.removeTarget(skipBackwardCommandTarget) }
-            if let nextTrackCommandTarget { center.nextTrackCommand.removeTarget(nextTrackCommandTarget) }
-            if let previousTrackCommandTarget { center.previousTrackCommand.removeTarget(previousTrackCommandTarget) }
-        }
-
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        remoteCommandsAdapter.removeRemoteCommandTargets()
+        remoteCommandsAdapter.clearNowPlayingInfo()
+        audioSessionAdapter.cleanup()
         isRealtimeBound = false
         realtime.disconnect()
     }

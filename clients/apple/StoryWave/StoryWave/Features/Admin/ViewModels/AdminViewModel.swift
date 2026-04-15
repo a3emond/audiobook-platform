@@ -11,6 +11,9 @@ final class AdminViewModel: ObservableObject {
     @Published private(set) var errorMessage: String?
     @Published private(set) var overview: AdminOverviewDTO?
     @Published private(set) var books: [BookDTO] = []
+    @Published var booksFilterTitle: String = ""
+    @Published var booksFilterAuthor: String = ""
+    @Published var booksFilterSeries: String = ""
     @Published private(set) var jobs: [AdminJobDTO] = []
     @Published private(set) var jobsTotal: Int = 0
     @Published private(set) var users: [AdminUserDTO] = []
@@ -64,6 +67,7 @@ final class AdminViewModel: ObservableObject {
     @Published private(set) var jobLogs: [JobLogDTO] = []
     @Published private(set) var jobLogsTotal: Int = 0
     @Published private(set) var isLoadingLogs = false
+    @Published private(set) var jobLogsErrorMessage: String?
     @Published var jobLogsLevel: String = ""
     @Published var jobLogsAutoRefresh = false
     private var autoRefreshTask: Task<Void, Never>?
@@ -80,6 +84,41 @@ final class AdminViewModel: ObservableObject {
         case users = "Users"
 
         var id: String { rawValue }
+    }
+
+    var filteredBooks: [BookDTO] {
+        books
+            .filter { book in
+                if !booksFilterTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    let titleMatch = book.title.localizedCaseInsensitiveContains(booksFilterTitle)
+                    if !titleMatch { return false }
+                }
+
+                if !booksFilterAuthor.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    let author = book.author ?? ""
+                    if !author.localizedCaseInsensitiveContains(booksFilterAuthor) { return false }
+                }
+
+                if !booksFilterSeries.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    let series = book.series ?? ""
+                    if !series.localizedCaseInsensitiveContains(booksFilterSeries) { return false }
+                }
+
+                return true
+            }
+            .sorted(by: compareBooksForManagement)
+    }
+
+    var hasBookFilters: Bool {
+        !booksFilterTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+        !booksFilterAuthor.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+        !booksFilterSeries.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    func clearBookFilters() {
+        booksFilterTitle = ""
+        booksFilterAuthor = ""
+        booksFilterSeries = ""
     }
 
     // MARK: Dependencies
@@ -179,13 +218,24 @@ final class AdminViewModel: ObservableObject {
         jobLogs = []
         jobLogsOffset = 0
         jobLogsTotal = 0
+        jobLogsErrorMessage = nil
         stopAutoRefresh()
         Task { await loadJobLogs() }
+    }
+
+    func deselectJob() {
+        selectedJob = nil
+        jobLogs = []
+        jobLogsTotal = 0
+        jobLogsOffset = 0
+        jobLogsErrorMessage = nil
+        setAutoRefresh(false)
     }
 
     func loadJobLogs() async {
         guard let job = selectedJob else { return }
         isLoadingLogs = true
+        jobLogsErrorMessage = nil
         do {
             let level = jobLogsLevel.isEmpty ? nil : jobLogsLevel
             let result = try await repository.getJobLogs(jobId: job.id, level: level, limit: 100, offset: jobLogsOffset)
@@ -195,7 +245,13 @@ final class AdminViewModel: ObservableObject {
                 jobLogs.append(contentsOf: result.logs)
             }
             jobLogsTotal = result.total
-        } catch {}
+        } catch {
+            if jobLogsOffset == 0 {
+                jobLogs = []
+                jobLogsTotal = 0
+            }
+            jobLogsErrorMessage = "Could not load job logs."
+        }
         isLoadingLogs = false
     }
 
@@ -513,5 +569,26 @@ final class AdminViewModel: ObservableObject {
         case "wav": return "audio/wav"
         default:    return "application/octet-stream"
         }
+    }
+
+    private func compareBooksForManagement(_ lhs: BookDTO, _ rhs: BookDTO) -> Bool {
+        let lhsSeries = (lhs.series ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let rhsSeries = (rhs.series ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if lhsSeries.localizedCaseInsensitiveCompare(rhsSeries) != .orderedSame {
+            return lhsSeries.localizedCaseInsensitiveCompare(rhsSeries) == .orderedAscending
+        }
+
+        let lhsSeriesIndex = lhs.seriesIndex ?? Int.max
+        let rhsSeriesIndex = rhs.seriesIndex ?? Int.max
+        if lhsSeriesIndex != rhsSeriesIndex {
+            return lhsSeriesIndex < rhsSeriesIndex
+        }
+
+        if lhs.title.localizedCaseInsensitiveCompare(rhs.title) != .orderedSame {
+            return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+        }
+
+        return lhs.id < rhs.id
     }
 }

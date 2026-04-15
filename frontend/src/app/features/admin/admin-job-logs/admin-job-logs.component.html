@@ -1,48 +1,55 @@
-		<div class="logs-container">
-			<div class="logs-header">
-				<h3>Job Logs</h3>
-				<div class="logs-controls">
-					<select [(ngModel)]="selectedLevel" (change)="onLevelChange()" class="log-filter">
-						<option value="">All Levels</option>
-						<option value="debug">Debug</option>
-						<option value="info">Info</option>
-						<option value="warn">Warn</option>
-						<option value="error">Error</option>
-					</select>
-					<button (click)="refreshLogs()" class="btn-refresh">↻ Refresh</button>
-					<button (click)="toggleAutoRefresh()" [class.active]="autoRefresh()" class="btn-toggle">
-						{{ autoRefresh() ? '⏸ Pause' : '▶ Auto' }}
-					</button>
-				</div>
-			</div>
+<div class="logs-container">
+  <div class="logs-header">
+    <h3>Job Logs</h3>
+    <div class="logs-controls">
+      <select
+        [ngModel]="selectedLevel()"
+        (ngModelChange)="selectedLevel.set($event); onLevelChange()"
+        class="log-filter"
+      >
+        <option value="">All Levels</option>
+        <option value="debug">Debug</option>
+        <option value="info">Info</option>
+        <option value="warn">Warn</option>
+        <option value="error">Error</option>
+      </select>
+      <button (click)="refreshLogs()" class="btn-refresh" [disabled]="loading()">Refresh</button>
+      <button (click)="toggleAutoRefresh()" [class.active]="autoRefresh()" class="btn-toggle">
+        {{ autoRefresh() ? 'Pause Auto' : 'Auto Refresh' }}
+      </button>
+    </div>
+  </div>
 
-			<div class="logs-content">
-				<div *ngIf="loading()" class="loading">Loading logs...</div>
-				<div *ngIf="!loading() && logs().length === 0" class="empty">No logs found</div>
+  <div class="logs-content">
+    <div *ngIf="loading()" class="loading">Loading logs...</div>
+    <div *ngIf="!loading() && error()" class="error">{{ error() }}</div>
+    <div *ngIf="!loading() && !error() && logs().length === 0" class="empty">No logs found</div>
 
-				<table *ngIf="logs().length > 0" class="logs-table">
-					<thead>
-						<tr>
-							<th>Time</th>
-							<th>Level</th>
-							<th>Message</th>
-							<th>Duration</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr *ngFor="let log of logs()" [class]="'log-' + log.level">
-							<td class="time">{{ formatTime(log.timestamp) }}</td>
-							<td class="level">
-								<span class="badge" [class]="'badge-' + log.level">{{ log.level }}</span>
-							</td>
-							<td class="message">{{ log.message }}</td>
-							<td class="duration">{{ log.duration ? (log.duration + 'ms') : '-' }}</td>
-						</tr>
-					</tbody>
-				</table>
-			</div>
+    <table *ngIf="logs().length > 0" class="logs-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Level</th>
+          <th>Message</th>
+          <th>Duration</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let log of logs()" [class]="'log-' + log.level">
+          <td class="time">{{ formatTime(log.timestamp) }}</td>
+          <td class="level">
+            <span class="badge" [class]="'badge-' + log.level">{{ log.level }}</span>
+          </td>
+          <td class="message">{{ log.message }}</td>
+          <td class="duration">{{ log.duration ? log.duration + 'ms' : '-' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 
-			<div *ngIf="total() > logs().length" class="logs-pagination">
-				<button (click)="loadMore()" class="btn-load-more">Load More ({{ offset() + logs().length }} / {{ total() }})</button>
-			</div>
-		</div>
+  <div *ngIf="total() > logs().length" class="logs-pagination">
+    <button (click)="loadMore()" class="btn-load-more" [disabled]="loading()">
+      Load More ({{ logs().length }} / {{ total() }})
+    </button>
+  </div>
+</div>

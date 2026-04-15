@@ -2,32 +2,38 @@ import SwiftUI
 
 struct ProfileSettingsView: View {
     @ObservedObject var viewModel: ProfileSettingsViewModel
+    var isEmbedded: Bool = false
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                // Playback prefs
-                playbackSection
-
-                // Library prefs
-                librarySection
-
-                // Security
-                passwordSection
-                emailSection
-
-                if viewModel.isLoading { ProgressView() }
-
-                if let success = viewModel.successMessage {
-                    Text(success).foregroundStyle(.green).font(.footnote)
-                }
-                if let error = viewModel.errorMessage {
-                    Text(error).foregroundStyle(.red).font(.footnote)
+        Group {
+            if isEmbedded {
+                content
+            } else {
+                ScrollView {
+                    content
+                        .padding(16)
                 }
             }
-            .padding(16)
         }
         .task { await viewModel.loadSettings() }
+    }
+
+    private var content: some View {
+        VStack(spacing: 16) {
+            playbackSection
+            librarySection
+            passwordSection
+            emailSection
+
+            if viewModel.isLoading { ProgressView() }
+
+            if let success = viewModel.successMessage {
+                Text(success).foregroundStyle(.green).font(.footnote)
+            }
+            if let error = viewModel.errorMessage {
+                Text(error).foregroundStyle(.red).font(.footnote)
+            }
+        }
     }
 
     // MARK: - Playback

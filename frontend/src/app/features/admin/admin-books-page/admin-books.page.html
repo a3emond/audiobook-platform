@@ -1,26 +1,61 @@
-		<div class="admin-page">
-			<h1>Admin Books</h1>
-			<p *ngIf="loading()">Loading books...</p>
-			<p *ngIf="error()" class="error">{{ error() }}</p>
+<div class="admin-page">
+  <h1>Admin Books</h1>
+  <p *ngIf="loading()">Loading books...</p>
+  <p *ngIf="error()" class="error">{{ error() }}</p>
+  <p *ngIf="info()" class="info">{{ info() }}</p>
 
-			<table *ngIf="books().length > 0" class="admin-table">
-				<thead>
-					<tr><th>Title</th><th>Author</th><th>Series</th><th>Duration (s)</th><th>Actions</th></tr>
-				</thead>
-				<tbody>
-					<tr *ngFor="let book of books()">
-						<td>{{ book.title }}</td>
-						<td>{{ book.author }}</td>
-						<td>{{ book.series || '-' }}</td>
-						<td>{{ book.duration }}</td>
-						<td><a [routerLink]="['/admin/books', book.id]">Edit</a></td>
-					</tr>
-				</tbody>
-			</table>
+  <div class="filters" *ngIf="books().length > 0">
+    <input type="text" placeholder="Filter title" [(ngModel)]="filterTitle" />
+    <input type="text" placeholder="Filter author" [(ngModel)]="filterAuthor" />
+    <input type="text" placeholder="Filter series" [(ngModel)]="filterSeries" />
+    <button type="button" class="btn-action" *ngIf="hasFilters()" (click)="clearFilters()">
+      Clear
+    </button>
+  </div>
 
-			<div *ngIf="!loading() && total() > 0" class="pagination-bar">
-				<button type="button" class="btn-action" (click)="prevPage()" [disabled]="offset() === 0">← Prev</button>
-				<span>Page {{ currentPage() }} of {{ totalPages() }} ({{ total() }} total)</span>
-				<button type="button" class="btn-action" (click)="nextPage()" [disabled]="!hasMore()">Next →</button>
-			</div>
-		</div>
+  <table *ngIf="filteredBooks().length > 0" class="admin-table">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Author</th>
+        <th>Series</th>
+        <th>Index</th>
+        <th>Duration (s)</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let book of filteredBooks()">
+        <td>{{ book.title }}</td>
+        <td>{{ book.author || '-' }}</td>
+        <td>{{ book.series || '-' }}</td>
+        <td>{{ seriesIndexLabel(book) }}</td>
+        <td>{{ book.duration }}</td>
+        <td class="actions">
+          <a [routerLink]="['/admin/books', book.id]">Edit</a>
+          <button
+            type="button"
+            class="danger"
+            (click)="deleteBook(book)"
+            [disabled]="deletingBookId() === book.id"
+          >
+            {{ deletingBookId() === book.id ? 'Deleting…' : 'Delete' }}
+          </button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <p *ngIf="!loading() && books().length > 0 && filteredBooks().length === 0" class="empty">
+    No matching books.
+  </p>
+
+  <div *ngIf="!loading() && total() > 0" class="pagination-bar">
+    <button type="button" class="btn-action" (click)="prevPage()" [disabled]="offset() === 0">
+      ← Prev
+    </button>
+    <span>Page {{ currentPage() }} of {{ totalPages() }} ({{ total() }} total)</span>
+    <button type="button" class="btn-action" (click)="nextPage()" [disabled]="!hasMore()">
+      Next →
+    </button>
+  </div>
+</div>

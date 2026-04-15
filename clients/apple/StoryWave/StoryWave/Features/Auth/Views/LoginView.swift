@@ -244,15 +244,6 @@ private struct OAuthConfig {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let apiBaseURL = resolveAPIBaseURL(env: env)
 
-        // Debug logging
-        let plistGoogleId = Bundle.main.object(forInfoDictionaryKey: "GOOGLE_CLIENT_ID") as? String
-        let plistGoogleUri = Bundle.main.object(forInfoDictionaryKey: "GOOGLE_REDIRECT_URI") as? String
-        print("🔍 OAuth Debug: plist GOOGLE_CLIENT_ID=\(plistGoogleId ?? "nil"), GOOGLE_REDIRECT_URI=\(plistGoogleUri ?? "nil")")
-        print("🔍 OAuth Debug: env GOOGLE_CLIENT_ID=\(env["GOOGLE_CLIENT_ID"] ?? "nil")")
-        print("🔍 OAuth Debug: final googleClientId='\(googleClientId)', googleRedirectURI='\(googleRedirectURI)'")
-        print("🔍 OAuth Debug: apiBaseURL='\(apiBaseURL.absoluteString)'")
-        print("🔍 OAuth Debug: googleEnabled=\(!googleClientId.isEmpty && !googleRedirectURI.isEmpty)")
-
         return OAuthConfig(
             googleClientId: googleClientId,
             googleRedirectURI: googleRedirectURI,
@@ -312,8 +303,6 @@ private enum GoogleOAuthSession {
             throw GoogleOAuthSessionError.invalidAuthorizationURL
         }
 
-        print("🔍 OAuth Debug: Starting Google OAuth with web bridge URL: \(authURL.absoluteString)")
-
         var session: ASWebAuthenticationSession?
         return try await withCheckedThrowingContinuation { continuation in
             session = ASWebAuthenticationSession(
@@ -334,24 +323,19 @@ private enum GoogleOAuthSession {
                 let values = parseOAuthValues(from: callbackURL)
 
                 guard values["state"] == state else {
-                    print("🔍 OAuth Debug: State mismatch. Expected: \(state), Got: \(values["state"] ?? "nil")")
                     continuation.resume(throwing: GoogleOAuthSessionError.invalidState)
                     return
                 }
 
                 if let providerError = values["error"], !providerError.isEmpty {
-                    print("🔍 OAuth Debug: Provider returned error in callback: \(providerError)")
                     continuation.resume(throwing: GoogleOAuthSessionError.providerError(providerError))
                     return
                 }
 
                 guard let idToken = values["id_token"], !idToken.isEmpty else {
-                    print("🔍 OAuth Debug: Missing id_token in callback. Values: \(values)")
                     continuation.resume(throwing: GoogleOAuthSessionError.missingIDToken)
                     return
                 }
-
-                print("🔍 OAuth Debug: Google OAuth successful, got web id_token")
                 continuation.resume(returning: idToken)
             }
 

@@ -9,6 +9,7 @@ struct AdminView: View {
     @ObservedObject var viewModel: AdminViewModel
     @State private var isUploadPickerPresented = false
     @State private var isCoverPickerPresented = false
+    @State private var pendingDeleteBook: BookDTO?
 
     var body: some View {
         NavigationStack {
@@ -102,12 +103,13 @@ struct AdminView: View {
         HSplitView {
             jobsListColumn
                 .frame(minWidth: 280, idealWidth: 340)
+                .frame(maxHeight: .infinity, alignment: .top)
 
-            if viewModel.selectedJob != nil {
-                jobLogsColumn
-                    .frame(minWidth: 320)
-            }
+            jobLogsColumn
+                .frame(minWidth: 320)
+                .frame(maxHeight: .infinity, alignment: .top)
         }
+        .frame(maxHeight: .infinity, alignment: .top)
         #else
         VStack(spacing: 0) {
             jobsListColumn
@@ -155,9 +157,9 @@ struct AdminView: View {
                     get: { viewModel.selectedJob?.id },
                     set: { id in
                         if let id, let job = viewModel.jobs.first(where: { $0.id == id }) {
-                            DispatchQueue.main.async {
-                                viewModel.selectJob(job)
-                            }
+                            viewModel.selectJob(job)
+                        } else {
+                            viewModel.deselectJob()
                         }
                     }
                 )) {
@@ -174,8 +176,10 @@ struct AdminView: View {
                     }
                 }
                 .listStyle(.plain)
+                .frame(maxHeight: .infinity)
             }
         }
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 
     private func jobRow(_ job: AdminJobDTO) -> some View {
@@ -275,6 +279,9 @@ struct AdminView: View {
                             .font(.headline)
                         AdminJobStatusBadgeView(status: job.status)
                     }
+                } else {
+                    Text("Job logs")
+                        .font(.headline)
                 }
                 Spacer()
                 Picker("Level", selection: $viewModel.jobLogsLevel) {
@@ -288,11 +295,13 @@ struct AdminView: View {
                 .onChange(of: viewModel.jobLogsLevel) { _, _ in
                     Task { await viewModel.refreshLogs() }
                 }
+                .disabled(viewModel.selectedJob == nil)
 
                 Button { Task { await viewModel.refreshLogs() } } label: {
                     Image(systemName: "arrow.clockwise")
                 }
                 .buttonStyle(.borderless)
+                .disabled(viewModel.selectedJob == nil)
 
                 Toggle("Auto", isOn: Binding(
                     get: { viewModel.jobLogsAutoRefresh },
@@ -304,14 +313,38 @@ struct AdminView: View {
                 ))
                 .toggleStyle(.button)
                 .controlSize(.small)
+                .disabled(viewModel.selectedJob == nil)
+
+                if viewModel.selectedJob != nil {
+                    Button("Close") {
+                        viewModel.deselectJob()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
 
             Divider()
 
-            if viewModel.isLoadingLogs && viewModel.jobLogs.isEmpty {
+            if viewModel.selectedJob == nil {
+                ContentUnavailableView("No job selected", systemImage: "doc.text",
+                    description: Text("Select a job to view runtime logs."))
+            } else if viewModel.isLoadingLogs && viewModel.jobLogs.isEmpty {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let logsError = viewModel.jobLogsErrorMessage {
+                VStack(spacing: 10) {
+                    Text(logsError)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                    Button("Retry") {
+                        Task { await viewModel.refreshLogs() }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if viewModel.jobLogs.isEmpty {
                 ContentUnavailableView("No logs", systemImage: "doc.text",
                     description: Text("No log entries found for this job."))
@@ -332,6 +365,7 @@ struct AdminView: View {
                 .font(.system(.caption, design: .monospaced))
             }
         }
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 
     // MARK: - Books
@@ -341,31 +375,142 @@ struct AdminView: View {
             uploadRow
                 .padding([.horizontal, .top], 12)
                 .padding(.bottom, 8)
+            booksFilterRow
+                .padding(.horizontal, 12)
+                .padding(.bottom, 8)
             Divider()
             if viewModel.books.isEmpty {
                 ContentUnavailableView("No books loaded", systemImage: "books.vertical",
                     description: Text("Upload an audiobook or wait for a scan to complete."))
+            } else if viewModel.filteredBooks.isEmpty {
+                ContentUnavailableView("No matching books", systemImage: "line.3.horizontal.decrease.circle",
+                    description: Text("Adjust filters to find books quickly."))
             } else {
-                List(viewModel.books) { book in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(book.title).font(.subheadline.weight(.semibold))
-                            Text(book.author ?? "Unknown author")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Button("Edit") { viewModel.selectBookForEdit(book) }
-                            .buttonStyle(.bordered).controlSize(.small)
-                        Button("Delete") { Task { await viewModel.deleteBook(book) } }
-                            .buttonStyle(.bordered).controlSize(.small).tint(.red)
-                    }
-                }
-                .listStyle(.plain)
+                booksManagementTable
             }
         }
         .sheet(item: $viewModel.selectedBook) { _ in
             bookEditSheet
         }
+        .alert("Delete Book", isPresented: deleteConfirmationBinding, presenting: pendingDeleteBook) { book in
+            Button("Delete", role: .destructive) {
+                Task { await viewModel.deleteBook(book) }
+                pendingDeleteBook = nil
+            }
+            Button("Cancel", role: .cancel) {
+                pendingDeleteBook = nil
+            }
+        } message: { book in
+            Text("Delete \"\(book.title)\"? This action cannot be undone.")
+        }
+    }
+
+    private var deleteConfirmationBinding: Binding<Bool> {
+        Binding(
+            get: { pendingDeleteBook != nil },
+            set: { isPresented in
+                if !isPresented { pendingDeleteBook = nil }
+            }
+        )
+    }
+
+    private var booksFilterRow: some View {
+        HStack(spacing: 8) {
+            TextField("Filter title", text: $viewModel.booksFilterTitle)
+                .textFieldStyle(.roundedBorder)
+
+            TextField("Filter author", text: $viewModel.booksFilterAuthor)
+                .textFieldStyle(.roundedBorder)
+
+            TextField("Filter series", text: $viewModel.booksFilterSeries)
+                .textFieldStyle(.roundedBorder)
+
+            if viewModel.hasBookFilters {
+                Button("Clear") {
+                    viewModel.clearBookFilters()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var booksManagementTable: some View {
+        #if os(macOS)
+        Table(viewModel.filteredBooks) {
+            TableColumn("Title") { book in
+                Text(book.title)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+            }
+            .width(min: 250)
+
+            TableColumn("Author") { book in
+                Text(book.author ?? "Unknown author")
+                    .lineLimit(1)
+                    .foregroundStyle(.secondary)
+            }
+            .width(min: 160, ideal: 220)
+
+            TableColumn("Series") { book in
+                Text(book.series ?? "-")
+                    .lineLimit(1)
+                    .foregroundStyle(.secondary)
+            }
+            .width(min: 150, ideal: 220)
+
+            TableColumn("Index") { book in
+                Text(book.seriesIndex.map(String.init) ?? "-")
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .width(min: 60, ideal: 70, max: 80)
+
+            TableColumn("Actions") { book in
+                HStack(spacing: 6) {
+                    Button("Edit") { viewModel.selectBookForEdit(book) }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+
+                    Button("Delete") {
+                        pendingDeleteBook = book
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .tint(.red)
+                }
+            }
+            .width(min: 140, ideal: 150, max: 170)
+        }
+        #else
+        List(viewModel.filteredBooks) { book in
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(book.title).font(.subheadline.weight(.semibold))
+                    Text(book.author ?? "Unknown author")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(book.series ?? "-")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("#\(book.seriesIndex.map(String.init) ?? "-")")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                Button("Edit") { viewModel.selectBookForEdit(book) }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                Button("Delete") { pendingDeleteBook = book }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .tint(.red)
+            }
+        }
+        .listStyle(.plain)
+        #endif
     }
 
     private var uploadRow: some View {

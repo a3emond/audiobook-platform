@@ -1,169 +1,261 @@
-	<div class="admin-page">
+<div class="admin-page">
+  <!-- Page header -->
+  <div class="page-hd">
+    <h1>Jobs &amp; Queue</h1>
+    <span class="conn-badge" [class.online]="connected()">
+      <span class="conn-dot"></span>
+      {{ connected() ? (mode() === 'stream' ? 'Live' : 'Polling') : 'Offline' }}
+    </span>
+  </div>
+  <p *ngIf="error()" class="text-error">{{ error() }}</p>
 
-		<!-- Page header -->
-		<div class="page-hd">
-			<h1>Jobs &amp; Queue</h1>
-			<span class="conn-badge" [class.online]="connected()">
-				<span class="conn-dot"></span>
-				{{ connected() ? (mode() === 'stream' ? 'Live' : 'Polling') : 'Offline' }}
-			</span>
-		</div>
-		<p *ngIf="error()" class="text-error">{{ error() }}</p>
+  <!-- ── Worker Queue Settings ────────────────────────────── -->
+  <section class="settings-panel" *ngIf="settingsDraft() as s">
+    <div class="settings-header">
+      <h2 class="settings-title">Worker Queue Settings</h2>
+      <p class="settings-help">Configure queue lanes and the automated parity scan loop.</p>
+    </div>
 
-		<!-- ── Worker Queue Settings ────────────────────────────── -->
-		<section class="settings-panel" *ngIf="settingsDraft() as s">
-			<div class="settings-header">
-				<h2 class="settings-title">Worker Queue Settings</h2>
-				<p class="settings-help">Configure queue lanes and the automated parity scan loop.</p>
-			</div>
+    <!-- Scheduling controls -->
+    <div class="schedule-row">
+      <label class="field">
+        <span class="field-label">Heavy slots</span>
+        <input
+          type="number"
+          min="1"
+          max="16"
+          class="field-input narrow"
+          [(ngModel)]="s.heavyConcurrency"
+        />
+      </label>
 
-			<!-- Scheduling controls -->
-			<div class="schedule-row">
-				<label class="field">
-					<span class="field-label">Heavy slots</span>
-					<input type="number" min="1" max="16" class="field-input narrow" [(ngModel)]="s.heavyConcurrency" />
-				</label>
+      <label class="field">
+        <span class="field-label">Fast slots</span>
+        <input
+          type="number"
+          min="0"
+          max="16"
+          class="field-input narrow"
+          [(ngModel)]="s.fastConcurrency"
+        />
+      </label>
 
-				<label class="field">
-					<span class="field-label">Fast slots</span>
-					<input type="number" min="0" max="16" class="field-input narrow" [(ngModel)]="s.fastConcurrency" />
-				</label>
+      <label class="field">
+        <span class="field-label">Delay (ms)</span>
+        <input type="number" min="0" class="field-input narrow" [(ngModel)]="s.heavyJobDelayMs" />
+      </label>
 
-				<label class="field">
-					<span class="field-label">Delay (ms)</span>
-					<input type="number" min="0" class="field-input narrow" [(ngModel)]="s.heavyJobDelayMs" />
-				</label>
+      <div class="toggle-field">
+        <span class="field-label">Time window</span>
+        <div class="toggle-row">
+          <button
+            type="button"
+            class="toggle-switch"
+            [class.on]="s.heavyWindowEnabled"
+            [attr.aria-checked]="s.heavyWindowEnabled"
+            role="switch"
+            (click)="s.heavyWindowEnabled = !s.heavyWindowEnabled"
+          >
+            <span class="toggle-thumb"></span>
+          </button>
+          <span class="toggle-hint">{{ s.heavyWindowEnabled ? 'Enabled' : 'Disabled' }}</span>
+        </div>
+      </div>
 
-				<div class="toggle-field">
-					<span class="field-label">Time window</span>
-					<div class="toggle-row">
-						<button type="button" class="toggle-switch" [class.on]="s.heavyWindowEnabled"
-							[attr.aria-checked]="s.heavyWindowEnabled" role="switch"
-							(click)="s.heavyWindowEnabled = !s.heavyWindowEnabled">
-							<span class="toggle-thumb"></span>
-						</button>
-						<span class="toggle-hint">{{ s.heavyWindowEnabled ? 'Enabled' : 'Disabled' }}</span>
-					</div>
-				</div>
+      <label class="field" [class.faded]="!s.heavyWindowEnabled">
+        <span class="field-label">Start</span>
+        <input
+          type="time"
+          class="field-input"
+          [(ngModel)]="s.heavyWindowStart"
+          [disabled]="!s.heavyWindowEnabled"
+        />
+      </label>
 
-				<label class="field" [class.faded]="!s.heavyWindowEnabled">
-					<span class="field-label">Start</span>
-					<input type="time" class="field-input" [(ngModel)]="s.heavyWindowStart" [disabled]="!s.heavyWindowEnabled" />
-				</label>
+      <label class="field" [class.faded]="!s.heavyWindowEnabled">
+        <span class="field-label">End</span>
+        <input
+          type="time"
+          class="field-input"
+          [(ngModel)]="s.heavyWindowEnd"
+          [disabled]="!s.heavyWindowEnabled"
+        />
+      </label>
+    </div>
 
-				<label class="field" [class.faded]="!s.heavyWindowEnabled">
-					<span class="field-label">End</span>
-					<input type="time" class="field-input" [(ngModel)]="s.heavyWindowEnd" [disabled]="!s.heavyWindowEnabled" />
-				</label>
-			</div>
+    <div class="parity-row">
+      <div class="toggle-field">
+        <span class="field-label">Parity scan</span>
+        <div class="toggle-row">
+          <button
+            type="button"
+            class="toggle-switch"
+            [class.on]="s.parityEnabled"
+            [attr.aria-checked]="s.parityEnabled"
+            role="switch"
+            (click)="s.parityEnabled = !s.parityEnabled"
+          >
+            <span class="toggle-thumb"></span>
+          </button>
+          <span class="toggle-hint">{{ s.parityEnabled ? 'Enabled' : 'Disabled' }}</span>
+        </div>
+      </div>
 
-			<div class="parity-row">
-				<div class="toggle-field">
-					<span class="field-label">Parity scan</span>
-					<div class="toggle-row">
-						<button type="button" class="toggle-switch" [class.on]="s.parityEnabled"
-							[attr.aria-checked]="s.parityEnabled" role="switch"
-							(click)="s.parityEnabled = !s.parityEnabled">
-							<span class="toggle-thumb"></span>
-						</button>
-						<span class="toggle-hint">{{ s.parityEnabled ? 'Enabled' : 'Disabled' }}</span>
-					</div>
-				</div>
+      <label class="field" [class.faded]="!s.parityEnabled">
+        <span class="field-label">Every (min)</span>
+        <input
+          type="number"
+          min="1"
+          class="field-input narrow"
+          [(ngModel)]="s.parityIntervalMinutes"
+          [disabled]="!s.parityEnabled"
+        />
+      </label>
 
-				<label class="field" [class.faded]="!s.parityEnabled">
-					<span class="field-label">Every (min)</span>
-					<input type="number" min="1" class="field-input narrow" [(ngModel)]="s.parityIntervalMinutes" [disabled]="!s.parityEnabled" />
-				</label>
+      <p class="parity-help">
+        Queues a full rescan on a timer and skips duplicate parity jobs automatically.
+      </p>
+    </div>
 
-				<p class="parity-help">Queues a full rescan on a timer and skips duplicate parity jobs automatically.</p>
-			</div>
+    <!-- Heavy job type chips -->
+    <div class="types-section">
+      <span class="field-label"
+        >Heavy job types <span class="types-hint">(click to toggle)</span></span
+      >
+      <div class="type-chips">
+        <button
+          type="button"
+          class="type-chip"
+          *ngFor="let type of allJobTypes"
+          [class.selected]="s.heavyJobTypes.includes(type)"
+          (click)="toggleHeavyType(s, type, !s.heavyJobTypes.includes(type))"
+        >
+          {{ type }}
+        </button>
+      </div>
+    </div>
 
-			<!-- Heavy job type chips -->
-			<div class="types-section">
-				<span class="field-label">Heavy job types <span class="types-hint">(click to toggle)</span></span>
-				<div class="type-chips">
-					<button type="button" class="type-chip" *ngFor="let type of allJobTypes"
-						[class.selected]="s.heavyJobTypes.includes(type)"
-						(click)="toggleHeavyType(s, type, !s.heavyJobTypes.includes(type))">
-						{{ type }}
-					</button>
-				</div>
-			</div>
+    <!-- Actions -->
+    <div class="settings-footer">
+      <button
+        type="button"
+        class="btn-save"
+        (click)="saveWorkerSettings()"
+        [disabled]="savingSettings()"
+      >
+        {{ savingSettings() ? 'Saving…' : 'Save settings' }}
+      </button>
+      <button
+        type="button"
+        class="btn-ghost"
+        (click)="reloadWorkerSettings()"
+        [disabled]="savingSettings()"
+      >
+        Reload
+      </button>
+      <span *ngIf="settingsMessage()" class="settings-msg">{{ settingsMessage() }}</span>
+    </div>
+  </section>
 
-			<!-- Actions -->
-			<div class="settings-footer">
-				<button type="button" class="btn-save" (click)="saveWorkerSettings()" [disabled]="savingSettings()">
-					{{ savingSettings() ? 'Saving…' : 'Save settings' }}
-				</button>
-				<button type="button" class="btn-ghost" (click)="reloadWorkerSettings()" [disabled]="savingSettings()">Reload</button>
-				<span *ngIf="settingsMessage()" class="settings-msg">{{ settingsMessage() }}</span>
-			</div>
-		</section>
+  <!-- ── Jobs queue + log detail ──────────────────────────── -->
+  <div class="jobs-pane">
+    <!-- Left column: queue controls + job list -->
+    <div class="jobs-column">
+      <!-- Action controls -->
+      <div class="job-controls">
+        <button
+          type="button"
+          class="btn-action"
+          (click)="triggerManualParityScan()"
+          [disabled]="jobActionInProgress() !== null"
+        >
+          {{ jobActionInProgress() === 'parity-scan' ? 'Triggering...' : 'Manual Parity Scan' }}
+        </button>
+        <button
+          type="button"
+          class="btn-action"
+          (click)="triggerSyncTags()"
+          [disabled]="jobActionInProgress() !== null"
+        >
+          {{ jobActionInProgress() === 'sync-tags' ? 'Triggering...' : 'Sync Tags' }}
+        </button>
+        <p *ngIf="jobActionMessage()" class="action-message">{{ jobActionMessage() }}</p>
+      </div>
 
-		<!-- ── Jobs queue + log detail ──────────────────────────── -->
-		<div class="jobs-pane">
-			<!-- Left column: queue controls + job list -->
-			<div class="jobs-column">
-				<!-- Action controls -->
-				<div class="job-controls">
-					<button type="button" class="btn-action" (click)="triggerManualParityScan()" 
-						[disabled]="jobActionInProgress() !== null">
-						{{ jobActionInProgress() === 'parity-scan' ? 'Triggering...' : 'Manual Parity Scan' }}
-					</button>
-					<button type="button" class="btn-action" (click)="triggerSyncTags()"
-						[disabled]="jobActionInProgress() !== null">
-						{{ jobActionInProgress() === 'sync-tags' ? 'Triggering...' : 'Sync Tags' }}
-					</button>
-					<p *ngIf="jobActionMessage()" class="action-message">{{ jobActionMessage() }}</p>
-				</div>
+      <div class="jobs-list">
+        <p class="pane-label">Jobs Queue</p>
+        <div class="jobs-table-wrap" *ngIf="jobs().length > 0">
+          <table class="jobs-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Attempts</th>
+                <th>Updated</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                *ngFor="let job of jobs()"
+                (click)="selectJob(job)"
+                [class.selected]="selectedJobId() === job.id"
+              >
+                <td class="type-cell">{{ job.type }}</td>
+                <td>
+                  <span class="badge" [class]="'status-' + job.status">{{ job.status }}</span>
+                </td>
+                <td class="dim-cell">{{ job.attempt }}/{{ job.maxAttempts }}</td>
+                <td class="dim-cell">{{ job.updatedAt | date: 'HH:mm:ss' }}</td>
+                <td class="action-cell">
+                  <button
+                    type="button"
+                    class="btn-small"
+                    (click)="rerunJob(job); $event.stopPropagation()"
+                    [disabled]="jobActionInProgress() === job.id"
+                  >
+                    {{ jobActionInProgress() === job.id ? '...' : 'Rerun' }}
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p *ngIf="jobs().length === 0" class="empty-hint">No jobs in queue</p>
+        <div *ngIf="jobs().length < jobsTotal()" class="load-more-row">
+          <button
+            type="button"
+            class="btn-action"
+            (click)="loadMoreJobs()"
+            [disabled]="jobsLoadingMore()"
+          >
+            {{
+              jobsLoadingMore()
+                ? 'Loading...'
+                : 'Load more (' + jobs().length + ' / ' + jobsTotal() + ')'
+            }}
+          </button>
+        </div>
+      </div>
+    </div>
 
-				<div class="jobs-list">
-				<p class="pane-label">Jobs Queue</p>
-				<table *ngIf="jobs().length > 0" class="jobs-table">
-					<thead>
-						<tr>
-							<th>Type</th>
-							<th>Status</th>
-							<th>Attempts</th>
-							<th>Updated</th>
-							<th>Actions</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr *ngFor="let job of jobs()"
-							(click)="selectJob(job)"
-							[class.selected]="selectedJobId() === job.id">
-							<td class="type-cell">{{ job.type }}</td>
-							<td><span class="badge" [class]="'status-' + job.status">{{ job.status }}</span></td>
-							<td class="dim-cell">{{ job.attempt }}/{{ job.maxAttempts }}</td>
-							<td class="dim-cell">{{ job.updatedAt | date:'HH:mm:ss' }}</td>
-							<td class="action-cell">
-								<button type="button" class="btn-small" (click)="rerunJob(job); $event.stopPropagation()" 
-									[disabled]="jobActionInProgress() === job.id">
-									{{ jobActionInProgress() === job.id ? '...' : 'Rerun' }}
-								</button>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-				<p *ngIf="jobs().length === 0" class="empty-hint">No jobs in queue</p>
-				<div *ngIf="jobs().length < jobsTotal()" class="load-more-row">
-					<button type="button" class="btn-action" (click)="loadMoreJobs()" [disabled]="jobsLoadingMore()">
-						{{ jobsLoadingMore() ? 'Loading...' : 'Load more (' + jobs().length + ' / ' + jobsTotal() + ')' }}
-					</button>
-				</div>
-			</div>
-			</div>
-
-			<!-- Right column: logs pane -->
-			<div class="logs-column">
-				<div class="logs-pane" *ngIf="selectedJobId(); else noSelection">
-					<app-admin-job-logs [jobId]="selectedJobId()!"></app-admin-job-logs>
-				</div>
-				<ng-template #noSelection>
-					<div class="no-selection">Select a job to view its logs</div>
-				</ng-template>
-			</div>
-		</div>
-
-	</div>
+    <!-- Right column: logs pane -->
+    <div class="logs-column">
+      <div class="logs-pane" *ngIf="selectedJobId() as selectedJobId; else noSelection">
+        <div class="logs-pane-header">
+          <div class="logs-pane-title">
+            <h3>Logs</h3>
+            <p *ngIf="selectedJob() as selectedJob">
+              {{ selectedJob.type }} · {{ selectedJob.status }}
+            </p>
+          </div>
+          <button type="button" class="btn-ghost" (click)="clearSelectedJob()">Close</button>
+        </div>
+        <app-admin-job-logs [jobId]="selectedJobId"></app-admin-job-logs>
+      </div>
+      <ng-template #noSelection>
+        <div class="no-selection">Select a job to view its logs</div>
+      </ng-template>
+    </div>
+  </div>
+</div>
