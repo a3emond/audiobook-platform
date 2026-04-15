@@ -2,11 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-import {
-  AdminService,
-  AdminUser,
-  AdminUserSession,
-} from '../../../core/services/admin.service';
+import { AdminService, AdminUser, AdminUserSession } from '../../../core/services/admin.service';
 
 @Component({
   selector: 'app-admin-users-page',
@@ -123,7 +119,9 @@ export class AdminUsersPage implements OnInit {
     this.admin.updateUserRole(user.id, nextRole).subscribe({
       next: (updated) => {
         this.roleUpdateUserId.set(null);
-        this.users.update((users) => users.map((entry) => (entry.id === updated.id ? updated : entry)));
+        this.users.update((users) =>
+          users.map((entry) => (entry.id === updated.id ? updated : entry)),
+        );
         if (this.selectedUser()?.id === updated.id) {
           this.selectedUser.set(updated);
         }
@@ -175,14 +173,18 @@ export class AdminUsersPage implements OnInit {
 
   sessionsPrevPage(): void {
     const user = this.selectedUser();
-    if (!user) { return; }
+    if (!user) {
+      return;
+    }
     const prev = Math.max(0, this.sessionsOffset() - this.sessionsPageSize);
     this.loadSessionsPage(user, prev);
   }
 
   sessionsNextPage(): void {
     const user = this.selectedUser();
-    if (!user || !this.sessionsHasMore()) { return; }
+    if (!user || !this.sessionsHasMore()) {
+      return;
+    }
     this.loadSessionsPage(user, this.sessionsOffset() + this.sessionsPageSize);
   }
 
