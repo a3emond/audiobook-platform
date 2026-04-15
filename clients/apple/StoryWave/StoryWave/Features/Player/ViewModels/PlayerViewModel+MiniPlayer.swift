@@ -8,7 +8,20 @@ extension PlayerViewModel {
 
     /// Whether the mini player bar should be visible anywhere in the app.
     func miniPlayerIsVisible() -> Bool {
-        !state.bookId.isEmpty || state.isRemotePlaybackActive
+        let hasRemoteContext =
+            state.isRemotePlaybackActive ||
+            !(state.remoteBookId ?? "").isEmpty ||
+            !(state.remoteTitle ?? "").isEmpty
+
+        let hasLocalContext =
+            !state.bookId.isEmpty ||
+            !(state.streamPath ?? "").isEmpty ||
+            !(state.streamURLString ?? "").isEmpty ||
+            !state.title.isEmpty ||
+            state.isPlaying ||
+            state.positionSeconds > 0
+
+        return hasRemoteContext || hasLocalContext
     }
 
     // MARK: Content

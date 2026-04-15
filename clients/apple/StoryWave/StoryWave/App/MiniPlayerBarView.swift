@@ -6,9 +6,9 @@ struct MiniPlayerBarView: View {
     let onClose: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Button(action: onOpenFullPlayer) {
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
                     coverThumbnail
 
                     VStack(alignment: .leading, spacing: 2) {
@@ -25,11 +25,11 @@ struct MiniPlayerBarView: View {
                         }
 
                         Text(viewModel.miniPlayerTitle())
-                            .font(.subheadline.weight(.semibold))
+                            .font(.footnote.weight(.semibold))
                             .lineLimit(1)
                             .foregroundStyle(Branding.text)
                         Text(viewModel.miniPlayerAuthor())
-                            .font(.caption)
+                            .font(.caption2)
                             .lineLimit(1)
                             .foregroundStyle(Branding.textMuted)
                     }
@@ -47,7 +47,7 @@ struct MiniPlayerBarView: View {
                     }
                 } label: {
                     Image(systemName: viewModel.state.isPlaying ? "pause.fill" : "play.fill")
-                        .frame(width: 28, height: 28)
+                        .frame(width: 24, height: 24)
                 }
                 .buttonStyle(.borderless)
             } else if viewModel.state.isRemotePlaybackActive {
@@ -60,17 +60,17 @@ struct MiniPlayerBarView: View {
 
             Button(action: onClose) {
                 Image(systemName: "xmark")
-                    .frame(width: 28, height: 28)
+                    .frame(width: 24, height: 24)
             }
             .buttonStyle(.borderless)
             .foregroundStyle(Branding.textMuted)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .background(Branding.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: 12)
                 .stroke(Branding.surfaceSoft, lineWidth: 1)
         )
     }
@@ -85,12 +85,12 @@ struct MiniPlayerBarView: View {
                 fallbackFontSize: 14,
                 backgroundColor: Branding.surfaceSoft
             )
-            .frame(width: 40, height: 40)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .frame(width: 32, height: 32)
+            .clipShape(RoundedRectangle(cornerRadius: 7))
         } else {
             placeholderCover
-                .frame(width: 40, height: 40)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .frame(width: 32, height: 32)
+                .clipShape(RoundedRectangle(cornerRadius: 7))
         }
     }
 

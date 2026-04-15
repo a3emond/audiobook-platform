@@ -3,51 +3,58 @@
 /* === Design tokens ============================================ */
 :root {
   /* Core palette */
-  --color-bg:            #070707;
-  --color-surface:       #121212;
-  --color-surface-soft:  #191919;
-  --color-surface-strong:#151515;
-  --color-surface-contrast:#1a1a1a;
+  --color-bg: #070707;
+  --color-surface: #121212;
+  --color-surface-soft: #191919;
+  --color-surface-strong: #151515;
+  --color-surface-contrast: #1a1a1a;
   --color-surface-hover: #202020;
-  --color-border:        #2a2a2a;
-  --color-text:          #f4ecd9;
-  --color-text-muted:    #b8ae97;
-  --color-primary:       #ff8c00;
-  --color-primary-dark:  #cc6f00;
-  --color-accent:        #ff8a00;
-  --color-accent-hover:  #ffa12e;
-  --color-danger:        #ff6b6b;
-  --color-success:       #34d399;
-  --color-warning:       #ffd08a;
+  --color-border: #2a2a2a;
+  --color-text: #f4ecd9;
+  --color-text-muted: #b8ae97;
+  --color-primary: #ff8c00;
+  --color-primary-dark: #cc6f00;
+  --color-accent: #ff8a00;
+  --color-accent-hover: #ffa12e;
+  --color-danger: #ff6b6b;
+  --color-success: #34d399;
+  --color-warning: #ffd08a;
 
   /* Semantic aliases for portability and legacy compatibility */
-  --color-background:    var(--color-bg);
-  --color-on-primary:    #ffffff;
-  --color-focus-ring:    rgb(255 138 0 / 0.2);
-  --color-overlay:       rgb(10 10 10 / 0.78);
-  --color-chip-bg:       var(--color-surface-strong);
-  --color-chip-border:   #3a3a3a;
-  --color-chip-text:     var(--color-text-muted);
-  --color-accent-soft-bg:rgb(255 138 0 / 0.14);
+  --color-background: var(--color-bg);
+  --color-on-primary: #ffffff;
+  --color-focus-ring: rgb(255 138 0 / 0.2);
+  --color-overlay: rgb(10 10 10 / 0.78);
+  --color-chip-bg: var(--color-surface-strong);
+  --color-chip-border: #3a3a3a;
+  --color-chip-text: var(--color-text-muted);
+  --color-accent-soft-bg: rgb(255 138 0 / 0.14);
   --color-accent-soft-border: rgb(255 138 0 / 0.35);
   --color-danger-soft-bg: rgb(127 29 29 / 0.2);
   --color-danger-soft-border: rgb(248 113 113 / 0.4);
   --color-danger-soft-text: #fecaca;
 
-  --radius-sm:           0.25rem;
-  --radius:              0.5rem;
-  --radius-lg:           0.75rem;
-  --shadow-sm:           0 6px 14px rgb(0 0 0 / 0.28);
-  --shadow:              0 10px 24px rgb(0 0 0 / 0.34);
-  --shadow-lg:           0 20px 44px rgb(0 0 0 / 0.45);
-  --topbar-h:            3.5rem;
+  --radius-sm: 0.25rem;
+  --radius: 0.5rem;
+  --radius-lg: 0.75rem;
+  --shadow-sm: 0 6px 14px rgb(0 0 0 / 0.28);
+  --shadow: 0 10px 24px rgb(0 0 0 / 0.34);
+  --shadow-lg: 0 20px 44px rgb(0 0 0 / 0.45);
+  --topbar-h: 3.5rem;
 }
 
 /* === Global reset ============================================= */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
-html, body {
-  font-family: "Outfit", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+html,
+body {
+  font-family: 'Outfit', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   font-size: 16px;
   color: var(--color-text);
   background:
@@ -56,15 +63,36 @@ html, body {
     linear-gradient(180deg, #0a0a0a 0%, var(--color-bg) 42%, #050505 100%);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  min-height: -webkit-fill-available;
+  height: 100%;
   min-height: 100%;
 }
 
-a { color: var(--color-accent); text-decoration: none; }
-a:hover { text-decoration: underline; }
-button { cursor: pointer; font-family: inherit; font-size: inherit; }
+/* Ensure Angular root can stretch to viewport height. */
+body > app-root {
+  display: block;
+  height: 100%;
+  min-height: -webkit-fill-available;
+  min-height: 100%;
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+button {
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+}
 
 /* === Form elements ============================================ */
-input, select, textarea {
+input,
+select,
+textarea {
   font-family: inherit;
   font-size: inherit;
   border: 1px solid var(--color-border);
@@ -73,16 +101,21 @@ input, select, textarea {
   outline: none;
   background: var(--color-surface-soft);
   color: var(--color-text);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
   width: 100%;
 }
 
-input:focus, select:focus, textarea:focus {
+input:focus,
+select:focus,
+textarea:focus {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px var(--color-focus-ring);
 }
 
-input:disabled, select:disabled {
+input:disabled,
+select:disabled {
   background: #161616;
   color: var(--color-text-muted);
   cursor: not-allowed;
@@ -112,15 +145,23 @@ label {
   transition: background 0.15s;
   white-space: nowrap;
 }
-.btn:hover { background: var(--color-accent-hover); text-decoration: none; }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:hover {
+  background: var(--color-accent-hover);
+  text-decoration: none;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 .btn-secondary {
   background: var(--color-surface-soft);
   color: var(--color-text);
   border: 1px solid var(--color-border);
 }
-.btn-secondary:hover { background: var(--color-surface-hover); }
+.btn-secondary:hover {
+  background: var(--color-surface-hover);
+}
 
 .btn-danger {
   background: var(--color-danger);
@@ -133,7 +174,9 @@ label {
   cursor: pointer;
   transition: background 0.15s;
 }
-.btn-danger:hover { background: #b91c1c; }
+.btn-danger:hover {
+  background: #b91c1c;
+}
 
 /* === Card utility ============================================= */
 .card {
@@ -145,9 +188,18 @@ label {
 }
 
 /* === Status text ============================================== */
-.text-error   { color: var(--color-danger); font-size: 0.875rem; }
-.text-success { color: var(--color-success); font-size: 0.875rem; }
-.text-muted   { color: var(--color-text-muted); font-size: 0.875rem; }
+.text-error {
+  color: var(--color-danger);
+  font-size: 0.875rem;
+}
+.text-success {
+  color: var(--color-success);
+  font-size: 0.875rem;
+}
+.text-muted {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
 
 /* === Page-level skeleton ====================================== */
 .page-header {
@@ -176,7 +228,7 @@ label {
 }
 
 .hero-title {
-  font-family: "Space Grotesk", "Outfit", sans-serif;
+  font-family: 'Space Grotesk', 'Outfit', sans-serif;
   font-size: clamp(1.5rem, 2.6vw, 2.1rem);
   letter-spacing: -0.02em;
   font-weight: 700;
@@ -189,8 +241,29 @@ label {
 }
 
 /* === Table utility ============================================ */
-table { width: 100%; border-collapse: collapse; background: var(--color-surface); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); }
-th, td { border-bottom: 1px solid var(--color-border); padding: 0.6rem 0.75rem; text-align: left; font-size: 0.875rem; }
-th { background: var(--color-surface-contrast); font-weight: 600; color: var(--color-text-muted); }
-tr:last-child td { border-bottom: none; }
-tr:hover td { background: var(--color-surface-strong); }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+th,
+td {
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  font-size: 0.875rem;
+}
+th {
+  background: var(--color-surface-contrast);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+tr:last-child td {
+  border-bottom: none;
+}
+tr:hover td {
+  background: var(--color-surface-strong);
+}

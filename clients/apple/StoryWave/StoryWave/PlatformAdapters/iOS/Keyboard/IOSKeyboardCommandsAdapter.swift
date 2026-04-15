@@ -2,6 +2,7 @@
 import Foundation
 import UIKit
 import Combine
+import SwiftUI
 
 /// Implementation of KeyboardCommandsAdapter for iOS.
 /// Handles keyboard configuration for different input contexts and external keyboard shortcuts.
@@ -52,7 +53,7 @@ final class IOSKeyboardCommandsAdapter: KeyboardCommandsAdapter {
     private func setupExternalKeyboardMonitoring() {
         // Monitor for physical keyboard connections
         keyboardMonitor = NotificationCenter.default.addObserver(
-            forName: UIKeyboardDidShow,
+            forName: UIResponder.keyboardDidShowNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in

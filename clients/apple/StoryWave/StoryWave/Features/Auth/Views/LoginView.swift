@@ -11,157 +11,168 @@ struct LoginView: View {
     @State private var oauthConfig = OAuthConfig.current
 
     var body: some View {
-        VStack(spacing: 16) {
-            BrandLogoView(size: 84)
-            Text("Sign In")
-                .font(.title.weight(.semibold))
-            Text("Welcome back to your library")
-                .font(.subheadline)
-                .foregroundStyle(Branding.textMuted)
+        GeometryReader { proxy in
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 16) {
+                    BrandLogoView(size: proxy.size.height < 760 ? 68 : 84)
+                    Text("Sign In")
+                        .font(.title.weight(.semibold))
+                    Text("Welcome back to your library")
+                        .font(.subheadline)
+                        .foregroundStyle(Branding.textMuted)
 
-            Picker("Auth Mode", selection: Binding(
-                get: { viewModel.state.mode },
-                set: { viewModel.switchMode($0) }
-            )) {
-                Text("Login").tag(AuthViewState.Mode.login)
-                Text("Register").tag(AuthViewState.Mode.register)
-            }
-            .pickerStyle(.segmented)
-
-            VStack(spacing: 12) {
-                TextField("Email", text: Binding(
-                    get: { viewModel.state.email },
-                    set: { viewModel.updateEmail($0) }
-                ))
-                .padding(10)
-                .background(Branding.surface)
-                .cornerRadius(6)
-                
-                if !viewModel.state.email.isEmpty && !isValidEmail(viewModel.state.email) {
-                    Text("Please enter a valid email address")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
-
-                if viewModel.state.mode == .register {
-                    TextField("Display Name (optional)", text: Binding(
-                        get: { viewModel.state.displayName },
-                        set: { viewModel.updateDisplayName($0) }
-                    ))
-                    .padding(10)
-                    .background(Branding.surface)
-                    .cornerRadius(6)
-                }
-
-                SecureField("Password", text: Binding(
-                    get: { viewModel.state.password },
-                    set: { viewModel.updatePassword($0) }
-                ))
-                .padding(10)
-                .background(Branding.surface)
-                .cornerRadius(6)
-
-                if viewModel.state.mode == .register {
-                    SecureField("Confirm Password", text: Binding(
-                        get: { viewModel.state.confirmPassword },
-                        set: { viewModel.updateConfirmPassword($0) }
-                    ))
-                    .padding(10)
-                    .background(Branding.surface)
-                    .cornerRadius(6)
-
-                    Picker("Language", selection: Binding(
-                        get: { viewModel.state.preferredLocale },
-                        set: { viewModel.updatePreferredLocale($0) }
+                    Picker("Auth Mode", selection: Binding(
+                        get: { viewModel.state.mode },
+                        set: { viewModel.switchMode($0) }
                     )) {
-                        Text("English").tag("en")
-                        Text("Français").tag("fr")
+                        Text("Login").tag(AuthViewState.Mode.login)
+                        Text("Register").tag(AuthViewState.Mode.register)
                     }
                     .pickerStyle(.segmented)
-                }
 
-                if let errorMessage = viewModel.state.errorMessage {
-                    Text(errorMessage)
-                        .foregroundStyle(.red)
-                        .font(.footnote)
-                }
+                    VStack(spacing: 12) {
+                        TextField("Email", text: Binding(
+                            get: { viewModel.state.email },
+                            set: { viewModel.updateEmail($0) }
+                        ))
+                        .padding(10)
+                        .background(Branding.surface)
+                        .cornerRadius(6)
 
-                Button {
-                    Task {
-                        if viewModel.state.mode == .login {
-                            await viewModel.login()
-                        } else {
-                            await viewModel.register()
+                        if !viewModel.state.email.isEmpty && !isValidEmail(viewModel.state.email) {
+                            Text("Please enter a valid email address")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
                         }
-                    }
-                } label: {
-                    if viewModel.state.isLoading {
-                        ProgressView()
-                    } else {
-                        Text(viewModel.state.mode == .login ? "Login" : "Create Account")
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
-                .background(Branding.accent)
-                .foregroundStyle(.white)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .disabled(isLoginDisabled)
 
-                Divider().overlay(Branding.surfaceSoft)
+                        if viewModel.state.mode == .register {
+                            TextField("Display Name (optional)", text: Binding(
+                                get: { viewModel.state.displayName },
+                                set: { viewModel.updateDisplayName($0) }
+                            ))
+                            .padding(10)
+                            .background(Branding.surface)
+                            .cornerRadius(6)
+                        }
 
-                VStack(spacing: 10) {
-                    SignInWithAppleButton(.continue) { request in
-                        request.requestedScopes = [.fullName, .email]
-                    } onCompletion: { result in
-                        handleAppleSignInResult(result)
-                    }
-                    .signInWithAppleButtonStyle(.black)
-                    .frame(height: 44)
-                    .disabled(viewModel.state.oauthLoadingProvider != nil)
+                        SecureField("Password", text: Binding(
+                            get: { viewModel.state.password },
+                            set: { viewModel.updatePassword($0) }
+                        ))
+                        .padding(10)
+                        .background(Branding.surface)
+                        .cornerRadius(6)
 
-                    if viewModel.state.oauthLoadingProvider == .apple {
-                        ProgressView().controlSize(.small)
-                    }
+                        if viewModel.state.mode == .register {
+                            SecureField("Confirm Password", text: Binding(
+                                get: { viewModel.state.confirmPassword },
+                                set: { viewModel.updateConfirmPassword($0) }
+                            ))
+                            .padding(10)
+                            .background(Branding.surface)
+                            .cornerRadius(6)
 
-                    Button {
-                        Task { await startGoogleOAuth() }
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "globe")
-                            Text("Continue with Google")
-                            if viewModel.state.oauthLoadingProvider == .google {
-                                ProgressView().controlSize(.small)
+                            Picker("Language", selection: Binding(
+                                get: { viewModel.state.preferredLocale },
+                                set: { viewModel.updatePreferredLocale($0) }
+                            )) {
+                                Text("English").tag("en")
+                                Text("Français").tag("fr")
+                            }
+                            .pickerStyle(.segmented)
+                        }
+
+                        if let errorMessage = viewModel.state.errorMessage {
+                            Text(errorMessage)
+                                .foregroundStyle(.red)
+                                .font(.footnote)
+                        }
+
+                        Button {
+                            Task {
+                                if viewModel.state.mode == .login {
+                                    await viewModel.login()
+                                } else {
+                                    await viewModel.register()
+                                }
+                            }
+                        } label: {
+                            if viewModel.state.isLoading {
+                                ProgressView()
+                            } else {
+                                Text(viewModel.state.mode == .login ? "Login" : "Create Account")
                             }
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.white)
-                    .foregroundStyle(.black)
-                    .disabled(!oauthConfig.googleEnabled || viewModel.state.oauthLoadingProvider != nil)
+                        .padding(.vertical, 6)
+                        .background(Branding.accent)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .disabled(isLoginDisabled)
 
-                    if !oauthConfig.googleEnabled {
-                        Text("Google OAuth is not configured in this build.")
-                            .font(.caption)
-                            .foregroundStyle(Branding.textMuted)
+                        Divider().overlay(Branding.surfaceSoft)
+
+                        VStack(spacing: 10) {
+                            SignInWithAppleButton(.continue) { request in
+                                request.requestedScopes = [.fullName, .email]
+                            } onCompletion: { result in
+                                handleAppleSignInResult(result)
+                            }
+                            .signInWithAppleButtonStyle(.black)
+                            .frame(height: 44)
+                            .disabled(viewModel.state.oauthLoadingProvider != nil)
+
+                            if viewModel.state.oauthLoadingProvider == .apple {
+                                ProgressView().controlSize(.small)
+                            }
+
+                            Button {
+                                Task { await startGoogleOAuth() }
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "globe")
+                                    Text("Continue with Google")
+                                    if viewModel.state.oauthLoadingProvider == .google {
+                                        ProgressView().controlSize(.small)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.white)
+                            .foregroundStyle(.black)
+                            .disabled(!oauthConfig.googleEnabled || viewModel.state.oauthLoadingProvider != nil)
+
+                            if !oauthConfig.googleEnabled {
+                                Text("Google OAuth is not configured in this build.")
+                                    .font(.caption)
+                                    .foregroundStyle(Branding.textMuted)
+                            }
+                        }
+                    }
+                    .brandCard()
+
+                    if viewModel.state.isAuthenticated {
+                        Text("Authenticated")
+                            .foregroundStyle(.green)
+
+                        Button("Sign Out") {
+                            Task { await viewModel.signOut() }
+                        }
                     }
                 }
+                .padding(.horizontal)
+                .padding(.top, 16)
+                .padding(.bottom, 16)
+                .frame(maxWidth: 420)
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: proxy.size.height)
             }
-            .brandCard()
-
-            if viewModel.state.isAuthenticated {
-                Text("Authenticated")
-                    .foregroundStyle(.green)
-
-                Button("Sign Out") {
-                    Task { await viewModel.signOut() }
-                }
-            }
+            #if os(iOS)
+            .scrollDismissesKeyboard(.interactively)
+            #endif
         }
-        .padding()
-        .frame(maxWidth: 420)
     }
     
     private var isLoginDisabled: Bool {

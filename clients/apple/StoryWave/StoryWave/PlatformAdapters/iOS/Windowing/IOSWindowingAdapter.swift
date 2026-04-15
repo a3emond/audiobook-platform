@@ -26,13 +26,26 @@ final class IOSWindowingAdapter: WindowingAdapter {
     // MARK: WindowingAdapter
 
     func configureWindow() {
-        guard let window = window else { return }
+        if window == nil {
+            window = resolveWindow()
+        }
+
+        guard let window else {
+            // Window can be unavailable during early startup; retry on next run loop.
+            DispatchQueue.main.async { [weak self] in
+                self?.configureWindow()
+            }
+            return
+        }
 
         // Configure appearance
         configureAppearance(for: window)
+
+        // Force the hosting hierarchy to draw edge-to-edge.
+        applyEdgeToEdgeLayout(for: window)
         
         // Configure safe area and layout guides
-        setupLayoutGuides()
+        setupLayoutGuides(for: window)
         
         // Restore any saved app state
         restoreWindowState()
@@ -64,6 +77,17 @@ final class IOSWindowingAdapter: WindowingAdapter {
 
     // MARK: Private – Configuration
 
+    private func resolveWindow() -> UIWindow? {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first(where: { $0.isKeyWindow })
+        ?? UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first
+    }
+
     private func configureAppearance(for window: UIWindow) {
         // Configure window appearance based on system settings
         if #available(iOS 13.0, *) {
@@ -71,31 +95,63 @@ final class IOSWindowingAdapter: WindowingAdapter {
             window.overrideUserInterfaceStyle = .unspecified // Follow system
         }
 
+        window.backgroundColor = .black
+
         // Configure navigation bar appearance
         let navigationBarAppearance = UINavigationBarAppearance()
-        navigationBarAppearance.configureWithDefaultBackground()
+        navigationBarAppearance.configureWithTransparentBackground()
+        navigationBarAppearance.backgroundColor = .clear
+        navigationBarAppearance.shadowColor = .clear
         UINavigationBar.appearance().standardAppearance = navigationBarAppearance
         UINavigationBar.appearance().scrollEdgeAppearance = navigationBarAppearance
+        UINavigationBar.appearance().compactAppearance = navigationBarAppearance
 
         // Configure tab bar appearance
         let tabBarAppearance = UITabBarAppearance()
-        tabBarAppearance.configureWithDefaultBackground()
+        tabBarAppearance.configureWithTransparentBackground()
+        tabBarAppearance.backgroundColor = .clear
+        tabBarAppearance.shadowColor = .clear
         UITabBar.appearance().standardAppearance = tabBarAppearance
         if #available(iOS 15.0, *) {
             UITabBar.appearance().scrollEdgeAppearance = tabBarAppearance
         }
     }
 
-    private func setupLayoutGuides() {
-        guard let window = window else { return }
+    private func setupLayoutGuides(for window: UIWindow) {
+        window.insetsLayoutMarginsFromSafeArea = false
+        window.layoutMargins = .zero
 
-        // iOS handles safe area automatically through layout guides
-        // for all UIView and SwiftUI content
-        
-        // Disable top/bottom safe area insets if desired for full-screen content
-        if #available(iOS 13.0, *) {
-            // Safe area is respected by default
-            // No additional setup needed
+        window.rootViewController?.view.insetsLayoutMarginsFromSafeArea = false
+        window.rootViewController?.viewRespectsSystemMinimumLayoutMargins = false
+        window.rootViewController?.additionalSafeAreaInsets = .zero
+
+        if let root = window.rootViewController {
+            applyEdgeToEdgeLayout(to: root)
+        }
+    }
+
+    private func applyEdgeToEdgeLayout(for window: UIWindow) {
+        window.insetsLayoutMarginsFromSafeArea = false
+        window.layoutMargins = .zero
+
+        if let root = window.rootViewController {
+            applyEdgeToEdgeLayout(to: root)
+        }
+    }
+
+    private func applyEdgeToEdgeLayout(to controller: UIViewController) {
+        controller.additionalSafeAreaInsets = .zero
+        controller.edgesForExtendedLayout = [.top, .bottom, .left, .right]
+        controller.extendedLayoutIncludesOpaqueBars = true
+        controller.view.insetsLayoutMarginsFromSafeArea = false
+        controller.viewRespectsSystemMinimumLayoutMargins = false
+
+        for child in controller.children {
+            applyEdgeToEdgeLayout(to: child)
+        }
+
+        if let presented = controller.presentedViewController {
+            applyEdgeToEdgeLayout(to: presented)
         }
     }
 }

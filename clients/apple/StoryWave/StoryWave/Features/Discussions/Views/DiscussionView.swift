@@ -6,13 +6,14 @@ struct DiscussionView: View {
     let isAdmin: Bool
     @FocusState private var composerFocused: Bool
     @State private var highlightedMessageId: String?
+    @State private var isChannelDrawerPresented = false
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 if viewModel.state.isLoading {
                     ProgressView()
-                        .frame(maxHeight: .infinity)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if let errorMessage = viewModel.state.errorMessage {
                     VStack(spacing: 12) {
                         Text(errorMessage)
@@ -24,20 +25,36 @@ struct DiscussionView: View {
                         .tint(Branding.accent)
                     }
                     .padding()
-                    .frame(maxHeight: .infinity)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if viewModel.state.channels.isEmpty {
                     Text("No discussions available.")
                         .foregroundStyle(Branding.textMuted)
-                        .frame(maxHeight: .infinity)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
+                    #if os(iOS)
+                    messagesPanel
+                    #else
                     HStack(spacing: 0) {
                         channelsPanel
                         Divider()
                         messagesPanel
                     }
+                    #endif
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .navigationTitle("Discussions")
+            #if os(iOS)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        isChannelDrawerPresented = true
+                    } label: {
+                        Label("Channels", systemImage: "sidebar.left")
+                    }
+                }
+            }
+            #endif
         }
         .task {
             await viewModel.loadChannels()
@@ -45,6 +62,12 @@ struct DiscussionView: View {
             composerFocused = true
             #endif
         }
+        #if os(iOS)
+        .sheet(isPresented: $isChannelDrawerPresented) {
+            channelDrawerSheet
+                .presentationDetents([.medium, .large])
+        }
+        #endif
         .onChange(of: viewModel.state.selectedChannelId) { _, _ in
             #if os(macOS)
             DispatchQueue.main.async {
@@ -54,6 +77,22 @@ struct DiscussionView: View {
         }
     }
 
+    #if os(iOS)
+    private var channelDrawerSheet: some View {
+        NavigationStack {
+            channelsPanel
+                .navigationTitle("Channels")
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") {
+                            isChannelDrawerPresented = false
+                        }
+                    }
+                }
+        }
+    }
+    #endif
+
     private var channelsPanel: some View {
         VStack(alignment: .leading, spacing: 10) {
             ScrollView {
@@ -62,6 +101,9 @@ struct DiscussionView: View {
                         HStack(spacing: 8) {
                             Button {
                                 Task { await viewModel.selectChannel(channel.id) }
+                                #if os(iOS)
+                                isChannelDrawerPresented = false
+                                #endif
                             } label: {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(channel.displayName)
@@ -120,7 +162,12 @@ struct DiscussionView: View {
             }
         }
         .padding(12)
+        .frame(maxHeight: .infinity, alignment: .top)
+        #if os(iOS)
+        .frame(maxWidth: .infinity)
+        #else
         .frame(width: 280)
+        #endif
         .background(Branding.surface)
     }
 

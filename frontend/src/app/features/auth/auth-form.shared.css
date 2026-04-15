@@ -1,9 +1,11 @@
 .auth-shell {
-  min-height: calc(100vh - var(--topbar-h, 3.5rem));
+  min-height: calc(100vh - var(--topbar-h, 3.5rem) - env(safe-area-inset-top));
+  min-height: calc(100svh - var(--topbar-h, 3.5rem) - env(safe-area-inset-top));
+  min-height: calc(100dvh - var(--topbar-h, 3.5rem) - env(safe-area-inset-top));
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem 1rem;
+  padding: calc(1.25rem + env(safe-area-inset-top)) 1rem calc(1.25rem + env(safe-area-inset-bottom));
   background: transparent;
 }
 

@@ -1,3 +1,4 @@
+#if canImport(AppKit)
 import Foundation
 import AppKit
 
@@ -239,3 +240,7 @@ final class MacOSWindowingAdapter: WindowingAdapter {
         NotificationCenter.default.removeObserver(self)
     }
 }
+#else
+// AppKit is not available on this platform; MacOSWindowingAdapter is excluded from compilation.
+#endif
+

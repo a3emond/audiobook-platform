@@ -1,3 +1,4 @@
+#if canImport(AppKit)
 import Foundation
 import AppKit
 import Combine
@@ -282,3 +283,6 @@ final class MacMenuCommandsAdapter: KeyboardCommandsAdapter {
     }
 }
 
+#else
+// AppKit is not available on this platform; MacMenuCommandsAdapter is excluded from compilation.
+#endif

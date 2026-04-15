@@ -91,13 +91,19 @@ final class IOSAudioSessionAdapter: AudioSessionAdapter {
 
     @objc
     private func handleAudioSessionInterruption(_ notification: Notification) {
-          guard let userInfo = notification.userInfo,
-              let typeRaw = userInfo[AVAudioSession.interruptionTypeKey] as? UInt,
-              let rawType = AVAudioSession.InterruptionType(rawValue: typeRaw) else {
+        guard let userInfo = notification.userInfo else {
             return
         }
 
-          let type: AudioSessionInterruptionType = (rawType == .began) ? .began : .ended
+        let typeRaw = (userInfo[AVAudioSessionInterruptionTypeKey] as? UInt)
+            ?? (userInfo[AVAudioSessionInterruptionTypeKey] as? NSNumber)?.uintValue
+
+        guard let typeRaw,
+            let rawType = AVAudioSession.InterruptionType(rawValue: typeRaw) else {
+            return
+        }
+
+        let type: AudioSessionInterruptionType = rawType == .began ? .began : .ended
 
         _ = handleAudioInterruption(of: type)
     }

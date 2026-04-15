@@ -96,6 +96,7 @@ struct LibraryView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .task {
             await viewModel.loadLibrary()
         }
