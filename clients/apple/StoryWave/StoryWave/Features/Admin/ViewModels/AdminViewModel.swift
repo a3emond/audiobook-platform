@@ -2,9 +2,12 @@ import Foundation
 import AudiobookCore
 import Combine
 import SwiftUI
+import OSLog
 
 @MainActor
 final class AdminViewModel: ObservableObject {
+    private let logger = Logger(subsystem: "pro.aedev.StoryWave", category: "AdminViewModel")
+
     // MARK: Published State
 
     @Published private(set) var isLoading = false
@@ -17,6 +20,17 @@ final class AdminViewModel: ObservableObject {
     @Published private(set) var jobs: [AdminJobDTO] = []
     @Published private(set) var jobsTotal: Int = 0
     @Published private(set) var users: [AdminUserDTO] = []
+    @Published private(set) var usersTotal: Int = 0
+    @Published private(set) var isLoadingUsers = false
+    @Published var usersQuery: String = ""
+    @Published var usersRoleFilter: String = ""
+    @Published var selectedUser: AdminUserDTO?
+    @Published private(set) var selectedUserSessions: [AdminUserSessionDTO] = []
+    @Published private(set) var selectedUserSessionsTotal: Int = 0
+    @Published private(set) var isLoadingSelectedUserSessions = false
+    @Published private(set) var userRoleUpdateInFlightUserID: String?
+    @Published private(set) var isRevokingSelectedUserSessions = false
+    @Published private(set) var userManagementMessage: String?
     @Published private(set) var isUploading = false
     @Published private(set) var lastUploadedJobId: String?
     @Published var uploadLanguage = "en"
@@ -72,6 +86,7 @@ final class AdminViewModel: ObservableObject {
     @Published var jobLogsAutoRefresh = false
     private var autoRefreshTask: Task<Void, Never>?
     private var jobLogsOffset: Int = 0
+    private var latestJobLogsRequestID = UUID()
 
     @Published var selectedPanel: AdminPanel = .overview
 
@@ -121,6 +136,16 @@ final class AdminViewModel: ObservableObject {
         booksFilterSeries = ""
     }
 
+    var hasUserFilters: Bool {
+        !usersQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+        !usersRoleFilter.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    func clearUserFilters() {
+        usersQuery = ""
+        usersRoleFilter = ""
+    }
+
     // MARK: Dependencies
 
     private let repository: AdminRepository
@@ -155,7 +180,7 @@ final class AdminViewModel: ObservableObject {
         } catch {
             errorMessage = "Could not load jobs."
         }
-        do { users = try await repository.listUsers(role: nil, limit: 20, offset: 0).users } catch {}
+        await loadUsers()
         do {
             let settings = try await repository.getWorkerSettings()
             applyWorkerSettings(settings)
@@ -214,44 +239,68 @@ final class AdminViewModel: ObservableObject {
     // MARK: - Job Logs
 
     func selectJob(_ job: AdminJobDTO) {
+        latestJobLogsRequestID = UUID()
         selectedJob = job
         jobLogs = []
         jobLogsOffset = 0
         jobLogsTotal = 0
         jobLogsErrorMessage = nil
+        isLoadingLogs = false
         stopAutoRefresh()
         Task { await loadJobLogs() }
     }
 
     func deselectJob() {
+        latestJobLogsRequestID = UUID()
         selectedJob = nil
         jobLogs = []
         jobLogsTotal = 0
         jobLogsOffset = 0
         jobLogsErrorMessage = nil
+        isLoadingLogs = false
         setAutoRefresh(false)
     }
 
     func loadJobLogs() async {
         guard let job = selectedJob else { return }
+        let requestID = UUID()
+        latestJobLogsRequestID = requestID
+        let requestJobID = job.id
+        let requestOffset = jobLogsOffset
+
         isLoadingLogs = true
         jobLogsErrorMessage = nil
         do {
             let level = jobLogsLevel.isEmpty ? nil : jobLogsLevel
-            let result = try await repository.getJobLogs(jobId: job.id, level: level, limit: 100, offset: jobLogsOffset)
-            if jobLogsOffset == 0 {
+            let result = try await repository.getJobLogs(jobId: requestJobID, level: level, limit: 100, offset: requestOffset)
+
+            guard latestJobLogsRequestID == requestID, selectedJob?.id == requestJobID else {
+                return
+            }
+
+            if requestOffset == 0 {
                 jobLogs = result.logs
             } else {
                 jobLogs.append(contentsOf: result.logs)
             }
             jobLogsTotal = result.total
         } catch {
-            if jobLogsOffset == 0 {
+            guard latestJobLogsRequestID == requestID, selectedJob?.id == requestJobID else {
+                return
+            }
+
+            if requestOffset == 0 {
                 jobLogs = []
                 jobLogsTotal = 0
             }
-            jobLogsErrorMessage = "Could not load job logs."
+            jobLogsErrorMessage = makeRequestErrorMessage(error, fallback: "Could not load job logs")
+            logger.error("Failed to load job logs for job \(requestJobID, privacy: .public): \(String(describing: error), privacy: .public)")
         }
+
+        guard latestJobLogsRequestID == requestID, selectedJob?.id == requestJobID else {
+            return
+        }
+
         isLoadingLogs = false
     }
 
@@ -288,6 +337,30 @@ final class AdminViewModel: ObservableObject {
     private func stopAutoRefresh() {
         autoRefreshTask?.cancel()
         autoRefreshTask = nil
+    }
+
+    private func makeRequestErrorMessage(_ error: Error, fallback: String) -> String {
+        switch error {
+        case APIClientError.httpError(let code, let message):
+            let serverMessage = extractServerMessage(from: message)
+            return "\(fallback) (\(code)): \(serverMessage)"
+        case is DecodingError:
+            return "\(fallback): invalid server response"
+        default:
+            let message = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+            return message.isEmpty ? fallback : "\(fallback): \(message)"
+        }
+    }
+
+    private func extractServerMessage(from rawMessage: String) -> String {
+        guard let data = rawMessage.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let message = object["message"] as? String,
+              !message.isEmpty else {
+            return rawMessage
+        }
+
+        return message
     }
 
     // MARK: - Worker Settings
@@ -547,18 +620,127 @@ final class AdminViewModel: ObservableObject {
 
     // MARK: - Users
 
-    func promoteUser(_ user: AdminUserDTO) async {
+    func loadUsers() async {
+        isLoadingUsers = true
+
         do {
-            let updated = try await repository.updateUserRole(userId: user.id, role: "admin")
-            if let idx = users.firstIndex(where: { $0.id == updated.id }) {
-                users[idx] = updated
+            let page = try await repository.listUsers(
+                query: usersQuery.nilIfEmpty,
+                role: usersRoleFilter.nilIfEmpty,
+                limit: 50,
+                offset: 0
+            )
+            users = page.users
+            usersTotal = page.total
+
+            if let selectedUser {
+                if let refreshedUser = page.users.first(where: { $0.id == selectedUser.id }) {
+                    self.selectedUser = refreshedUser
+                } else {
+                    clearSelectedUser()
+                }
             }
         } catch {
-            errorMessage = "Could not update user role."
+            errorMessage = makeRequestErrorMessage(error, fallback: "Could not load users")
+        }
+
+        isLoadingUsers = false
+    }
+
+    func selectUser(_ user: AdminUserDTO) {
+        guard selectedUser?.id != user.id else { return }
+        selectedUser = user
+        selectedUserSessions = []
+        selectedUserSessionsTotal = 0
+        userManagementMessage = nil
+        Task { await loadSelectedUserSessions() }
+    }
+
+    func clearSelectedUser() {
+        selectedUser = nil
+        selectedUserSessions = []
+        selectedUserSessionsTotal = 0
+        isLoadingSelectedUserSessions = false
+        isRevokingSelectedUserSessions = false
+    }
+
+    func refreshSelectedUser() async {
+        guard let selectedUser else { return }
+
+        do {
+            let refreshedUser = try await repository.getUser(userId: selectedUser.id)
+            updateUserInCollections(refreshedUser)
+            self.selectedUser = refreshedUser
+        } catch {
+            userManagementMessage = makeRequestErrorMessage(error, fallback: "Could not refresh user details")
         }
     }
 
+    func loadSelectedUserSessions() async {
+        guard let selectedUser else { return }
+
+        isLoadingSelectedUserSessions = true
+        do {
+            let page = try await repository.listUserSessions(userId: selectedUser.id, limit: 50, offset: 0)
+            guard self.selectedUser?.id == selectedUser.id else { return }
+            selectedUserSessions = page.sessions
+            selectedUserSessionsTotal = page.total
+        } catch {
+            guard self.selectedUser?.id == selectedUser.id else { return }
+            selectedUserSessions = []
+            selectedUserSessionsTotal = 0
+            userManagementMessage = makeRequestErrorMessage(error, fallback: "Could not load user sessions")
+        }
+
+        guard self.selectedUser?.id == selectedUser.id else { return }
+        isLoadingSelectedUserSessions = false
+    }
+
+    func setUserRole(_ user: AdminUserDTO, role: String) async {
+        guard user.role != role else { return }
+
+        userRoleUpdateInFlightUserID = user.id
+        userManagementMessage = nil
+        do {
+            let updated = try await repository.updateUserRole(userId: user.id, role: role)
+            updateUserInCollections(updated)
+            userManagementMessage = role == "admin"
+                ? "Granted admin access to \(updated.email)."
+                : "Removed admin access from \(updated.email)."
+        } catch {
+            userManagementMessage = makeRequestErrorMessage(error, fallback: "Could not update user role")
+        }
+
+        userRoleUpdateInFlightUserID = nil
+    }
+
+    func revokeSelectedUserSessions() async {
+        guard let selectedUser else { return }
+
+        isRevokingSelectedUserSessions = true
+        userManagementMessage = nil
+        do {
+            let response = try await repository.revokeUserSessions(userId: selectedUser.id)
+            userManagementMessage = "Revoked \(response.revoked) sessions for \(selectedUser.email)."
+            await loadSelectedUserSessions()
+        } catch {
+            userManagementMessage = makeRequestErrorMessage(error, fallback: "Could not revoke user sessions")
+        }
+
+        isRevokingSelectedUserSessions = false
+    }
+
     func setTransientError(_ message: String) { errorMessage = message }
+
+    private func updateUserInCollections(_ updated: AdminUserDTO) {
+        if let idx = users.firstIndex(where: { $0.id == updated.id }) {
+            users[idx] = updated
+        }
+
+        if selectedUser?.id == updated.id {
+            selectedUser = updated
+        }
+    }
 
     private func mimeTypeForExtension(_ ext: String) -> String {
         switch ext.lowercased() {
@@ -590,5 +772,12 @@ final class AdminViewModel: ObservableObject {
         }
 
         return lhs.id < rhs.id
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

@@ -1,66 +1,159 @@
-    <div class="admin-page">
-      <h1>Admin Users</h1>
-
-      <form class="filters" (ngSubmit)="reload()">
-        <input name="q" [(ngModel)]="q" placeholder="Search email/display name" />
-        <select name="role" [(ngModel)]="roleFilter">
-          <option value="">All roles</option>
-          <option value="admin">Admin</option>
-          <option value="user">User</option>
-        </select>
-        <button type="submit" class="btn-action">Search</button>
-      </form>
-
-      <p *ngIf="loading()">Loading users...</p>
-      <p *ngIf="error()" class="error">{{ error() }}</p>
-      <p *ngIf="success()" class="success">{{ success() }}</p>
-
-      <table *ngIf="users().length > 0" class="admin-table">
-        <thead>
-          <tr><th>Email</th><th>Display Name</th><th>Role</th><th>Actions</th></tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let user of users()">
-            <td>{{ user.email }}</td>
-            <td>{{ user.profile.displayName || '-' }}</td>
-            <td>{{ user.role }}</td>
-            <td>
-              <button type="button" class="btn-action" (click)="toggleRole(user)">
-                Make {{ user.role === 'admin' ? 'User' : 'Admin' }}
-              </button>
-              <button type="button" class="btn-action" (click)="loadSessions(user)">Sessions</button>
-              <button type="button" class="btn-action" (click)="revokeSessions(user)">Revoke Sessions</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div *ngIf="!loading() && usersTotal() > 0" class="pagination-bar">
-        <button type="button" class="btn-action" (click)="usersPrevPage()" [disabled]="usersOffset() === 0">← Prev</button>
-        <span>Page {{ usersCurrentPage() }} of {{ usersTotalPages() }} ({{ usersTotal() }} total)</span>
-        <button type="button" class="btn-action" (click)="usersNextPage()" [disabled]="!usersHasMore()">Next →</button>
+    <div class="admin-users-page">
+      <div class="page-header">
+        <div>
+          <h1>Admin Users</h1>
+          <p>Search accounts, change access, and inspect active sessions.</p>
+        </div>
+        <div class="header-stats">{{ usersTotal() }} total users</div>
       </div>
 
-      <section *ngIf="selectedUser()" class="sessions">
-        <h2>Sessions for {{ selectedUser()?.email }}</h2>
-        <p *ngIf="sessionsLoading()">Loading sessions...</p>
-        <table *ngIf="sessions().length > 0" class="admin-table">
-          <thead>
-            <tr><th>Device</th><th>IP</th><th>Last Used</th><th>Expires</th></tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let session of sessions()">
-              <td>{{ session.device || '-' }}</td>
-              <td>{{ session.ip || '-' }}</td>
-              <td>{{ session.lastUsedAt }}</td>
-              <td>{{ session.expiresAt }}</td>
-            </tr>
-          </tbody>
-        </table>
-        <div *ngIf="!sessionsLoading() && sessionsTotal() > 0" class="pagination-bar">
-          <button type="button" class="btn-action" (click)="sessionsPrevPage()" [disabled]="sessionsOffset() === 0">← Prev</button>
-          <span>Page {{ sessionsCurrentPage() }} of {{ sessionsTotalPages() }} ({{ sessionsTotal() }} total)</span>
-          <button type="button" class="btn-action" (click)="sessionsNextPage()" [disabled]="!sessionsHasMore()">Next →</button>
-        </div>
-      </section>
+      <form class="filters" (ngSubmit)="reload()">
+        <input name="q" [(ngModel)]="q" placeholder="Search email or display name" />
+        <select name="role" [(ngModel)]="roleFilter">
+          <option value="">All roles</option>
+          <option value="admin">Admins</option>
+          <option value="user">Users</option>
+        </select>
+        <button type="submit" class="btn-action primary">Apply</button>
+      </form>
+
+      <p *ngIf="error()" class="banner error">{{ error() }}</p>
+      <p *ngIf="success()" class="banner success">{{ success() }}</p>
+
+      <div class="users-layout">
+        <section class="users-roster card">
+          <div class="section-header">
+            <h2>Roster</h2>
+            <span *ngIf="loading()">Loading...</span>
+          </div>
+
+          <div *ngIf="users().length === 0 && !loading()" class="empty-state">
+            No matching users found.
+          </div>
+
+          <table *ngIf="users().length > 0" class="admin-table">
+            <thead>
+              <tr><th>User</th><th>Role</th><th>Locale</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              <tr
+                *ngFor="let user of users()"
+                [class.selected]="selectedUser()?.id === user.id"
+              >
+                <td>
+                  <button type="button" class="user-cell" (click)="loadSessions(user)">
+                    <span class="user-name">{{ displayName(user) }}</span>
+                    <span class="user-email">{{ user.email }}</span>
+                  </button>
+                </td>
+                <td>
+                  <span class="role-badge" [class.admin]="user.role === 'admin'">{{ user.role }}</span>
+                </td>
+                <td>{{ user.profile.preferredLocale || '-' }}</td>
+                <td class="actions-cell">
+                  <button
+                    type="button"
+                    class="btn-action"
+                    (click)="toggleRole(user)"
+                    [disabled]="roleActionBusy(user)"
+                  >
+                    {{ roleActionBusy(user) ? 'Saving...' : roleActionLabel(user) }}
+                  </button>
+                  <button type="button" class="btn-action" (click)="loadSessions(user)">Inspect</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div *ngIf="!loading() && usersTotal() > 0" class="pagination-bar">
+            <button type="button" class="btn-action" (click)="usersPrevPage()" [disabled]="usersOffset() === 0">← Prev</button>
+            <span>Page {{ usersCurrentPage() }} of {{ usersTotalPages() }}</span>
+            <button type="button" class="btn-action" (click)="usersNextPage()" [disabled]="!usersHasMore()">Next →</button>
+          </div>
+        </section>
+
+        <section class="user-detail card" *ngIf="selectedUser() as user; else noUserSelected">
+          <div class="section-header">
+            <div>
+              <h2>{{ displayName(user) }}</h2>
+              <p>{{ user.email }}</p>
+            </div>
+            <button type="button" class="btn-action" (click)="clearSelectedUser()">Close</button>
+          </div>
+
+          <div class="detail-grid">
+            <div class="detail-block">
+              <span class="detail-label">Role</span>
+              <span class="role-badge" [class.admin]="user.role === 'admin'">{{ user.role }}</span>
+            </div>
+            <div class="detail-block">
+              <span class="detail-label">Locale</span>
+              <span>{{ user.profile.preferredLocale || '-' }}</span>
+            </div>
+            <div class="detail-block">
+              <span class="detail-label">Created</span>
+              <span>{{ user.createdAt ? (user.createdAt | date:'medium') : '-' }}</span>
+            </div>
+            <div class="detail-block">
+              <span class="detail-label">Updated</span>
+              <span>{{ user.updatedAt ? (user.updatedAt | date:'medium') : '-' }}</span>
+            </div>
+          </div>
+
+          <div class="detail-actions">
+            <button
+              type="button"
+              class="btn-action primary"
+              (click)="toggleRole(user)"
+              [disabled]="roleActionBusy(user)"
+            >
+              {{ roleActionBusy(user) ? 'Saving...' : roleActionLabel(user) }}
+            </button>
+            <button
+              type="button"
+              class="btn-action danger"
+              (click)="revokeSessions(user)"
+              [disabled]="revokeBusy(user)"
+            >
+              {{ revokeBusy(user) ? 'Revoking...' : 'Revoke Sessions' }}
+            </button>
+          </div>
+
+          <div class="sessions-panel">
+            <div class="section-header compact">
+              <h3>Sessions</h3>
+              <span>{{ sessionsTotal() }} total</span>
+            </div>
+
+            <p *ngIf="sessionsLoading()" class="muted">Loading sessions...</p>
+            <div *ngIf="!sessionsLoading() && sessions().length === 0" class="empty-state slim">
+              No active sessions for this user.
+            </div>
+
+            <div *ngIf="sessions().length > 0" class="session-list">
+              <article class="session-card" *ngFor="let session of sessions()">
+                <div class="session-header">
+                  <strong>{{ session.device || 'Unknown device' }}</strong>
+                  <span>{{ session.lastUsedAt | date:'short' }}</span>
+                </div>
+                <p class="session-meta">{{ session.ip || 'No IP' }}</p>
+                <p class="session-meta" *ngIf="session.userAgent">{{ session.userAgent }}</p>
+                <p class="session-meta">Expires {{ session.expiresAt | date:'short' }}</p>
+              </article>
+            </div>
+
+            <div *ngIf="!sessionsLoading() && sessionsTotal() > 0" class="pagination-bar">
+              <button type="button" class="btn-action" (click)="sessionsPrevPage()" [disabled]="sessionsOffset() === 0">← Prev</button>
+              <span>Page {{ sessionsCurrentPage() }} of {{ sessionsTotalPages() }}</span>
+              <button type="button" class="btn-action" (click)="sessionsNextPage()" [disabled]="!sessionsHasMore()">Next →</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <ng-template #noUserSelected>
+        <section class="user-detail card empty-state">
+          Select a user to inspect role and sessions.
+        </section>
+      </ng-template>
     </div>

@@ -1,5 +1,81 @@
 import Foundation
 
+private enum JSONValue: Codable {
+    case string(String)
+    case number(Double)
+    case bool(Bool)
+    case object([String: JSONValue])
+    case array([JSONValue])
+    case null
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+
+        if container.decodeNil() {
+            self = .null
+        } else if let value = try? container.decode(String.self) {
+            self = .string(value)
+        } else if let value = try? container.decode(Bool.self) {
+            self = .bool(value)
+        } else if let value = try? container.decode(Double.self) {
+            self = .number(value)
+        } else if let value = try? container.decode([String: JSONValue].self) {
+            self = .object(value)
+        } else if let value = try? container.decode([JSONValue].self) {
+            self = .array(value)
+        } else {
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unsupported JSON value")
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+
+        switch self {
+        case .string(let value):
+            try container.encode(value)
+        case .number(let value):
+            try container.encode(value)
+        case .bool(let value):
+            try container.encode(value)
+        case .object(let value):
+            try container.encode(value)
+        case .array(let value):
+            try container.encode(value)
+        case .null:
+            try container.encodeNil()
+        }
+    }
+
+    var displayString: String? {
+        switch self {
+        case .string(let value):
+            return value
+        case .number(let value):
+            return value.formatted()
+        case .bool(let value):
+            return value ? "true" : "false"
+        case .object(let value):
+            return JSONValue.serializedString(from: value)
+        case .array(let value):
+            return JSONValue.serializedString(from: value)
+        case .null:
+            return nil
+        }
+    }
+
+    private static func serializedString<T: Encodable>(from value: T) -> String? {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+
+        guard let data = try? encoder.encode(value) else {
+            return nil
+        }
+
+        return String(data: data, encoding: .utf8)
+    }
+}
+
 public struct AdminOverviewDTO: Decodable, Sendable {
     public struct CountsDTO: Decodable, Sendable {
         public let users: Int
@@ -148,6 +224,23 @@ public struct JobLogDTO: Decodable, Sendable {
     public let context: String?
     public let duration: Double?
 
+    private enum CodingKeys: String, CodingKey {
+        case timestamp
+        case level
+        case message
+        case context
+        case duration
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        timestamp = try container.decode(String.self, forKey: .timestamp)
+        level = try container.decode(String.self, forKey: .level)
+        message = try container.decode(String.self, forKey: .message)
+        duration = try container.decodeIfPresent(Double.self, forKey: .duration)
+        context = try container.decodeIfPresent(JSONValue.self, forKey: .context)?.displayString
+    }
+
     public var id: String { timestamp + message }
 }
 
@@ -207,6 +300,7 @@ public struct AdminUsersPageDTO: Decodable, Sendable {
     public let total: Int
     public let limit: Int
     public let offset: Int
+    public let hasMore: Bool?
 }
 
 public struct AdminUpdateUserRoleDTO: Encodable, Sendable {
@@ -215,4 +309,28 @@ public struct AdminUpdateUserRoleDTO: Encodable, Sendable {
     public init(role: String) {
         self.role = role
     }
+}
+
+public struct AdminUserSessionDTO: Codable, Identifiable, Sendable {
+    public let id: String
+    public let userId: String
+    public let device: String?
+    public let ip: String?
+    public let userAgent: String?
+    public let expiresAt: String
+    public let lastUsedAt: String
+    public let createdAt: String?
+    public let updatedAt: String?
+}
+
+public struct AdminUserSessionsPageDTO: Decodable, Sendable {
+    public let sessions: [AdminUserSessionDTO]
+    public let total: Int
+    public let limit: Int
+    public let offset: Int
+    public let hasMore: Bool?
+}
+
+public struct AdminRevokeSessionsResponseDTO: Decodable, Sendable {
+    public let revoked: Int
 }

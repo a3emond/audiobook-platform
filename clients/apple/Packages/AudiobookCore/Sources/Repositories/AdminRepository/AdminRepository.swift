@@ -17,8 +17,11 @@ public protocol AdminRepository {
     func enqueueJob(type: String, force: Bool?) async throws -> AdminJobDTO
     func getWorkerSettings() async throws -> WorkerSettingsDTO
     func updateWorkerSettings(_ payload: UpdateWorkerSettingsPayloadDTO) async throws -> WorkerSettingsDTO
-    func listUsers(role: String?, limit: Int, offset: Int) async throws -> AdminUsersPageDTO
+    func listUsers(query: String?, role: String?, limit: Int, offset: Int) async throws -> AdminUsersPageDTO
+    func getUser(userId: String) async throws -> AdminUserDTO
     func updateUserRole(userId: String, role: String) async throws -> AdminUserDTO
+    func listUserSessions(userId: String, limit: Int, offset: Int) async throws -> AdminUserSessionsPageDTO
+    func revokeUserSessions(userId: String) async throws -> AdminRevokeSessionsResponseDTO
 }
 
 public final class AdminRepositoryImpl: AdminRepository {
@@ -127,13 +130,27 @@ public final class AdminRepositoryImpl: AdminRepository {
         try await authService.authenticatedPatch(path: "api/v1/admin/worker-settings", body: payload)
     }
 
-    public func listUsers(role: String?, limit: Int, offset: Int) async throws -> AdminUsersPageDTO {
+    public func listUsers(query: String?, role: String?, limit: Int, offset: Int) async throws -> AdminUsersPageDTO {
         var params: [String: String] = ["limit": String(limit), "offset": String(offset)]
+        if let query, !query.isEmpty { params["q"] = query }
         if let role, !role.isEmpty { params["role"] = role }
         return try await authService.authenticatedGet(path: "api/v1/admin/users", queryParams: params)
     }
 
+    public func getUser(userId: String) async throws -> AdminUserDTO {
+        try await authService.authenticatedGet(path: "api/v1/admin/users/\(userId)")
+    }
+
     public func updateUserRole(userId: String, role: String) async throws -> AdminUserDTO {
         try await authService.authenticatedPatch(path: "api/v1/admin/users/\(userId)/role", body: AdminUpdateUserRoleDTO(role: role))
+    }
+
+    public func listUserSessions(userId: String, limit: Int, offset: Int) async throws -> AdminUserSessionsPageDTO {
+        let params: [String: String] = ["limit": String(limit), "offset": String(offset)]
+        return try await authService.authenticatedGet(path: "api/v1/admin/users/\(userId)/sessions", queryParams: params)
+    }
+
+    public func revokeUserSessions(userId: String) async throws -> AdminRevokeSessionsResponseDTO {
+        try await authService.authenticatedDeleteJSON(path: "api/v1/admin/users/\(userId)/sessions")
     }
 }

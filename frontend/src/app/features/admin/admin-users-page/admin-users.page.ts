@@ -32,6 +32,8 @@ export class AdminUsersPage implements OnInit {
   readonly sessionsLoading = signal(false);
   readonly error = signal<string | null>(null);
   readonly success = signal<string | null>(null);
+  readonly roleUpdateUserId = signal<string | null>(null);
+  readonly revokeUserId = signal<string | null>(null);
 
   readonly usersOffset = signal(0);
   readonly usersTotal = signal(0);
@@ -46,6 +48,7 @@ export class AdminUsersPage implements OnInit {
   }
 
   reload(): void {
+    this.success.set(null);
     this.usersOffset.set(0);
     this.loadUsersPage(0);
   }
@@ -67,6 +70,18 @@ export class AdminUsersPage implements OnInit {
           this.usersTotal.set(response.total);
           this.usersHasMore.set(response.hasMore);
           this.usersOffset.set(offset);
+
+          const selected = this.selectedUser();
+          if (selected) {
+            const refreshed = response.users.find((user) => user.id === selected.id) ?? null;
+            this.selectedUser.set(refreshed);
+            if (!refreshed) {
+              this.sessions.set([]);
+              this.sessionsTotal.set(0);
+              this.sessionsHasMore.set(false);
+            }
+          }
+
           this.loading.set(false);
         },
         error: (error: unknown) => {
@@ -97,22 +112,47 @@ export class AdminUsersPage implements OnInit {
 
   toggleRole(user: AdminUser): void {
     const nextRole: 'admin' | 'user' = user.role === 'admin' ? 'user' : 'admin';
+    const confirmed = confirm(`Change ${user.email} to ${nextRole}?`);
+    if (!confirmed) {
+      return;
+    }
 
+    this.roleUpdateUserId.set(user.id);
+    this.error.set(null);
+    this.success.set(null);
     this.admin.updateUserRole(user.id, nextRole).subscribe({
-      next: () => {
+      next: (updated) => {
+        this.roleUpdateUserId.set(null);
+        this.users.update((users) => users.map((entry) => (entry.id === updated.id ? updated : entry)));
+        if (this.selectedUser()?.id === updated.id) {
+          this.selectedUser.set(updated);
+        }
         this.success.set(`Updated ${user.email} to ${nextRole}`);
-        this.reload();
+
+        if (this.roleFilter && updated.role !== this.roleFilter) {
+          this.reload();
+        }
       },
       error: (error: unknown) => {
+        this.roleUpdateUserId.set(null);
         this.error.set(error instanceof Error ? error.message : 'Unable to update role');
       },
     });
   }
 
   loadSessions(user: AdminUser): void {
+    this.error.set(null);
     this.selectedUser.set(user);
     this.sessionsOffset.set(0);
     this.loadSessionsPage(user, 0);
+  }
+
+  clearSelectedUser(): void {
+    this.selectedUser.set(null);
+    this.sessions.set([]);
+    this.sessionsTotal.set(0);
+    this.sessionsHasMore.set(false);
+    this.sessionsOffset.set(0);
   }
 
   private loadSessionsPage(user: AdminUser, offset: number): void {
@@ -160,8 +200,12 @@ export class AdminUsersPage implements OnInit {
       return;
     }
 
+    this.revokeUserId.set(user.id);
+    this.error.set(null);
+    this.success.set(null);
     this.admin.revokeUserSessions(user.id).subscribe({
       next: (response) => {
+        this.revokeUserId.set(null);
         this.success.set(`Revoked ${response.revoked} sessions for ${user.email}`);
         if (this.selectedUser()?.id === user.id) {
           this.sessions.set([]);
@@ -170,8 +214,25 @@ export class AdminUsersPage implements OnInit {
         }
       },
       error: (error: unknown) => {
+        this.revokeUserId.set(null);
         this.error.set(error instanceof Error ? error.message : 'Unable to revoke sessions');
       },
     });
+  }
+
+  displayName(user: AdminUser): string {
+    return user.profile.displayName?.trim() || user.email;
+  }
+
+  roleActionLabel(user: AdminUser): string {
+    return user.role === 'admin' ? 'Make User' : 'Make Admin';
+  }
+
+  roleActionBusy(user: AdminUser): boolean {
+    return this.roleUpdateUserId() === user.id;
+  }
+
+  revokeBusy(user: AdminUser): boolean {
+    return this.revokeUserId() === user.id;
   }
 }

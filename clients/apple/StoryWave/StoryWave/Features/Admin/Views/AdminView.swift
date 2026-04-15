@@ -10,6 +10,10 @@ struct AdminView: View {
     @State private var isUploadPickerPresented = false
     @State private var isCoverPickerPresented = false
     @State private var pendingDeleteBook: BookDTO?
+    @State private var selectedJobID: String?
+    @State private var selectedUserID: String?
+    @State private var pendingUserRoleChange: PendingUserRoleChange?
+    @State private var pendingSessionRevocationUser: AdminUserDTO?
 
     var body: some View {
         NavigationStack {
@@ -20,6 +24,7 @@ struct AdminView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .labelsHidden()
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
                 .padding(.bottom, 8)
@@ -153,16 +158,7 @@ struct AdminView: View {
                 ContentUnavailableView("No jobs", systemImage: "tray",
                     description: Text("Uploads and worker tasks will appear here."))
             } else {
-                List(selection: Binding(
-                    get: { viewModel.selectedJob?.id },
-                    set: { id in
-                        if let id, let job = viewModel.jobs.first(where: { $0.id == id }) {
-                            viewModel.selectJob(job)
-                        } else {
-                            viewModel.deselectJob()
-                        }
-                    }
-                )) {
+                List(selection: $selectedJobID) {
                     ForEach(viewModel.jobs) { job in
                         jobRow(job)
                             .tag(job.id)
@@ -177,6 +173,24 @@ struct AdminView: View {
                 }
                 .listStyle(.plain)
                 .frame(maxHeight: .infinity)
+                .onAppear {
+                    selectedJobID = viewModel.selectedJob?.id
+                }
+                .onChange(of: selectedJobID) { _, id in
+                    guard id != viewModel.selectedJob?.id else { return }
+
+                    Task { @MainActor in
+                        if let id, let job = viewModel.jobs.first(where: { $0.id == id }) {
+                            viewModel.selectJob(job)
+                        } else {
+                            viewModel.deselectJob()
+                        }
+                    }
+                }
+                .onChange(of: viewModel.selectedJob?.id) { _, id in
+                    guard selectedJobID != id else { return }
+                    selectedJobID = id
+                }
             }
         }
         .frame(maxHeight: .infinity, alignment: .top)
@@ -292,6 +306,7 @@ struct AdminView: View {
                     Text("Error").tag("error")
                 }
                 .frame(width: 110)
+                .labelsHidden()
                 .onChange(of: viewModel.jobLogsLevel) { _, _ in
                     Task { await viewModel.refreshLogs() }
                 }
@@ -723,30 +738,345 @@ struct AdminView: View {
 
     private var usersPanel: some View {
         Group {
+            #if os(macOS)
+            HSplitView {
+                usersListColumn
+                    .frame(minWidth: 320, idealWidth: 380)
+
+                userDetailColumn
+                    .frame(minWidth: 360)
+            }
+            #else
+            VStack(spacing: 0) {
+                usersListColumn
+                Divider()
+                userDetailColumn
+            }
+            #endif
+        }
+        .alert("Change User Role", isPresented: userRoleConfirmationBinding, presenting: pendingUserRoleChange) { change in
+            Button(change.targetRole == "admin" ? "Make Admin" : "Make User", role: change.targetRole == "admin" ? nil : .destructive) {
+                Task { await viewModel.setUserRole(change.user, role: change.targetRole) }
+                pendingUserRoleChange = nil
+            }
+            Button("Cancel", role: .cancel) {
+                pendingUserRoleChange = nil
+            }
+        } message: { change in
+            Text(change.targetRole == "admin"
+                ? "Grant admin access to \"\(change.user.email)\"?"
+                : "Remove admin access from \"\(change.user.email)\"?")
+        }
+        .alert("Revoke Sessions", isPresented: sessionRevocationConfirmationBinding, presenting: pendingSessionRevocationUser) { user in
+            Button("Revoke", role: .destructive) {
+                Task { await viewModel.revokeSelectedUserSessions() }
+                pendingSessionRevocationUser = nil
+            }
+            Button("Cancel", role: .cancel) {
+                pendingSessionRevocationUser = nil
+            }
+        } message: { user in
+            Text("Revoke all active sessions for \"\(user.email)\"? They will be forced to sign in again.")
+        }
+        .onAppear {
+            selectedUserID = viewModel.selectedUser?.id
+        }
+        .onChange(of: viewModel.selectedUser?.id) { _, id in
+            guard selectedUserID != id else { return }
+            selectedUserID = id
+        }
+    }
+
+    private var userRoleConfirmationBinding: Binding<Bool> {
+        Binding(
+            get: { pendingUserRoleChange != nil },
+            set: { isPresented in
+                if !isPresented { pendingUserRoleChange = nil }
+            }
+        )
+    }
+
+    private var sessionRevocationConfirmationBinding: Binding<Bool> {
+        Binding(
+            get: { pendingSessionRevocationUser != nil },
+            set: { isPresented in
+                if !isPresented { pendingSessionRevocationUser = nil }
+            }
+        )
+    }
+
+    private var usersListColumn: some View {
+        VStack(spacing: 0) {
+            usersFilterRow
+                .padding([.horizontal, .top], 12)
+                .padding(.bottom, 8)
+
+            HStack {
+                Text("Users (\(viewModel.usersTotal))")
+                    .font(.headline)
+                Spacer()
+                if viewModel.isLoadingUsers {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+                Button {
+                    Task { await viewModel.loadUsers() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.borderless)
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 8)
+
+            Divider()
+
             if viewModel.users.isEmpty {
-                ContentUnavailableView("No users loaded", systemImage: "person.2",
-                    description: Text("User records will appear here once loaded."))
+                ContentUnavailableView(
+                    viewModel.isLoadingUsers ? "Loading users" : "No users found",
+                    systemImage: "person.2",
+                    description: Text(viewModel.hasUserFilters
+                        ? "Adjust the search or role filter to find a user."
+                        : "User records will appear here once loaded."))
             } else {
-                List(viewModel.users) { user in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(displayName(for: user)).font(.subheadline.weight(.semibold))
-                            Text(user.email).font(.caption).foregroundStyle(.secondary)
-                            Text(user.role).font(.caption2).foregroundStyle(.tertiary)
-                        }
-                        Spacer()
-                        if user.role != "admin" {
-                            Button("Make Admin") {
-                                Task { await viewModel.promoteUser(user) }
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.small)
-                        }
+                List(selection: $selectedUserID) {
+                    ForEach(viewModel.users) { user in
+                        userListRow(user)
+                            .tag(user.id)
                     }
                 }
                 .listStyle(.plain)
+                .onChange(of: selectedUserID) { _, id in
+                    guard id != viewModel.selectedUser?.id else { return }
+
+                    Task { @MainActor in
+                        if let id, let user = viewModel.users.first(where: { $0.id == id }) {
+                            viewModel.selectUser(user)
+                        } else {
+                            viewModel.clearSelectedUser()
+                        }
+                    }
+                }
             }
         }
+    }
+
+    private var usersFilterRow: some View {
+        HStack(spacing: 8) {
+            TextField("Search email or display name", text: $viewModel.usersQuery)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit {
+                    Task { await viewModel.loadUsers() }
+                }
+
+            Picker("Role", selection: $viewModel.usersRoleFilter) {
+                Text("All Roles").tag("")
+                Text("Admins").tag("admin")
+                Text("Users").tag("user")
+            }
+            .frame(width: 140)
+            .labelsHidden()
+
+            Button("Apply") {
+                Task { await viewModel.loadUsers() }
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+
+            if viewModel.hasUserFilters {
+                Button("Clear") {
+                    viewModel.clearUserFilters()
+                    Task { await viewModel.loadUsers() }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+        }
+    }
+
+    private func userListRow(_ user: AdminUserDTO) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(displayName(for: user))
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                Text(user.email)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    userRoleBadge(for: user.role)
+                    if let locale = user.profile?.preferredLocale {
+                        Text(locale.uppercased())
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+            }
+            Spacer(minLength: 8)
+            if userRoleActionTitle(for: user) != nil {
+                Image(systemName: "chevron.right")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var userDetailColumn: some View {
+        VStack(spacing: 0) {
+            if let user = viewModel.selectedUser {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        userSummaryCard(user)
+                        userActionsCard(user)
+                        userSessionsCard(user)
+                    }
+                    .padding(16)
+                }
+            } else {
+                ContentUnavailableView(
+                    "No user selected",
+                    systemImage: "person.crop.square",
+                    description: Text("Select a user to inspect role, identity, and active sessions."))
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private func userSummaryCard(_ user: AdminUserDTO) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(displayName(for: user))
+                        .font(.title3.weight(.semibold))
+                    Text(user.email)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                userRoleBadge(for: user.role)
+            }
+
+            if let message = viewModel.userManagementMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(message.contains("Could") || message.contains("invalid") ? .red : .green)
+            }
+
+            HStack(spacing: 16) {
+                userMetaBlock("Locale", value: user.profile?.preferredLocale?.uppercased() ?? "-")
+                userMetaBlock("Created", value: shortDate(user.createdAt ?? ""))
+                userMetaBlock("Updated", value: shortDate(user.updatedAt ?? ""))
+            }
+        }
+        .padding(14)
+        .background(Branding.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func userActionsCard(_ user: AdminUserDTO) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionHeader("Access")
+
+            HStack(spacing: 8) {
+                if let actionTitle = userRoleActionTitle(for: user), let targetRole = userTargetRole(for: user) {
+                    if targetRole == "admin" {
+                        Button(actionTitle) {
+                            pendingUserRoleChange = PendingUserRoleChange(user: user, targetRole: targetRole)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .disabled(viewModel.userRoleUpdateInFlightUserID == user.id)
+                    } else {
+                        Button(actionTitle) {
+                            pendingUserRoleChange = PendingUserRoleChange(user: user, targetRole: targetRole)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(viewModel.userRoleUpdateInFlightUserID == user.id)
+                    }
+                }
+
+                Button("Refresh") {
+                    Task {
+                        await viewModel.refreshSelectedUser()
+                        await viewModel.loadSelectedUserSessions()
+                    }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+        }
+        .padding(14)
+        .background(Branding.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func userSessionsCard(_ user: AdminUserDTO) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                sectionHeader("Sessions (\(viewModel.selectedUserSessionsTotal))")
+                Spacer()
+                if viewModel.isLoadingSelectedUserSessions {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+                Button("Reload") {
+                    Task { await viewModel.loadSelectedUserSessions() }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
+                Button("Revoke All") {
+                    pendingSessionRevocationUser = user
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(viewModel.selectedUserSessions.isEmpty || viewModel.isRevokingSelectedUserSessions)
+            }
+
+            if viewModel.selectedUserSessions.isEmpty {
+                ContentUnavailableView(
+                    viewModel.isLoadingSelectedUserSessions ? "Loading sessions" : "No active sessions",
+                    systemImage: "desktopcomputer",
+                    description: Text("Active refresh-token sessions for this user will appear here."))
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(viewModel.selectedUserSessions) { session in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(session.device ?? "Unknown device")
+                                    .font(.subheadline.weight(.semibold))
+                                Spacer()
+                                Text(shortDate(session.lastUsedAt))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let userAgent = session.userAgent, !userAgent.isEmpty {
+                                Text(userAgent)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(2)
+                            }
+                            HStack(spacing: 12) {
+                                Text(session.ip ?? "No IP")
+                                Text("Expires \(shortDate(session.expiresAt))")
+                            }
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(10)
+                        .background(Color.white.opacity(0.03))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(Branding.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
     // MARK: - Helpers
@@ -755,12 +1085,55 @@ struct AdminView: View {
         Text(title).font(.headline)
     }
 
+    private func userMetaBlock(_ label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.subheadline.weight(.medium))
+        }
+    }
+
+    private func userRoleBadge(for role: String) -> some View {
+        Text(role.uppercased())
+            .font(.caption2.bold())
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background((role == "admin" ? Color.orange : Color.blue).opacity(0.18))
+            .foregroundStyle(role == "admin" ? Color.orange : Color.blue)
+            .clipShape(Capsule())
+    }
+
+    private func userRoleActionTitle(for user: AdminUserDTO) -> String? {
+        switch user.role {
+        case "admin":
+            return "Make User"
+        case "user":
+            return "Make Admin"
+        default:
+            return nil
+        }
+    }
+
+    private func userTargetRole(for user: AdminUserDTO) -> String? {
+        switch user.role {
+        case "admin":
+            return "user"
+        case "user":
+            return "admin"
+        default:
+            return nil
+        }
+    }
+
     private func displayName(for user: AdminUserDTO) -> String {
         if let name = user.profile?.displayName, !name.isEmpty { return name }
         return user.email
     }
 
     private func shortDate(_ iso: String) -> String {
+        guard !iso.isEmpty else { return "-" }
         if let d = AdminDateFormatters.iso8601WithMillis.date(from: iso) {
             return rel.localizedString(for: d, relativeTo: Date())
         }
@@ -772,6 +1145,13 @@ struct AdminView: View {
         f.unitsStyle = .abbreviated
         return f
     }()
+}
+
+private struct PendingUserRoleChange: Identifiable {
+    let user: AdminUserDTO
+    let targetRole: String
+
+    var id: String { user.id + targetRole }
 }
 
 // MARK: - AdminDateFormatters
