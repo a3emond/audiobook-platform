@@ -25,8 +25,14 @@ public struct UpsertCollectionRequestDTO: Encodable, Sendable {
     }
 }
 
-public struct SeriesDetailDTO: Codable, Sendable {
-    public let series: String
+public struct SeriesDetailDTO: Decodable, Sendable {
+    public let id: String
+    public let name: String
+    public let bookCount: Int
+    public let totalDuration: Int
+    public let authors: [String]
+    public let genres: [String]
+    public let tags: [String]
     public let books: [BookDTO]
 }
 

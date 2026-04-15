@@ -270,39 +270,29 @@ final class LibraryViewModel: ObservableObject {
         } catch {}
     }
 
-    func showSeriesDetail(name: String, books: [BookDTO]) {
-        state.selectedSeriesName = name
-        state.selectedSeriesBooks = books
-    }
-
     func showSeriesDetail(name: String) async {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
-        let localBooks = state.allBooks
-            .filter { ($0.series ?? "").caseInsensitiveCompare(trimmed) == .orderedSame }
-            .sorted { ($0.seriesIndex ?? 0) < ($1.seriesIndex ?? 0) }
-
-        if !localBooks.isEmpty {
-            state.selectedSeriesName = trimmed
-            state.selectedSeriesBooks = localBooks
-        }
+        state.isLoading = true
+        defer { state.isLoading = false }
 
         do {
-            let detail = try await repository.seriesDetail(name: trimmed)
+            let detail = try await repository.seriesDetail(name: trimmed, language: localization.locale)
             let sorted = detail.books.sorted { ($0.seriesIndex ?? 0) < ($1.seriesIndex ?? 0) }
 
-            state.selectedSeriesName = detail.series
+            state.selectedSeriesName = detail.name
             state.selectedSeriesBooks = sorted
+            state.errorMessage = nil
 
             for book in sorted {
                 bookDetailsCache[book.id] = book
             }
             refreshSnapshotCache()
         } catch {
-            if localBooks.isEmpty {
-                state.errorMessage = "Could not load series details."
-            }
+            state.selectedSeriesName = nil
+            state.selectedSeriesBooks = []
+            state.errorMessage = "Could not load series details."
         }
     }
 

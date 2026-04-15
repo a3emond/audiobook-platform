@@ -60,7 +60,7 @@ struct LibraryView: View {
                             title: rail.name,
                             books: rail.books,
                             actionLabel: "See All",
-                            actionHandler: { viewModel.showSeriesDetail(name: rail.name, books: rail.books) }
+                            actionHandler: { Task { await viewModel.showSeriesDetail(name: rail.name) } }
                         )
                     }
 
@@ -100,20 +100,6 @@ struct LibraryView: View {
         .task {
             await viewModel.loadLibrary()
         }
-        .sheet(isPresented: Binding(
-            get: { viewModel.state.selectedSeriesName != nil },
-            set: {
-                if !$0 {
-                    DispatchQueue.main.async {
-                        viewModel.clearSeriesDetail()
-                    }
-                }
-            }
-        )) { detailGridSheet(
-            title: viewModel.state.selectedSeriesName ?? "Series",
-            books: viewModel.state.selectedSeriesBooks,
-            onDismiss: { viewModel.clearSeriesDetail() }
-        )}
         .sheet(isPresented: Binding(
             get: { viewModel.state.selectedCollectionName != nil },
             set: {
@@ -487,7 +473,7 @@ private struct BookDetailsModalView: View {
 
 // MARK: - BookCoverCard
 
-private struct BookCoverCard: View {
+struct BookCoverCard: View {
     let book: BookDTO
     let coverURL: URL?
     let progressPercent: Double?

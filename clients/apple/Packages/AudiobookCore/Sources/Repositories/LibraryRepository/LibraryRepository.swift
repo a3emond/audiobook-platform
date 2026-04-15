@@ -9,7 +9,7 @@ public protocol LibraryRepository {
     func updateCollection(id: String, payload: UpsertCollectionRequestDTO) async throws -> CollectionDTO
     func deleteCollection(id: String) async throws
     func listSeries(language: String?) async throws -> [String]
-    func seriesDetail(name: String) async throws -> SeriesDetailDTO
+    func seriesDetail(name: String, language: String?) async throws -> SeriesDetailDTO
 }
 
 public final class LibraryRepositoryImpl: LibraryRepository {
@@ -78,7 +78,14 @@ public final class LibraryRepositoryImpl: LibraryRepository {
         return response.series
     }
 
-    public func seriesDetail(name: String) async throws -> SeriesDetailDTO {
-        try await authService.authenticatedGet(path: "api/v1/series/\(name)")
+    public func seriesDetail(name: String, language: String? = nil) async throws -> SeriesDetailDTO {
+        let normalizedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        var params: [String: String] = [:]
+        if let language, !language.isEmpty {
+            params["language"] = language
+        }
+
+        return try await authService.authenticatedGet(path: "api/v1/series/\(normalizedName)", queryParams: params)
     }
 }

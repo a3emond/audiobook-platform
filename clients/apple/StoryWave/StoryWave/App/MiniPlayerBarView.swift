@@ -65,12 +65,11 @@ struct MiniPlayerBarView: View {
             .buttonStyle(.borderless)
             .foregroundStyle(Branding.textMuted)
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Branding.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .background(Branding.surface.opacity(0.96))
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
+            Rectangle()
                 .stroke(Branding.surfaceSoft, lineWidth: 1)
         )
     }

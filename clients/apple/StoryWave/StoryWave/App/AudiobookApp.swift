@@ -68,8 +68,6 @@ struct AudiobookApp: App {
                                     Task { await container.adminViewModel.openBookEditor(bookId: bookId) }
                                 },
                                 onOpenSeries: { seriesName in
-                                    selectedBookId = nil
-                                    selectedTab = .library
                                     Task { await container.libraryViewModel.showSeriesDetail(name: seriesName) }
                                 }
                             ) {
@@ -117,6 +115,36 @@ struct AudiobookApp: App {
                         container.playerViewModel.broadcastPresence()
                     }
                 }
+                .sheet(isPresented: Binding(
+                    get: { container.libraryViewModel.state.selectedSeriesName != nil },
+                    set: { isPresented in
+                        if !isPresented {
+                            container.libraryViewModel.clearSeriesDetail()
+                        }
+                    }
+                )) {
+                    SeriesDetailPageView(
+                        seriesName: container.libraryViewModel.state.selectedSeriesName ?? "Series",
+                        books: container.libraryViewModel.state.selectedSeriesBooks,
+                        coverURLForBook: { container.libraryViewModel.coverURL(for: $0) },
+                        progressPercentForBookId: { container.libraryViewModel.progressPercent(for: $0) },
+                        isAdmin: container.profileViewModel.user?.role == "admin",
+                        onOpenBook: { bookId, title in
+                            container.libraryViewModel.clearSeriesDetail()
+                            selectedBookId = bookId
+                            Task { await container.playerViewModel.load(bookId: bookId, title: title) }
+                        },
+                        onEditBook: { bookId in
+                            container.libraryViewModel.clearSeriesDetail()
+                            selectedTab = .admin
+                            Task { await container.adminViewModel.openBookEditor(bookId: bookId) }
+                        },
+                        onClose: {
+                            container.libraryViewModel.clearSeriesDetail()
+                        }
+                    )
+                }
+#if os(iOS)
                 .overlay(alignment: .top) {
                     if shouldShowRootPlaybackOverlay {
                         GeometryReader { proxy in
@@ -126,14 +154,14 @@ struct AudiobookApp: App {
                                 rootPlaybackOverlay
                                     .frame(maxWidth: rootPlaybackOverlayMaxWidth)
                             }
-                                .padding(.horizontal, 12)
-                                .padding(.top, max(safeTop + miniPlayerTopInsetSpacing, 8))
+                                .padding(.top, max(safeTop, 0))
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                                 .transition(.move(edge: .top).combined(with: .opacity))
                                 .zIndex(40)
                         }
                     }
                 }
+#endif
 #if os(iOS)
                 .overlay(alignment: .top) {
                     GeometryReader { proxy in
@@ -158,13 +186,25 @@ struct AudiobookApp: App {
 
     @ViewBuilder
     private var tabsWithMiniPlayer: some View {
+#if os(macOS)
+        tabsView
+            .safeAreaInset(edge: .top, alignment: .trailing, spacing: 0) {
+                if shouldShowMacPlaybackDock {
+                    miniPlayerDock
+                        .frame(maxWidth: rootPlaybackOverlayMaxWidth)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            }
+            .animation(.easeInOut(duration: 0.2), value: shouldShowMacPlaybackDock)
+#else
         tabsView
             .animation(.easeInOut(duration: 0.2), value: shouldShowRootPlaybackOverlay)
+#endif
     }
 
     @ViewBuilder
     private var rootPlaybackOverlay: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 0) {
 #if os(iOS)
             if shouldShowIOSPlaybackBanner {
                 iosPlaybackStatusBanner
@@ -174,6 +214,11 @@ struct AudiobookApp: App {
                 miniPlayerDock
             }
         }
+        .background(Branding.surface.opacity(0.96))
+        .overlay(
+            Rectangle()
+                .stroke(Branding.surfaceSoft, lineWidth: 1)
+        )
     }
 
     private var miniPlayerDock: some View {
@@ -247,14 +292,6 @@ struct AudiobookApp: App {
 #endif
     }
 
-    private var miniPlayerTopInsetSpacing: CGFloat {
-#if os(iOS)
-        6
-#else
-        8
-#endif
-    }
-
     private func effectiveIOSTopInset() -> CGFloat {
 #if os(iOS)
         UIApplication.shared.connectedScenes
@@ -271,9 +308,17 @@ struct AudiobookApp: App {
 #if os(iOS)
         selectedBookId == nil && (container.playerViewModel.miniPlayerIsVisible() || shouldShowIOSPlaybackBanner)
 #else
-        selectedBookId == nil && container.playerViewModel.miniPlayerIsVisible()
+        false
 #endif
     }
+
+        private var shouldShowMacPlaybackDock: Bool {
+    #if os(macOS)
+        selectedBookId == nil && container.playerViewModel.miniPlayerIsVisible()
+    #else
+        false
+    #endif
+        }
 
     private var shouldShowIOSPlaybackBanner: Bool {
 #if os(iOS)
