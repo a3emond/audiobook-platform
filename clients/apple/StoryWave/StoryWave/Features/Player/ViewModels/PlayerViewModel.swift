@@ -154,6 +154,16 @@ final class PlayerViewModel: ObservableObject {
             state.appliedRewind = resume.appliedRewind
             state.chapters = playbackDetails.chapters
             state.currentChapterIndex = chapterIndex(for: authoritativePosition)
+            state.series = playbackDetails.series
+            state.seriesIndex = playbackDetails.seriesIndex
+            state.genre = playbackDetails.genre
+            state.tags = playbackDetails.tags
+            state.descriptionText = playbackDetails.description?.text(for: LocalizationService.shared.locale)
+
+            // Duration on playback endpoints can vary by source; prefer metadata when present.
+            if let metadataDuration = playbackDetails.durationSeconds, metadataDuration > 0 {
+                state.durationSeconds = max(0, metadataDuration)
+            }
 
             resetSleepTimerForMode()
             configurePlayerIfNeeded()

@@ -275,6 +275,37 @@ final class LibraryViewModel: ObservableObject {
         state.selectedSeriesBooks = books
     }
 
+    func showSeriesDetail(name: String) async {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        let localBooks = state.allBooks
+            .filter { ($0.series ?? "").caseInsensitiveCompare(trimmed) == .orderedSame }
+            .sorted { ($0.seriesIndex ?? 0) < ($1.seriesIndex ?? 0) }
+
+        if !localBooks.isEmpty {
+            state.selectedSeriesName = trimmed
+            state.selectedSeriesBooks = localBooks
+        }
+
+        do {
+            let detail = try await repository.seriesDetail(name: trimmed)
+            let sorted = detail.books.sorted { ($0.seriesIndex ?? 0) < ($1.seriesIndex ?? 0) }
+
+            state.selectedSeriesName = detail.series
+            state.selectedSeriesBooks = sorted
+
+            for book in sorted {
+                bookDetailsCache[book.id] = book
+            }
+            refreshSnapshotCache()
+        } catch {
+            if localBooks.isEmpty {
+                state.errorMessage = "Could not load series details."
+            }
+        }
+    }
+
     func clearSeriesDetail() {
         state.selectedSeriesName = nil
         state.selectedSeriesBooks = []

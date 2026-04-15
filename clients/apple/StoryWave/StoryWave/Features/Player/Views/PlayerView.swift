@@ -5,6 +5,7 @@ struct PlayerView: View {
     @ObservedObject var viewModel: PlayerViewModel
     let isAdmin: Bool
     let onEditMetadata: () -> Void
+    let onOpenSeries: (String) -> Void
     let onBack: () -> Void
 
     var body: some View {
@@ -84,6 +85,16 @@ struct PlayerView: View {
                     }
                     .buttonStyle(.borderless)
                 }
+
+                PlayerBookDetailsSectionView(
+                    series: viewModel.state.series,
+                    seriesIndex: viewModel.state.seriesIndex,
+                    genre: viewModel.state.genre,
+                    tags: viewModel.state.tags,
+                    durationSeconds: viewModel.state.durationSeconds,
+                    descriptionText: viewModel.state.descriptionText,
+                    onOpenSeries: onOpenSeries
+                )
 
                 Spacer(minLength: 16)
             }
@@ -327,4 +338,5 @@ struct PlayerView: View {
             }
         }
     }
+
 }

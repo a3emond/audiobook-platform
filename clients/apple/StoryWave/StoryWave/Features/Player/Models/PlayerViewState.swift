@@ -55,6 +55,14 @@ struct PlayerViewState {
     var currentChapterIndex: Int                = 0
     var progressMode:        PlayerProgressMode = .chapter
 
+    // MARK: Book Details
+
+    var series: String?
+    var seriesIndex: Int?
+    var genre: String?
+    var tags: [String] = []
+    var descriptionText: String?
+
     // MARK: Sleep Timer
 
     var sleepTimerMode:          PlayerSleepTimerMode = .off

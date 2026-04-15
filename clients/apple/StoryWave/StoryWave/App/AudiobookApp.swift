@@ -66,6 +66,11 @@ struct AudiobookApp: App {
                                     selectedBookId = nil
                                     selectedTab = .admin
                                     Task { await container.adminViewModel.openBookEditor(bookId: bookId) }
+                                },
+                                onOpenSeries: { seriesName in
+                                    selectedBookId = nil
+                                    selectedTab = .library
+                                    Task { await container.libraryViewModel.showSeriesDetail(name: seriesName) }
                                 }
                             ) {
                                 selectedBookId = nil
@@ -159,11 +164,16 @@ struct AudiobookApp: App {
 
     @ViewBuilder
     private var rootPlaybackOverlay: some View {
+        VStack(spacing: 8) {
 #if os(iOS)
-        iosPlaybackStatusBanner
-#else
-        miniPlayerDock
+            if shouldShowIOSPlaybackBanner {
+                iosPlaybackStatusBanner
+            }
 #endif
+            if container.playerViewModel.miniPlayerIsVisible() {
+                miniPlayerDock
+            }
+        }
     }
 
     private var miniPlayerDock: some View {
@@ -259,7 +269,7 @@ struct AudiobookApp: App {
 
     private var shouldShowRootPlaybackOverlay: Bool {
 #if os(iOS)
-        selectedBookId == nil && shouldShowIOSPlaybackBanner
+        selectedBookId == nil && (container.playerViewModel.miniPlayerIsVisible() || shouldShowIOSPlaybackBanner)
 #else
         selectedBookId == nil && container.playerViewModel.miniPlayerIsVisible()
 #endif

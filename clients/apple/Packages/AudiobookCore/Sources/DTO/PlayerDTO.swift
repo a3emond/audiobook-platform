@@ -55,11 +55,33 @@ public struct PlayerChapterDTO: Decodable, Identifiable {
 public struct PlaybackDetailsDTO: Decodable {
     public let author: String?
     public let coverPath: String?
+    public let series: String?
+    public let seriesIndex: Int?
+    public let genre: String?
+    public let tags: [String]
+    public let description: BookDescriptionDTO?
+    public let durationSeconds: Double?
     public let chapters: [PlayerChapterDTO]
 
-    public init(author: String?, coverPath: String?, chapters: [PlayerChapterDTO]) {
+    public init(
+        author: String?,
+        coverPath: String?,
+        series: String?,
+        seriesIndex: Int?,
+        genre: String?,
+        tags: [String],
+        description: BookDescriptionDTO?,
+        durationSeconds: Double?,
+        chapters: [PlayerChapterDTO]
+    ) {
         self.author = author
         self.coverPath = coverPath
+        self.series = series
+        self.seriesIndex = seriesIndex
+        self.genre = genre
+        self.tags = tags
+        self.description = description
+        self.durationSeconds = durationSeconds
         self.chapters = chapters
     }
 }

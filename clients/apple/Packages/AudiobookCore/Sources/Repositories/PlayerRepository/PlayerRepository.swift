@@ -110,7 +110,17 @@ public final class PlayerRepositoryImpl: PlayerRepository {
             PlayerChapterDTO(index: $0.index, title: $0.title, start: $0.start, end: $0.end)
         }
 
-        return PlaybackDetailsDTO(author: book.author, coverPath: book.coverPath, chapters: mappedChapters)
+        return PlaybackDetailsDTO(
+            author: book.author,
+            coverPath: book.coverPath,
+            series: book.series,
+            seriesIndex: book.seriesIndex,
+            genre: book.genre,
+            tags: book.tags ?? [],
+            description: book.description,
+            durationSeconds: book.duration.map(Double.init),
+            chapters: mappedChapters
+        )
     }
 
     public func streamURL(streamPath: String) -> URL {
