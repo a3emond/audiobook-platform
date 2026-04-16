@@ -1,9 +1,17 @@
 import SwiftUI
 
+/*
+ Purpose:
+ Startup gate view shown while checking API health or when API is unreachable.
+*/
 struct APIHealthGateView: View {
+    // MARK: Inputs
+
     let isChecking: Bool
     let message: String
     let onRetry: () -> Void
+
+    // MARK: View
 
     var body: some View {
         VStack(spacing: 12) {

@@ -1,32 +1,37 @@
 import SwiftUI
 import AudiobookCore
-#if os(iOS)
-import UIKit
-#endif
 
+/*
+ Purpose:
+ Root SwiftUI app entry point and shell coordinator.
+
+ Responsibilities:
+ - Resolve and initialize the app container.
+ - Coordinate authentication, health checks, and bootstrap state.
+ - Route between shell tabs and full-screen player presentation.
+*/
 @main
 struct AudiobookApp: App {
+    // MARK: Root State
+
     @StateObject private var bootstrap: AppBootstrap
     @StateObject private var connectivity: APIReachabilityViewModel
     @StateObject private var container: AppContainer
     @State private var selectedBookId: String?
     @State private var selectedTab: AppTab = .library
 
-    enum AppTab: Hashable {
-        case library
-        case discussions
-        case profile
-        case admin
-    }
+    // MARK: Init
 
     init() {
-        let gatewayBaseURL = Self.resolveGatewayURL()
+        let gatewayBaseURL = AppGatewayConfiguration.resolveGatewayURL()
         let container = AppContainer(baseURL: gatewayBaseURL)
 
         _container = StateObject(wrappedValue: container)
         _bootstrap = StateObject(wrappedValue: AppBootstrap())
         _connectivity = StateObject(wrappedValue: APIReachabilityViewModel(apiClient: container.apiClient))
     }
+
+    // MARK: App Scene
 
     var body: some Scene {
         WindowGroup {
@@ -144,7 +149,7 @@ struct AudiobookApp: App {
                 .overlay(alignment: .top) {
                     if shouldShowRootPlaybackOverlay {
                         GeometryReader { proxy in
-                            let safeTop = max(proxy.safeAreaInsets.top, effectiveIOSTopInset())
+                            let safeTop = max(proxy.safeAreaInsets.top, container.windowingAdapter.topSafeAreaInset())
                             HStack {
                                 Spacer(minLength: 0)
                                 rootPlaybackOverlay
@@ -180,6 +185,8 @@ struct AudiobookApp: App {
 #endif
     }
 
+    // MARK: Shell Composition
+
     @ViewBuilder
     private var tabsWithMiniPlayer: some View {
 #if os(macOS)
@@ -197,6 +204,8 @@ struct AudiobookApp: App {
             .animation(.easeInOut(duration: 0.2), value: shouldShowRootPlaybackOverlay)
 #endif
     }
+
+    // MARK: Playback Overlay
 
     @ViewBuilder
     private var rootPlaybackOverlay: some View {
@@ -216,6 +225,8 @@ struct AudiobookApp: App {
                 .stroke(Branding.surfaceSoft, lineWidth: 1)
         )
     }
+
+    // MARK: Overlay Views
 
     private var miniPlayerDock: some View {
         MiniPlayerBarView(
@@ -288,17 +299,7 @@ struct AudiobookApp: App {
 #endif
     }
 
-    private func effectiveIOSTopInset() -> CGFloat {
-#if os(iOS)
-        UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap(\.windows)
-            .first(where: { $0.isKeyWindow })?
-            .safeAreaInsets.top ?? 0
-#else
-        0
-#endif
-    }
+    // MARK: Overlay Conditions
 
     private var shouldShowRootPlaybackOverlay: Bool {
 #if os(iOS)
@@ -337,6 +338,8 @@ struct AudiobookApp: App {
             Task { await container.playerViewModel.load(bookId: targetBookId, title: targetTitle) }
         }
     }
+
+    // MARK: Tabs
 
     @ViewBuilder
     private var tabsView: some View {
@@ -409,6 +412,8 @@ struct AudiobookApp: App {
 #endif
     }
 
+    // MARK: Auth Flow
+
     private func signOutAndReset() async {
         await container.authViewModel.signOut()
         container.setRealtimeLifecycleActive(false)
@@ -419,70 +424,5 @@ struct AudiobookApp: App {
         selectedBookId = nil
         selectedTab = .library
     }
-
-    private static func resolveGatewayURL() -> URL {
-        if let configured = ProcessInfo.processInfo.environment["API_BASE_URL"]?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !configured.isEmpty,
-           let url = URL(string: configured) {
-            return url
-        }
-
-        if let configured = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String,
-           !configured.isEmpty,
-           let url = URL(string: configured) {
-            return url
-        }
-
-        return URL(string: "https://audiobook.aedev.pro")!
-    }
 }
-
-#if os(iOS)
-private struct EdgeToEdgeRootForcer: UIViewControllerRepresentable {
-    func makeUIViewController(context: Context) -> UIViewController {
-        Controller()
-    }
-
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
-
-    private final class Controller: UIViewController {
-        override func viewDidAppear(_ animated: Bool) {
-            super.viewDidAppear(animated)
-            applyEdgeToEdgeIfPossible()
-        }
-
-        override func viewDidLayoutSubviews() {
-            super.viewDidLayoutSubviews()
-            applyEdgeToEdgeIfPossible()
-        }
-
-        private func applyEdgeToEdgeIfPossible() {
-            guard let window = view.window else { return }
-
-            window.insetsLayoutMarginsFromSafeArea = false
-            window.layoutMargins = .zero
-
-            if let root = window.rootViewController {
-                applyEdgeToEdge(to: root)
-            }
-        }
-
-        private func applyEdgeToEdge(to controller: UIViewController) {
-            controller.additionalSafeAreaInsets = .zero
-            controller.edgesForExtendedLayout = [.top, .bottom, .left, .right]
-            controller.extendedLayoutIncludesOpaqueBars = true
-            controller.view.insetsLayoutMarginsFromSafeArea = false
-            controller.viewRespectsSystemMinimumLayoutMargins = false
-
-            for child in controller.children {
-                applyEdgeToEdge(to: child)
-            }
-
-            if let presented = controller.presentedViewController {
-                applyEdgeToEdge(to: presented)
-            }
-        }
-    }
-}
-#endif
 

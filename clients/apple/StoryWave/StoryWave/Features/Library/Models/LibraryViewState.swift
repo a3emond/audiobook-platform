@@ -1,14 +1,20 @@
 import Foundation
 import AudiobookCore
 
+/*
+ Purpose:
+ Immutable-ish computed state helpers for Library screens.
+
+ Notes:
+ - Holds sorting/filtering logic used by multiple Library views.
+ - Uses LibraryProgressMath for consistent progress math across surfaces.
+*/
 struct SeriesProgressSnapshot: Equatable {
     let progressPercent: Double?
     let completedBooksCount: Int
     let startedBooksCount: Int
     let totalBooksCount: Int
 }
-
-private let startedProgressFallbackPercent: Double = 0.01
 
 struct LibraryViewState {
     private static let progressDateParser: ISO8601DateFormatter = {
@@ -99,20 +105,12 @@ struct LibraryViewState {
 
     func progressPercent(for bookId: String) -> Double? {
         guard let progress = progressRecord(for: bookId) else { return nil }
-
-        if progress.completed {
-            return 1
-        }
-
-        let progressDuration = normalizedDurationSeconds(progress.durationAtSave)
-        let bookDuration = normalizedDurationSeconds(allBooks.first(where: { $0.id == bookId })?.duration)
-        let duration = max(progressDuration ?? 0, bookDuration ?? 0)
-        if duration <= 0 {
-            return progress.positionSeconds > 0 ? startedProgressFallbackPercent : nil
-        }
-
-        let position = normalizedDurationSeconds(progress.positionSeconds) ?? 0
-        return min(1, max(0, Double(position) / Double(duration)))
+        let bookDuration = allBooks.first(where: { $0.id == bookId })?.duration
+        return LibraryProgressMath.progressPercent(
+            progress: progress,
+            bookDurationSeconds: bookDuration,
+            zeroDurationBehavior: .startedFallback
+        )
     }
 
     func isCompleted(for bookId: String) -> Bool {
@@ -131,8 +129,8 @@ struct LibraryViewState {
 
         for book in books {
             let progress = progressRecord(for: book.id)
-            let savedDurationSeconds = normalizedDurationSeconds(progress?.durationAtSave)
-            let bookDurationSeconds = normalizedDurationSeconds(book.duration)
+            let savedDurationSeconds = LibraryProgressMath.normalizedDurationSeconds(progress?.durationAtSave)
+            let bookDurationSeconds = LibraryProgressMath.normalizedDurationSeconds(book.duration)
             let effectiveDurationSeconds = max(savedDurationSeconds ?? 0, bookDurationSeconds ?? 0)
 
             if progress?.completed == true {
@@ -156,7 +154,7 @@ struct LibraryViewState {
                 continue
             }
 
-            let positionSeconds = normalizedDurationSeconds(progress.positionSeconds) ?? 0
+            let positionSeconds = LibraryProgressMath.normalizedDurationSeconds(progress.positionSeconds) ?? 0
             let maxTrackableDuration = max(effectiveDurationSeconds, savedDurationSeconds ?? 0)
             listenedSeconds += min(max(positionSeconds, 0), maxTrackableDuration)
         }
@@ -169,7 +167,7 @@ struct LibraryViewState {
         } else if completedBooksCount > 0 {
             progressPercent = Double(completedBooksCount) / Double(max(books.count, 1))
         } else {
-            progressPercent = startedProgressFallbackPercent
+            progressPercent = LibraryProgressMath.startedFallbackPercent
         }
 
         return SeriesProgressSnapshot(
@@ -178,14 +176,6 @@ struct LibraryViewState {
             startedBooksCount: startedBooksCount,
             totalBooksCount: books.count
         )
-    }
-
-    private func normalizedDurationSeconds(_ rawValue: Int?) -> Int? {
-        guard let rawValue, rawValue > 0 else { return nil }
-        if rawValue > 200_000 {
-            return max(1, rawValue / 1000)
-        }
-        return rawValue
     }
 
     private func progressMapByBookId() -> [String: ProgressRecordDTO] {

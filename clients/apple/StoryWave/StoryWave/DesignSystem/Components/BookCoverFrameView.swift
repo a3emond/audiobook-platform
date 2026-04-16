@@ -1,6 +1,16 @@
 import SwiftUI
 
+/*
+ Purpose:
+ Shared cover frame and progress/badge primitives used by Library, Player, and mini player.
+
+ Notes:
+ Overlay content is explicitly sized to the card dimensions to keep overlay layout stable
+ inside Lazy stacks and scrolling containers.
+*/
 struct BookCoverFrameView<Overlay: View>: View {
+    // MARK: Inputs
+
     let url: URL?
     let fallbackText: String
     let fallbackFontSize: CGFloat
@@ -12,6 +22,8 @@ struct BookCoverFrameView<Overlay: View>: View {
     let shadowX: CGFloat
     let shadowY: CGFloat
     let overlay: Overlay
+
+    // MARK: Init
 
     init(
         url: URL?,
@@ -39,6 +51,8 @@ struct BookCoverFrameView<Overlay: View>: View {
         self.overlay = overlay()
     }
 
+    // MARK: View
+
     var body: some View {
         ZStack {
             RemoteCoverImageView(
@@ -60,6 +74,8 @@ struct BookCoverFrameView<Overlay: View>: View {
 }
 
 extension BookCoverFrameView where Overlay == EmptyView {
+    // MARK: Convenience Init
+
     init(
         url: URL?,
         fallbackText: String,
@@ -90,10 +106,14 @@ extension BookCoverFrameView where Overlay == EmptyView {
 }
 
 struct BookProgressPillView: View {
+    // MARK: Inputs
+
     let progressPercent: Double
     var font: Font = .caption2.bold()
     var horizontalPadding: CGFloat = 6
     var verticalPadding: CGFloat = 3
+
+    // MARK: View
 
     var body: some View {
         Text("\(normalizedPercent)%")
@@ -117,8 +137,12 @@ struct BookProgressPillView: View {
 }
 
 struct BookProgressBarView: View {
+    // MARK: Inputs
+
     let progressPercent: Double
     var height: CGFloat = 4
+
+    // MARK: View
 
     var body: some View {
         GeometryReader { geometry in
@@ -147,12 +171,16 @@ struct BookProgressBarView: View {
 }
 
 struct BookCompletedBadgeView: View {
+    // MARK: Styling
+
     var iconFont: Font = .caption.bold()
     var titleFont: Font = .caption2.weight(.semibold)
     var spacing: CGFloat = 4
     var horizontalPadding: CGFloat = 8
     var verticalPadding: CGFloat = 6
     var cornerRadius: CGFloat = 8
+
+    // MARK: View
 
     var body: some View {
         VStack(spacing: spacing) {

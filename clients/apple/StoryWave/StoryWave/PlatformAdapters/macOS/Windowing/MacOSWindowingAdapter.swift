@@ -167,6 +167,10 @@ final class MacOSWindowingAdapter: WindowingAdapter {
         )
     }
 
+    func topSafeAreaInset() -> CGFloat {
+        0
+    }
+
     // MARK: Private – Helpers
 
     private func findMainWindow() {

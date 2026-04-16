@@ -1,11 +1,21 @@
 import SwiftUI
 
+/*
+ Purpose:
+ Lightweight launch splash shown while bootstrap pipeline is running.
+*/
 struct AppSplashView: View {
+    // MARK: Inputs
+
     let message: String
+
+    // MARK: Init
 
     init(message: String = "Loading your library...") {
         self.message = message
     }
+
+    // MARK: View
 
     var body: some View {
         VStack(spacing: 14) {

@@ -1,9 +1,20 @@
 import SwiftUI
 
+/*
+ Purpose:
+ Compact playback dock shown in the app shell when a mini-player state is active.
+
+ Notes:
+ This view is a shell-level transport surface and not the full player UI.
+*/
 struct MiniPlayerBarView: View {
+    // MARK: Inputs
+
     @ObservedObject var viewModel: PlayerViewModel
     let onOpenFullPlayer: () -> Void
     let onClose: () -> Void
+
+    // MARK: View
 
     var body: some View {
         HStack(spacing: 8) {
@@ -73,6 +84,8 @@ struct MiniPlayerBarView: View {
                 .stroke(Branding.surfaceSoft, lineWidth: 1)
         )
     }
+
+    // MARK: Subviews
 
     @ViewBuilder
     private var coverThumbnail: some View {

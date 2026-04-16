@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 #if os(macOS)
 import AppKit
@@ -20,6 +21,10 @@ protocol WindowingAdapter {
 
     /// Setup window-level event handlers (resize, move, etc).
     func setupWindowEventHandlers()
+
+    /// Return the current platform top safe-area inset used for shell overlays.
+    /// This is a platform adapter concern because window/safe-area discovery is OS-specific.
+    func topSafeAreaInset() -> CGFloat
 }
 
 /// Window state that can be persisted and restored.

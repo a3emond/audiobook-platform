@@ -2,18 +2,33 @@ import Foundation
 import AudiobookCore
 import Combine
 
+/*
+ Purpose:
+ Small startup gate that verifies the backend API is reachable before showing the app shell.
+*/
 @MainActor
 final class APIReachabilityViewModel: ObservableObject {
+    // MARK: Published State
+
     @Published private(set) var isChecking = true
     @Published private(set) var isReachable = false
     @Published private(set) var message = "Checking API reachability..."
 
+    // MARK: Dependencies
+
     private let apiClient: APIClient
+
+    // MARK: Runtime State
+
     private var healthCheckTask: Task<Void, Never>?
+
+    // MARK: Init
 
     init(apiClient: APIClient) {
         self.apiClient = apiClient
     }
+
+    // MARK: Public API
 
     func checkNow() async {
         healthCheckTask?.cancel()
@@ -43,6 +58,8 @@ final class APIReachabilityViewModel: ObservableObject {
         await healthCheckTask?.value
     }
 
+    // MARK: Error Mapping
+
     private static func mapError(_ error: Error) -> String {
         if let urlError = error as? URLError {
             switch urlError.code {
@@ -64,6 +81,8 @@ final class APIReachabilityViewModel: ObservableObject {
         return "Unable to reach API. Please try again."
     }
 }
+
+// MARK: - DTO
 
 private struct APIHealthResponse: Decodable {
     let status: String

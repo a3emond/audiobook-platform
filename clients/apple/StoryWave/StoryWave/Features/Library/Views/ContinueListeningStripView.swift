@@ -1,15 +1,28 @@
 import SwiftUI
 import AudiobookCore
 
-// Compact strip variant so Continue Listening is visible without overpowering the main rails.
+/*
+ Purpose:
+ Compact Continue Listening rail shown on the Library page.
+
+ Notes:
+ - Uses compact 86x86 cover cards to keep this row secondary to main rails.
+ - Card overlays are implemented in ContinueListeningCardComponents.swift.
+*/
 struct ContinueListeningStripView: View {
+    // MARK: Types
+
     typealias ContinueItem = (book: BookDTO, progress: ProgressRecordDTO)
+
+    // MARK: Inputs
 
     let items: [ContinueItem]
     let coverURLForBook: (String) -> URL?
     let isAdmin: Bool
     let onOpenBook: (String, String) -> Void
     let onEditBook: (String) -> Void
+
+    // MARK: View
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -53,6 +66,8 @@ struct ContinueListeningStripView: View {
 }
 
 private struct ContinueListeningCardView: View {
+    // MARK: Inputs
+
     let book: BookDTO
     let progress: ProgressRecordDTO
     let coverURL: URL?
@@ -60,86 +75,21 @@ private struct ContinueListeningCardView: View {
     let onAdminEdit: () -> Void
     let onTap: () -> Void
 
+    // MARK: Styling
+
     private let cardSize: CGFloat = 86
-    private let startedProgressFallbackPercent: Double = 0.01
-    private let overlayDebugEnabled = true
+
+    // MARK: Derived State
 
     private var progressPercent: Double {
-        if progress.completed {
-            return 1
-        }
-
-        let progressDuration = normalizedDurationSeconds(progress.durationAtSave)
-        let bookDuration = normalizedDurationSeconds(book.duration)
-        let duration = max(progressDuration ?? 0, bookDuration ?? 0)
-        guard duration > 0 else {
-            return progress.positionSeconds > 0 ? startedProgressFallbackPercent : 0
-        }
-
-        let position = normalizedDurationSeconds(progress.positionSeconds) ?? 0
-        return min(1, max(0, Double(position) / Double(duration)))
+        LibraryProgressMath.progressPercent(
+            progress: progress,
+            bookDurationSeconds: book.duration,
+            zeroDurationBehavior: .startedFallback
+        ) ?? 0
     }
 
-    private var progressText: String {
-        String(format: "%.4f", progressPercent)
-    }
-
-    private var clampedProgressPercent: CGFloat {
-        let raw = min(1, max(0, progressPercent))
-        if raw <= 0 {
-            return 0
-        }
-        if raw >= 1 {
-            return 1
-        }
-        return CGFloat(max(0.01, min(0.99, raw)))
-    }
-
-    private var progressFillWidth: CGFloat {
-        cardSize * clampedProgressPercent
-    }
-
-    private var safeCoverURLText: String {
-        guard let coverURL else { return "nil" }
-        guard var components = URLComponents(url: coverURL, resolvingAgainstBaseURL: false) else {
-            return coverURL.absoluteString
-        }
-
-        components.queryItems = components.queryItems?.map { item in
-            if item.name == "access_token" {
-                return URLQueryItem(name: item.name, value: "[redacted]")
-            }
-            return item
-        }
-
-        return components.string ?? coverURL.absoluteString
-    }
-
-    private func logOverlayState(_ reason: String) {
-        guard overlayDebugEnabled else { return }
-
-        print(
-            "[OverlayDebug][ContinueCard][\(reason)] " +
-            "bookId=\(book.id) " +
-            "title=\(book.title) " +
-            "position=\(progress.positionSeconds) " +
-            "durationAtSave=\(progress.durationAtSave) " +
-            "completed=\(progress.completed) " +
-            "progress=\(progressText) " +
-            "showProgressPill=true " +
-            "showProgressBar=true " +
-            "isAdmin=\(isAdmin) " +
-            "coverURL=\(safeCoverURLText)"
-        )
-    }
-
-    private func normalizedDurationSeconds(_ rawValue: Int?) -> Int? {
-        guard let rawValue, rawValue > 0 else { return nil }
-        if rawValue > 200_000 {
-            return max(1, rawValue / 1000)
-        }
-        return rawValue
-    }
+    // MARK: View
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -151,44 +101,11 @@ private struct ContinueListeningCardView: View {
                     size: CGSize(width: cardSize, height: cardSize),
                     cornerRadius: 10
                 ) {
-                    ZStack {
-                        VStack(spacing: 0) {
-                            Spacer()
-
-                            Text(book.title)
-                                .font(.system(size: 10, weight: .semibold))
-                                .lineLimit(1)
-                                .foregroundStyle(.white)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 6)
-                                .padding(.bottom, 7)
-                                .padding(.top, 14)
-                                .background(
-                                    LinearGradient(
-                                        colors: [Color.black.opacity(0), Color.black.opacity(0.92)],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                )
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-
-                        VStack(spacing: 0) {
-                            Spacer()
-                            ZStack(alignment: .leading) {
-                                Rectangle()
-                                    .fill(Color.black.opacity(0.35))
-                                    .frame(width: cardSize, height: 3)
-                                Rectangle()
-                                    .fill(Branding.accent)
-                                    .frame(width: progressFillWidth, height: 3)
-                            }
-                            .frame(width: cardSize, height: 3, alignment: .leading)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                        .zIndex(3)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                    ContinueListeningCardOverlayView(
+                        title: book.title,
+                        cardSize: cardSize,
+                        progressPercent: progressPercent
+                    )
                 }
             }
             .buttonStyle(.plain)
@@ -211,18 +128,6 @@ private struct ContinueListeningCardView: View {
                 .controlSize(.mini)
                 .padding(5)
             }
-        }
-        .onAppear {
-            logOverlayState("onAppear")
-        }
-        .onChange(of: progress.positionSeconds) { _, _ in
-            logOverlayState("positionChanged")
-        }
-        .onChange(of: progress.durationAtSave) { _, _ in
-            logOverlayState("durationChanged")
-        }
-        .onChange(of: progress.completed) { _, _ in
-            logOverlayState("completedChanged")
         }
     }
 }

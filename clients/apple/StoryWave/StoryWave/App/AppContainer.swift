@@ -2,34 +2,26 @@ import Foundation
 import AudiobookCore
 import Combine
 
+/*
+ Purpose:
+ Root dependency and view-model container for the Apple client application shell.
+
+ Responsibilities:
+ - Construct repositories, platform adapters, and feature view models.
+ - Wire lifecycle events (auth <-> realtime connection).
+ - Route realtime events into feature view models.
+*/
 @MainActor
 final class AppContainer: ObservableObject {
+    // MARK: Runtime State
+
     private var cancellables = Set<AnyCancellable>()
     private var realtimeSubscriptionIDs: [UUID] = []
     private var isRealtimeLifecycleActive = false
+    // Temporary verbose logging used while validating realtime progress propagation.
     private let progressDebugEnabled = true
 
-    private struct RealtimeDiscussionCreatedPayload: Decodable {
-        let message: DiscussionMessageDTO?
-    }
-
-    private struct RealtimeDiscussionDeletedPayload: Decodable {
-        let messageId: String?
-        let lang: String?
-        let channelKey: String?
-    }
-
-    private struct RealtimeJobStateChangedPayload: Decodable {
-        let job: AdminJobDTO?
-    }
-
-    private struct RealtimeProgressSyncedPayload: Decodable {
-        let bookId: String?
-        let positionSeconds: Int?
-        let durationAtSave: Int?
-        let completed: Bool?
-        let timestamp: String?
-    }
+    // MARK: Core Services
 
     let apiClient: APIClient
     let authSessionManager: AuthSessionManager
@@ -49,6 +41,8 @@ final class AppContainer: ObservableObject {
     let keyboardCommandsAdapter: KeyboardCommandsAdapter
     let windowingAdapter: WindowingAdapter
 
+    // MARK: Feature View Models
+
     let authViewModel: AuthViewModel
     let libraryViewModel: LibraryViewModel
     let playerViewModel: PlayerViewModel
@@ -57,6 +51,8 @@ final class AppContainer: ObservableObject {
     let profileStatsViewModel: ProfileStatsViewModel
     let profileSettingsViewModel: ProfileSettingsViewModel
     let adminViewModel: AdminViewModel
+
+    // MARK: Init
 
     init(baseURL: URL) {
         let apiClient = APIClient(baseURL: baseURL)
@@ -142,25 +138,16 @@ final class AppContainer: ObservableObject {
         (keyboardCommandsAdapter as? MacMenuCommandsAdapter)?.playerActions = playerViewModel
         #endif
 
-        // Forward auth state changes so any view observing AppContainer re-renders
-        self.authViewModel.objectWillChange
-            .sink { [weak self] _ in self?.objectWillChange.send() }
-            .store(in: &cancellables)
-
-        // Forward player changes so shell-level mini player visibility reacts
-        // to realtime remote presence updates.
-        self.playerViewModel.objectWillChange
-            .sink { [weak self] _ in self?.objectWillChange.send() }
-            .store(in: &cancellables)
-
-        // Forward profile changes so the admin tab visibility (role check) reacts immediately
-        self.profileViewModel.objectWillChange
-            .sink { [weak self] _ in self?.objectWillChange.send() }
-            .store(in: &cancellables)
+        // Keep shell-level views reactive to key feature state transitions.
+        forwardObjectWillChange(from: authViewModel)
+        forwardObjectWillChange(from: playerViewModel)
+        forwardObjectWillChange(from: profileViewModel)
 
         configureRealtimeEventRouting()
         setRealtimeLifecycleActive(authViewModel.state.isAuthenticated)
     }
+
+    // MARK: Lifecycle
 
     deinit {
         for id in realtimeSubscriptionIDs {
@@ -168,6 +155,8 @@ final class AppContainer: ObservableObject {
         }
         realtimeClient.disconnect()
     }
+
+    // MARK: Realtime Lifecycle
 
     func setRealtimeLifecycleActive(_ isActive: Bool) {
         guard isRealtimeLifecycleActive != isActive else { return }
@@ -179,6 +168,16 @@ final class AppContainer: ObservableObject {
             realtimeClient.disconnect()
         }
     }
+
+    // MARK: Internal Helpers
+
+    private func forwardObjectWillChange(from source: some ObservableObject) {
+        source.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+    }
+
+    // MARK: Realtime Routing
 
     private func configureRealtimeEventRouting() {
 

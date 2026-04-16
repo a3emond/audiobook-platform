@@ -11,8 +11,16 @@ import AppKit
 private typealias PlatformImage = NSImage
 #endif
 
+/*
+ Purpose:
+ Bridge app playback state to system media controls and now-playing surfaces.
+
+ Clarification:
+ "Remote" here means OS-level media controls (Control Center, lock screen, headset keys,
+ keyboard media keys). It does not mean controlling playback on another device.
+*/
 /// Implementation of RemoteCommandsAdapter for iOS and macOS.
-/// Manages MPRemoteCommandCenter, now playing info, and artwork display.
+/// Manages MPRemoteCommandCenter, now playing metadata, and artwork display.
 @MainActor
 final class RemoteCommandsAdapterImpl: RemoteCommandsAdapter {
     // MARK: Dependencies
@@ -46,7 +54,7 @@ final class RemoteCommandsAdapterImpl: RemoteCommandsAdapter {
         self.repositoryStreamURLProvider = repositoryStreamURLProvider
     }
 
-    // MARK: RemoteCommandsAdapter
+    // MARK: RemoteCommandsAdapter Protocol
 
     func configureRemoteCommandsIfNeeded() {
         guard !remoteCommandsConfigured else { return }
@@ -181,7 +189,7 @@ final class RemoteCommandsAdapterImpl: RemoteCommandsAdapter {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlaying
     }
 
-    // MARK: Private – Artwork Loading
+    // MARK: Artwork Loading
 
     private func loadNowPlayingArtworkIfNeeded(with bookId: String?) {
         guard let bookId, !bookId.isEmpty else { return }
@@ -310,8 +318,7 @@ final class RemoteCommandsAdapterImpl: RemoteCommandsAdapter {
     }
 }
 
-/// Protocol defining actions that PlayerView or PlayerViewModel can dispatch
-/// in response to remote command center events.
+/// Actions exposed by the player to respond to system media-control events.
 @MainActor
 protocol PlayerRemoteCommandActions: AnyObject {
     func playPressed()

@@ -75,6 +75,13 @@ final class IOSWindowingAdapter: WindowingAdapter {
         // No additional setup needed here
     }
 
+    func topSafeAreaInset() -> CGFloat {
+        if let resolved = resolveWindow() {
+            return resolved.safeAreaInsets.top
+        }
+        return 0
+    }
+
     // MARK: Private – Configuration
 
     private func resolveWindow() -> UIWindow? {

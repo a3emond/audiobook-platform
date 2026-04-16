@@ -2,8 +2,18 @@ import Foundation
 import Combine
 import OSLog
 
+/*
+ Purpose:
+ Lightweight startup coordinator for app-shell readiness.
+
+ Notes:
+ This does not load feature data. It only stages startup checks and cache warm-ups so
+ first-render transitions feel smoother and deterministic.
+*/
 @MainActor
 final class AppBootstrap: ObservableObject {
+    // MARK: Types
+
     struct Diagnostics {
         let startedAt: Date
         let finishedAt: Date
@@ -19,14 +29,20 @@ final class AppBootstrap: ObservableObject {
         case failed(String)
     }
 
+    // MARK: Published State
+
     @Published private(set) var initialized = false
     @Published private(set) var stage: Stage = .idle
     @Published private(set) var diagnostics: Diagnostics?
+
+    // MARK: Runtime State
 
     private let logger = Logger(subsystem: "pro.aedev.StoryWave", category: "AppBootstrap")
     private let minimumSplashNanoseconds: UInt64
     private let startupTimeoutNanoseconds: UInt64
     private var initializeTask: Task<Void, Never>?
+
+    // MARK: Init
 
     init(
         minimumSplashNanoseconds: UInt64 = 350_000_000,
@@ -35,6 +51,8 @@ final class AppBootstrap: ObservableObject {
         self.minimumSplashNanoseconds = minimumSplashNanoseconds
         self.startupTimeoutNanoseconds = startupTimeoutNanoseconds
     }
+
+    // MARK: Public API
 
     func initialize() async {
         if initialized {
@@ -71,6 +89,8 @@ final class AppBootstrap: ObservableObject {
             return message
         }
     }
+
+    // MARK: Pipeline
 
     private func runBootstrapPipeline() async {
         let startedAt = Date()
