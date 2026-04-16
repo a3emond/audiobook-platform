@@ -49,7 +49,8 @@ struct LibraryView: View {
                     LibrarySearchResultsSectionView(
                         query: viewModel.state.query,
                         isLoading: viewModel.state.isLoading,
-                        results: viewModel.state.displayedSearchResults,
+                        seriesRails: viewModel.state.displayedSearchSeriesRails,
+                        totalResultCount: viewModel.state.displayedSearchResultCount,
                         coverURLForBook: { viewModel.coverURL(for: $0) },
                         progressPercentForBookId: { viewModel.progressPercent(for: $0) },
                         isCompletedForBookId: { viewModel.isCompleted(for: $0) },

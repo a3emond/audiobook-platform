@@ -4,7 +4,8 @@ import AudiobookCore
 struct LibrarySearchResultsSectionView: View {
     let query: String
     let isLoading: Bool
-    let results: [BookDTO]
+    let seriesRails: [(name: String, books: [BookDTO])]
+    let totalResultCount: Int
     let coverURLForBook: (BookDTO) -> URL?
     let progressPercentForBookId: (String) -> Double?
     let isCompletedForBookId: (String) -> Bool
@@ -14,28 +15,28 @@ struct LibrarySearchResultsSectionView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if results.isEmpty && !isLoading {
+            if seriesRails.isEmpty && !isLoading {
                 Text("No results for \"\(query)\"")
                     .foregroundStyle(Branding.textMuted)
             } else {
-                Text("\(results.count) result\(results.count == 1 ? "" : "s")")
+                Text("\(totalResultCount) result\(totalResultCount == 1 ? "" : "s")")
                     .font(.subheadline)
                     .foregroundStyle(Branding.textMuted)
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 14)], spacing: 14) {
-                    ForEach(results) { book in
-                        BookCoverCard(
-                            book: book,
-                            coverURL: coverURLForBook(book),
-                            progressPercent: progressPercentForBookId(book.id),
-                            isCompleted: isCompletedForBookId(book.id),
-                            isAdmin: isAdmin,
-                            onAdminEdit: {
-                                onEditBook(book.id)
-                            }
-                        ) {
-                            onOpenDetails(book)
-                        }
-                    }
+
+                ForEach(seriesRails, id: \.name) { rail in
+                    LibraryBookRailSectionView(
+                        title: rail.name,
+                        headerDetail: nil,
+                        books: rail.books,
+                        actionLabel: nil,
+                        onAction: nil,
+                        coverURLForBook: coverURLForBook,
+                        progressPercentForBookId: progressPercentForBookId,
+                        isCompletedForBookId: isCompletedForBookId,
+                        isAdmin: isAdmin,
+                        onEditBook: onEditBook,
+                        onOpenDetails: onOpenDetails
+                    )
                 }
             }
         }

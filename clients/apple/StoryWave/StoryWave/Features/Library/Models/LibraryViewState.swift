@@ -17,6 +17,8 @@ struct SeriesProgressSnapshot: Equatable {
 }
 
 struct LibraryViewState {
+    private static let standaloneSeriesName = "Standalone"
+
     private static let progressDateParser: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -78,25 +80,28 @@ struct LibraryViewState {
     }
 
     var seriesRails: [(name: String, books: [BookDTO])] {
-        var map: [String: [BookDTO]] = [:]
-        var order: [String] = []
-        for book in allBooks {
-            guard let s = book.series, !s.isEmpty else { continue }
-            if map[s] == nil { order.append(s); map[s] = [] }
-            map[s]!.append(book)
-        }
-        return order.map {
-            (name: $0, books: map[$0]!.sorted { ($0.seriesIndex ?? 0) < ($1.seriesIndex ?? 0) })
-        }
+        groupedSeriesRails(
+            from: allBooks,
+            includeStandalone: false,
+            hideTrailingSeriesWhenBooksHasMore: booksHasMore
+        )
     }
 
-    var displayedSearchResults: [BookDTO] {
+    var displayedSearchSeriesRails: [(name: String, books: [BookDTO])] {
         guard !query.isEmpty else { return [] }
-        if !searchResults.isEmpty { return searchResults }
-        let q = query.lowercased()
-        return allBooks.filter {
-            $0.title.lowercased().contains(q) || ($0.author?.lowercased().contains(q) ?? false)
-        }
+
+        let localMatches = allBooks.filter { matchesQuery($0, query: query) }
+        let merged = mergedBooksKeepingFirstOccurrence(searchResults + localMatches)
+
+        return groupedSeriesRails(
+            from: merged,
+            includeStandalone: true,
+            hideTrailingSeriesWhenBooksHasMore: false
+        )
+    }
+
+    var displayedSearchResultCount: Int {
+        displayedSearchSeriesRails.reduce(0) { $0 + $1.books.count }
     }
 
     func progressRecord(for bookId: String) -> ProgressRecordDTO? {
@@ -204,5 +209,89 @@ struct LibraryViewState {
         }
 
         return Date(timeIntervalSince1970: 0).timeIntervalSince1970
+    }
+
+    private func groupedSeriesRails(
+        from books: [BookDTO],
+        includeStandalone: Bool,
+        hideTrailingSeriesWhenBooksHasMore: Bool
+    ) -> [(name: String, books: [BookDTO])] {
+        var map: [String: [BookDTO]] = [:]
+        var order: [String] = []
+
+        for book in books {
+            let normalizedSeries = normalizedSeriesName(for: book, includeStandalone: includeStandalone)
+            guard let seriesName = normalizedSeries else { continue }
+
+            if map[seriesName] == nil {
+                order.append(seriesName)
+                map[seriesName] = []
+            }
+            map[seriesName]?.append(book)
+        }
+
+          if hideTrailingSeriesWhenBooksHasMore,
+              !order.isEmpty,
+           let trailingSeries = order.last,
+           trailingSeries != Self.standaloneSeriesName {
+            map.removeValue(forKey: trailingSeries)
+            order.removeLast()
+        }
+
+        return order.compactMap { seriesName in
+            guard let seriesBooks = map[seriesName], !seriesBooks.isEmpty else { return nil }
+            return (
+                name: seriesName,
+                books: seriesBooks.sorted { ($0.seriesIndex ?? 0) < ($1.seriesIndex ?? 0) }
+            )
+        }
+    }
+
+    private func normalizedSeriesName(for book: BookDTO, includeStandalone: Bool) -> String? {
+        let trimmedSeries = book.series?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !trimmedSeries.isEmpty {
+            return trimmedSeries
+        }
+        return includeStandalone ? Self.standaloneSeriesName : nil
+    }
+
+    private func matchesQuery(_ book: BookDTO, query: String) -> Bool {
+        let token = normalizedSearchToken(query)
+        guard !token.isEmpty else { return false }
+
+        let searchableFields: [String] = [
+            book.title,
+            book.author ?? "",
+            book.series ?? "",
+            book.genre ?? "",
+            book.language ?? "",
+            book.tags?.joined(separator: " ") ?? "",
+            book.description?.defaultText ?? "",
+            book.description?.en ?? "",
+            book.description?.fr ?? ""
+        ]
+
+        return searchableFields.contains { field in
+            normalizedSearchToken(field).contains(token)
+        }
+    }
+
+    private func normalizedSearchToken(_ value: String) -> String {
+        value
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+    }
+
+    private func mergedBooksKeepingFirstOccurrence(_ books: [BookDTO]) -> [BookDTO] {
+        var seen = Set<String>()
+        var merged: [BookDTO] = []
+
+        for book in books where !seen.contains(book.id) {
+            seen.insert(book.id)
+            merged.append(book)
+        }
+
+        return merged
     }
 }
