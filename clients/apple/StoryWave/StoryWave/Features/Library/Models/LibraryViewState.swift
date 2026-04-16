@@ -83,7 +83,7 @@ struct LibraryViewState {
         groupedSeriesRails(
             from: allBooks,
             includeStandalone: false,
-            hideTrailingSeriesWhenBooksHasMore: booksHasMore
+            hideTrailingSeriesWhenBooksHasMore: false
         )
     }
 

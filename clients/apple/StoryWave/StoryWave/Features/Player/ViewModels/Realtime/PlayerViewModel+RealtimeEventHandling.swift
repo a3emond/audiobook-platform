@@ -56,6 +56,13 @@ extension PlayerViewModel {
             pruneStalePresence()
             resolveActivePresence()
 
+            // Fast handshake: when another device announces itself, immediately reply
+            // with our own presence so they discover us without waiting for the next
+            // 5-second timer tick. This is exactly what the Angular web client does.
+            if presenceDeviceId != deviceId {
+                broadcastPresence()
+            }
+
         case "playback.claimed":
             guard payload.string("userId") == authService.userId else { return }
 

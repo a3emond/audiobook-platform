@@ -14,6 +14,8 @@ import AudiobookCore
 struct AudiobookApp: App {
     // MARK: Root State
 
+    @Environment(\.scenePhase) private var scenePhase
+
     // Intentionally internal so cross-file extensions can organize shell responsibilities.
     @StateObject var bootstrap: AppBootstrap
     @StateObject var connectivity: APIReachabilityViewModel
@@ -63,6 +65,9 @@ struct AudiobookApp: App {
                 .task(id: container.authViewModel.state.isAuthenticated) {
                     await handleAuthStateTask()
                 }
+                .task(id: scenePhase) {
+                    await handleScenePhaseTask(scenePhase)
+                }
                 .task(id: container.playerViewModel.miniPlayerBookId() ?? "") {
                     handleActiveBookDebugTask()
                 }
@@ -70,24 +75,19 @@ struct AudiobookApp: App {
                     seriesDetailSheet
                 }
 #if os(iOS)
-                .overlay(alignment: .top) {
-                    if shouldShowRootPlaybackOverlay {
-                        GeometryReader { proxy in
-                            let safeTop = max(proxy.safeAreaInsets.top, container.windowingAdapter.topSafeAreaInset())
-                            HStack {
-                                Spacer(minLength: 0)
-                                rootPlaybackOverlay
-                                    .frame(maxWidth: rootPlaybackOverlayMaxWidth)
+                .overlay(alignment: .bottom) {
+                    IOSPlaybackBar(
+                        playerViewModel: container.playerViewModel,
+                        selectedBookId: selectedBookId,
+                        onOpen: { bookId, title in
+                            selectedBookId = bookId
+                            if container.playerViewModel.state.bookId != bookId {
+                                Task { await container.playerViewModel.load(bookId: bookId, title: title) }
                             }
-                                .padding(.top, max(safeTop, 0))
-                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                                .transition(.move(edge: .top).combined(with: .opacity))
-                                .zIndex(40)
-                        }
-                    }
+                        },
+                        onClose: { container.playerViewModel.reset() }
+                    )
                 }
-#endif
-#if os(iOS)
                 .overlay(alignment: .top) {
                     GeometryReader { proxy in
                         Color.black

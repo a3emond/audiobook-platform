@@ -56,6 +56,7 @@ struct DiscussionView: View {
             }
             #endif
         }
+        .dismissKeyboardOnTap()
         .task {
             await viewModel.loadChannels()
             #if os(macOS)

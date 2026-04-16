@@ -25,7 +25,6 @@ extension AudiobookApp {
             .animation(.easeInOut(duration: 0.2), value: shouldShowMacPlaybackDock)
 #else
         tabsView
-            .animation(.easeInOut(duration: 0.2), value: shouldShowRootPlaybackOverlay)
 #endif
     }
 
@@ -95,10 +94,7 @@ extension AudiobookApp {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color.clear)
 #if os(iOS)
-        .ignoresSafeArea(edges: [.top, .bottom, .leading, .trailing])
-#endif
-#if os(iOS)
-        .ignoresSafeArea(.keyboard)
+        .dismissKeyboardOnTap()
 #endif
     }
 

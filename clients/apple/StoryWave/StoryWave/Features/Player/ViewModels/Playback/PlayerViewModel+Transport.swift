@@ -27,6 +27,9 @@ extension PlayerViewModel {
     // MARK: Play / Pause
 
     func playPressed() {
+        // Refresh the socket path before claiming playback ownership so iOS foreground /
+        // background transitions do not leave this device sending claims on a stale socket.
+        refreshRealtimeSessionOnAppActivation()
         configurePlayerIfNeeded()
         player?.playImmediately(atRate: Float(state.playbackRate))
         state.isPlaying = true

@@ -33,7 +33,25 @@ extension AudiobookApp {
         }
 
         if container.authViewModel.state.isAuthenticated {
+            // Re-register the player's realtime subscription now that the connection
+            // is fully authenticated, then broadcast presence so remote devices are
+            // aware of this device immediately rather than waiting for the next timer tick.
+            container.playerViewModel.rebindRealtime()
             container.playerViewModel.broadcastPresence()
+        }
+    }
+
+    func handleScenePhaseTask(_ phase: ScenePhase) async {
+        guard container.authViewModel.state.isAuthenticated else { return }
+
+        switch phase {
+        case .active:
+            container.setRealtimeLifecycleActive(true)
+            container.playerViewModel.refreshRealtimeSessionOnAppActivation()
+        case .inactive, .background:
+            break
+        @unknown default:
+            break
         }
     }
 

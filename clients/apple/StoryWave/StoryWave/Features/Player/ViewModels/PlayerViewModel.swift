@@ -30,7 +30,7 @@ final class PlayerViewModel: ObservableObject {
 
     // MARK: Timing Constants
 
-    let presenceBroadcastInterval: UInt64 = 10_000_000_000 // 10s
+    let presenceBroadcastInterval: UInt64 = 5_000_000_000  // 5s
     let autosaveInterval: UInt64 = 15_000_000_000         // 15s
     let liveProgressDebounceInterval: TimeInterval = 2
 
@@ -229,6 +229,10 @@ final class PlayerViewModel: ObservableObject {
         remoteCommandsAdapter.removeRemoteCommandTargets()
         clearNowPlayingInfo()
         state = PlayerViewState()
+
+        // Restart the presence heartbeat so remote-device detection continues
+        // working even after the player is closed (no local book loaded).
+        startPresenceLoop()
     }
 
     // MARK: Deinit

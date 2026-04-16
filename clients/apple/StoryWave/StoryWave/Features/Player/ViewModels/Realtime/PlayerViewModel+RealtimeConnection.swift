@@ -26,14 +26,53 @@ extension PlayerViewModel {
             }
         }
 
+        startPresenceLoop()
+    }
+
+    /// Starts (or restarts) the periodic presence heartbeat loop.
+    ///
+    /// Safe to call multiple times: always cancels any existing loop first so
+    /// there is exactly one running timer at any point.
+    func startPresenceLoop() {
         presenceTask?.cancel()
         presenceTask = Task { [weak self] in
+            // Broadcast immediately so remote devices know about this device on
+            // (re)connect, without waiting for the first 5-second sleep to elapse.
+            if let self, !Task.isCancelled {
+                await MainActor.run { self.broadcastPresence() }
+            }
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: self?.presenceBroadcastInterval ?? 10_000_000_000)
-                guard let self else { break }
+                try? await Task.sleep(nanoseconds: self?.presenceBroadcastInterval ?? 5_000_000_000)
+                guard let self, !Task.isCancelled else { break }
                 await MainActor.run { self.broadcastPresence() }
             }
         }
+    }
+
+    /// Re-registers the realtime event subscription after an auth lifecycle change.
+    ///
+    /// Called after authentication succeeds so the subscription is always bound to
+    /// a live connection rather than a pre-auth socket that may have been reset.
+    func rebindRealtime() {
+        if let existing = realtimeSubscriptionID {
+            realtime.unsubscribe(existing)
+            realtimeSubscriptionID = nil
+        }
+        isRealtimeBound = false
+        bindRealtimeIfNeeded()
+        // Always restart the heartbeat after a rebind — the old loop was tied to
+        // the previous subscription and may have been cancelled.
+        startPresenceLoop()
+    }
+
+    func refreshRealtimeSessionOnAppActivation() {
+        rebindRealtime()
+
+        if isLocallyPlayingOrBuffering() {
+            claimPlaybackOwnership()
+        }
+
+        broadcastPresence()
     }
 
     // MARK: Presence Broadcast

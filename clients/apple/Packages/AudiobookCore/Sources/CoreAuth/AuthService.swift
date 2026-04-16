@@ -24,7 +24,7 @@ public final class AuthService {
     }
 
     public var userId: String? {
-        sessionManager.userId
+        sessionManager.userId ?? accessToken.flatMap(Self.jwtSubject)
     }
 
     public func login(email: String, password: String) async throws {
@@ -81,7 +81,7 @@ public final class AuthService {
         sessionManager.updateSession(
             accessToken: response.accessToken,
             refreshToken: response.refreshToken,
-            userId: sessionManager.userId
+            userId: sessionManager.userId ?? Self.jwtSubject(response.accessToken)
         )
     }
 
@@ -178,6 +178,31 @@ public final class AuthService {
             )
             return true
         }
+    }
+
+    // MARK: JWT Helpers
+
+    private static func jwtSubject(_ token: String) -> String? {
+        let segments = token.split(separator: ".")
+        guard segments.count >= 2 else { return nil }
+
+        var payload = String(segments[1])
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+
+        let remainder = payload.count % 4
+        if remainder != 0 {
+            payload += String(repeating: "=", count: 4 - remainder)
+        }
+
+        guard let data = Data(base64Encoded: payload),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return nil }
+
+        if let sub = object["sub"] as? String, !sub.isEmpty { return sub }
+        if let id = object["id"] as? String, !id.isEmpty { return id }
+        if let userId = object["userId"] as? String, !userId.isEmpty { return userId }
+        return nil
     }
 
     public func authenticatedDeleteJSON<Response: Decodable>(path: String) async throws -> Response {

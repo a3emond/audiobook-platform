@@ -10,6 +10,7 @@ extension PlayerViewModel {
     func miniPlayerIsVisible() -> Bool {
         let hasRemoteContext =
             state.isRemotePlaybackActive ||
+            !(state.activeDeviceLabel ?? "").isEmpty ||
             !(state.remoteBookId ?? "").isEmpty ||
             !(state.remoteTitle ?? "").isEmpty
 
