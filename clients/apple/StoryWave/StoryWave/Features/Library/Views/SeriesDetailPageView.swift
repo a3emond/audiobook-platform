@@ -4,8 +4,10 @@ import AudiobookCore
 struct SeriesDetailPageView: View {
     let seriesName: String
     let books: [BookDTO]
+    let progressSnapshot: SeriesProgressSnapshot
     let coverURLForBook: (BookDTO) -> URL?
     let progressPercentForBookId: (String) -> Double?
+    let isCompletedForBookId: (String) -> Bool
     let isAdmin: Bool
     let onOpenBook: (String, String) -> Void
     let onEditBook: (String) -> Void
@@ -26,12 +28,15 @@ struct SeriesDetailPageView: View {
                         Spacer()
                     }
 
+                    SeriesProgressSummaryView(snapshot: progressSnapshot)
+
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 14)], spacing: 14) {
                         ForEach(books) { book in
                             BookCoverCard(
                                 book: book,
                                 coverURL: coverURLForBook(book),
                                 progressPercent: progressPercentForBookId(book.id),
+                                isCompleted: isCompletedForBookId(book.id),
                                 isAdmin: isAdmin,
                                 onAdminEdit: {
                                     onClose()

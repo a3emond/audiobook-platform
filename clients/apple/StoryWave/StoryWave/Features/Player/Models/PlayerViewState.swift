@@ -71,6 +71,7 @@ struct PlayerViewState {
     // MARK: Playback Status
 
     var isPlaying:         Bool    = false
+    var isCompleted:       Bool    = false
     var activeDeviceLabel: String?
 
     // MARK: Remote Device Presence

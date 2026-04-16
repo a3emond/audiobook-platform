@@ -19,6 +19,7 @@ final class PlayerViewModel: ObservableObject {
     let authService: AuthService
     let realtime: RealtimeClient
     let cache: PlayerPlaybackCache
+    let appCacheService: AppCacheService
     let audioSessionAdapter: AudioSessionAdapter
     let remoteCommandsAdapter: RemoteCommandsAdapter
 
@@ -39,6 +40,7 @@ final class PlayerViewModel: ObservableObject {
     var lastLocalTakeoverAt: TimeInterval = 0
     var lastLiveProgressEmitAt: TimeInterval = 0
     var isRealtimeBound = false
+    var realtimeSubscriptionID: UUID?
     var presenceTask: Task<Void, Never>?
     var presenceByDeviceId: [String: PlaybackPresence] = [:]
     var remoteBookFetchRequestId = 0
@@ -75,6 +77,7 @@ final class PlayerViewModel: ObservableObject {
         authService: AuthService,
         realtime: RealtimeClient,
         cache: PlayerPlaybackCache,
+        appCacheService: AppCacheService,
         audioSessionAdapter: AudioSessionAdapter,
         remoteCommandsAdapter: RemoteCommandsAdapter
     ) {
@@ -82,6 +85,7 @@ final class PlayerViewModel: ObservableObject {
         self.authService = authService
         self.realtime = realtime
         self.cache = cache
+        self.appCacheService = appCacheService
         self.audioSessionAdapter = audioSessionAdapter
         self.remoteCommandsAdapter = remoteCommandsAdapter
 
@@ -152,6 +156,7 @@ final class PlayerViewModel: ObservableObject {
             state.sleepTimerMode = PlayerSleepTimerMode(rawValue: playerSettings.sleepTimerMode ?? "off") ?? .off
             state.progressMode = .chapter
             state.appliedRewind = resume.appliedRewind
+            state.isCompleted = dbProgress?.completed ?? false
             state.chapters = playbackDetails.chapters
             state.currentChapterIndex = chapterIndex(for: authoritativePosition)
             state.series = playbackDetails.series
@@ -164,6 +169,31 @@ final class PlayerViewModel: ObservableObject {
             if let metadataDuration = playbackDetails.durationSeconds, metadataDuration > 0 {
                 state.durationSeconds = max(0, metadataDuration)
             }
+
+            // Keep completion state consistent with actual playback position to prevent
+            // stale completed flags from hiding player overlay actions for a single book.
+            let serverCompleted = dbProgress?.completed ?? false
+            let completionDuration = max(0, state.durationSeconds)
+            let completionPosition = max(0, authoritativePosition)
+            let progressDerivedCompleted: Bool
+            if completionDuration > 0 {
+                let threshold = max(1, completionDuration * 0.995)
+                progressDerivedCompleted = completionPosition >= threshold
+            } else {
+                progressDerivedCompleted = false
+            }
+
+            if serverCompleted != progressDerivedCompleted {
+                print(
+                    "[ProgressDebug][Player][completionMismatch] " +
+                    "bookId=\(bookId) " +
+                    "serverCompleted=\(serverCompleted) " +
+                    "derivedCompleted=\(progressDerivedCompleted) " +
+                    "position=\(Int(completionPosition.rounded())) " +
+                    "duration=\(Int(completionDuration.rounded()))"
+                )
+            }
+            state.isCompleted = progressDerivedCompleted || (serverCompleted && completionDuration <= 0)
 
             resetSleepTimerForMode()
             configurePlayerIfNeeded()
@@ -207,15 +237,25 @@ final class PlayerViewModel: ObservableObject {
         autosaveTask?.cancel()
         presenceTask?.cancel()
 
-        if let periodicObserver {
-            player?.removeTimeObserver(periodicObserver)
-        }
-        player?.pause()
+        let observer = periodicObserver
+        let playerRef = player
+        let remoteCommandsAdapterRef = remoteCommandsAdapter
+        let audioSessionAdapterRef = audioSessionAdapter
+        let realtimeRef = realtime
+        let subscriptionID = realtimeSubscriptionID
 
-        remoteCommandsAdapter.removeRemoteCommandTargets()
-        remoteCommandsAdapter.clearNowPlayingInfo()
-        audioSessionAdapter.cleanup()
-        isRealtimeBound = false
-        realtime.disconnect()
+        Task { @MainActor in
+            if let observer {
+                playerRef?.removeTimeObserver(observer)
+            }
+            playerRef?.pause()
+
+            remoteCommandsAdapterRef.removeRemoteCommandTargets()
+            remoteCommandsAdapterRef.clearNowPlayingInfo()
+            audioSessionAdapterRef.cleanup()
+            if let subscriptionID {
+                realtimeRef.unsubscribe(subscriptionID)
+            }
+        }
     }
 }

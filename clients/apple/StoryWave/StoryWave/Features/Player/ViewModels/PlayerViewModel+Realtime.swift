@@ -12,7 +12,8 @@ extension PlayerViewModel {
         guard !isRealtimeBound else { return }
         isRealtimeBound = true
 
-        realtime.connect { [weak self] event in
+        realtime.connect()
+        realtimeSubscriptionID = realtime.subscribe { [weak self] event in
             Task { @MainActor in
                 self?.handleRealtimeEvent(event)
             }

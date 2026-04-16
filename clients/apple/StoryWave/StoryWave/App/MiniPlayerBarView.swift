@@ -76,29 +76,15 @@ struct MiniPlayerBarView: View {
 
     @ViewBuilder
     private var coverThumbnail: some View {
-        if let coverURLString = viewModel.miniPlayerCoverURLString(),
-           let url = URL(string: coverURLString) {
-            RemoteCoverImageView(
-                url: url,
-                fallbackText: viewModel.miniPlayerTitle().prefix(2).uppercased(),
-                fallbackFontSize: 14,
-                backgroundColor: Branding.surfaceSoft
-            )
-            .frame(width: 32, height: 32)
-            .clipShape(RoundedRectangle(cornerRadius: 7))
-        } else {
-            placeholderCover
-                .frame(width: 32, height: 32)
-                .clipShape(RoundedRectangle(cornerRadius: 7))
-        }
-    }
-
-    private var placeholderCover: some View {
-        ZStack {
-            Branding.surfaceSoft
-            Image(systemName: "book.closed.fill")
-                .foregroundStyle(Branding.accent)
-                .font(.system(size: 14, weight: .semibold))
-        }
+        BookCoverFrameView(
+            url: viewModel.miniPlayerCoverURLString().flatMap(URL.init(string:)),
+            fallbackText: viewModel.miniPlayerTitle().prefix(2).uppercased(),
+            fallbackFontSize: 14,
+            backgroundColor: Branding.surfaceSoft,
+            size: CGSize(width: 32, height: 32),
+            cornerRadius: 7,
+            shadowColor: .clear,
+            shadowRadius: 0
+        )
     }
 }

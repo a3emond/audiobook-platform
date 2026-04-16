@@ -5,6 +5,31 @@ import Combine
 @MainActor
 final class AppContainer: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
+    private var realtimeSubscriptionIDs: [UUID] = []
+    private var isRealtimeLifecycleActive = false
+    private let progressDebugEnabled = true
+
+    private struct RealtimeDiscussionCreatedPayload: Decodable {
+        let message: DiscussionMessageDTO?
+    }
+
+    private struct RealtimeDiscussionDeletedPayload: Decodable {
+        let messageId: String?
+        let lang: String?
+        let channelKey: String?
+    }
+
+    private struct RealtimeJobStateChangedPayload: Decodable {
+        let job: AdminJobDTO?
+    }
+
+    private struct RealtimeProgressSyncedPayload: Decodable {
+        let bookId: String?
+        let positionSeconds: Int?
+        let durationAtSave: Int?
+        let completed: Bool?
+        let timestamp: String?
+    }
 
     let apiClient: APIClient
     let authSessionManager: AuthSessionManager
@@ -88,6 +113,7 @@ final class AppContainer: ObservableObject {
             authService: authService,
             realtime: realtimeClient,
             cache: playerCache,
+            appCacheService: appCacheService,
             audioSessionAdapter: audioSessionAdapter,
             remoteCommandsAdapter: remoteCommandsAdapter
         )
@@ -98,7 +124,7 @@ final class AppContainer: ObservableObject {
         self.adminViewModel = AdminViewModel(repository: adminRepository, appCacheService: appCacheService)
 
         // Set PlayerViewModel as the actions handler for remote commands
-        (remoteCommandsAdapter as? RemoteCommandsAdapterImpl)?.playerActions = playerViewModel
+        remoteCommandsAdapter.playerActions = playerViewModel
 
         // Wire audio interruption callbacks to player actions
         #if os(iOS)
@@ -131,5 +157,120 @@ final class AppContainer: ObservableObject {
         self.profileViewModel.objectWillChange
             .sink { [weak self] _ in self?.objectWillChange.send() }
             .store(in: &cancellables)
+
+        configureRealtimeEventRouting()
+        setRealtimeLifecycleActive(authViewModel.state.isAuthenticated)
+    }
+
+    deinit {
+        for id in realtimeSubscriptionIDs {
+            realtimeClient.unsubscribe(id)
+        }
+        realtimeClient.disconnect()
+    }
+
+    func setRealtimeLifecycleActive(_ isActive: Bool) {
+        guard isRealtimeLifecycleActive != isActive else { return }
+        isRealtimeLifecycleActive = isActive
+
+        if isActive {
+            realtimeClient.connect()
+        } else {
+            realtimeClient.disconnect()
+        }
+    }
+
+    private func configureRealtimeEventRouting() {
+
+        let discussionCreatedID = realtimeClient.subscribe { [weak self] event in
+            guard let self, event.type == "discussion.message.created",
+                  let payload = event.decodePayload(as: RealtimeDiscussionCreatedPayload.self),
+                  let message = payload.message else {
+                return
+            }
+
+            Task { @MainActor in
+                self.discussionViewModel.applyRealtimeMessageCreated(message)
+            }
+        }
+
+        let discussionDeletedID = realtimeClient.subscribe { [weak self] event in
+            guard let self, event.type == "discussion.message.deleted",
+                  let payload = event.decodePayload(as: RealtimeDiscussionDeletedPayload.self),
+                  let messageId = payload.messageId,
+                  let lang = payload.lang,
+                  let channelKey = payload.channelKey else {
+                return
+            }
+
+            Task { @MainActor in
+                self.discussionViewModel.applyRealtimeMessageDeleted(
+                    messageId: messageId,
+                    lang: lang,
+                    channelKey: channelKey
+                )
+            }
+        }
+
+        let adminJobsID = realtimeClient.subscribe { [weak self] event in
+            guard let self, event.type == "job.state.changed",
+                  let payload = event.decodePayload(as: RealtimeJobStateChangedPayload.self),
+                  let job = payload.job else {
+                return
+            }
+
+            Task { @MainActor in
+                self.adminViewModel.applyRealtimeJobUpdate(job)
+            }
+        }
+
+        let catalogAddedID = realtimeClient.subscribe { [weak self] event in
+            guard let self, event.type == "catalog.book.added" else {
+                return
+            }
+
+            Task { @MainActor in
+                self.appCacheService.invalidateLibrary()
+            }
+        }
+
+        let progressSyncedID = realtimeClient.subscribe { [weak self] event in
+            guard let self, event.type == "progress.synced",
+                  let payload = event.decodePayload(as: RealtimeProgressSyncedPayload.self),
+                  let bookId = payload.bookId else {
+                return
+            }
+
+            if self.progressDebugEnabled {
+                print(
+                    "[ProgressDebug][Realtime] progress.synced bookId=\(bookId) " +
+                    "position=\(payload.positionSeconds.map(String.init) ?? "nil") " +
+                    "duration=\(payload.durationAtSave.map(String.init) ?? "nil") " +
+                    "completed=\(payload.completed.map { String($0) } ?? "nil") " +
+                    "timestamp=\(payload.timestamp ?? "nil")"
+                )
+            }
+
+            Task { @MainActor in
+                await self.libraryViewModel.applyRealtimeProgressSync(
+                    bookId: bookId,
+                    positionSeconds: payload.positionSeconds,
+                    durationAtSave: payload.durationAtSave,
+                    completed: payload.completed,
+                    timestamp: payload.timestamp
+                )
+                if self.progressDebugEnabled {
+                    self.libraryViewModel.debugProgressSnapshot(for: bookId, source: "realtime.progress.synced")
+                }
+            }
+        }
+
+        realtimeSubscriptionIDs = [
+            discussionCreatedID,
+            discussionDeletedID,
+            adminJobsID,
+            catalogAddedID,
+            progressSyncedID,
+        ]
     }
 }

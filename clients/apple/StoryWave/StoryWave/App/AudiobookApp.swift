@@ -81,30 +81,20 @@ struct AudiobookApp: App {
 #if os(iOS)
                     .ignoresSafeArea()
 #endif
-                    .logSize("Content Group")
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 #if os(iOS)
                 .ignoresSafeArea()
 #endif
-                .logSize("Root ZStack")
                 .foregroundStyle(Branding.text)
                 .task {
-#if os(iOS)
-                    let screenBounds = UIScreen.main.bounds
-                    let keyWindow = UIApplication.shared.connectedScenes
-                        .compactMap { $0 as? UIWindowScene }
-                        .flatMap(\.windows)
-                        .first(where: \.isKeyWindow)
-                    let safeInsets = keyWindow?.safeAreaInsets ?? .zero
-                    print("[LOG] Screen bounds: \(screenBounds), keyWindow safeAreaInsets: \(safeInsets)")
-#endif
                     async let initTask: Void = bootstrap.initialize()
                     async let healthTask: Void = connectivity.checkNow()
                     _ = await (initTask, healthTask)
                 }
                 .task(id: container.authViewModel.state.isAuthenticated) {
-                    print("[LOG] isAuthenticated changed: \(container.authViewModel.state.isAuthenticated)")
+                    container.setRealtimeLifecycleActive(container.authViewModel.state.isAuthenticated)
+
                     if container.authViewModel.state.isAuthenticated,
                        container.profileViewModel.user == nil,
                        !container.profileViewModel.isLoading {
@@ -114,6 +104,10 @@ struct AudiobookApp: App {
                     if container.authViewModel.state.isAuthenticated {
                         container.playerViewModel.broadcastPresence()
                     }
+                }
+                .task(id: container.playerViewModel.miniPlayerBookId() ?? "") {
+                    guard let activeBookId = container.playerViewModel.miniPlayerBookId() else { return }
+                    container.libraryViewModel.debugProgressSnapshot(for: activeBookId, source: "app.activeBook.changed")
                 }
                 .sheet(isPresented: Binding(
                     get: { container.libraryViewModel.state.selectedSeriesName != nil },
@@ -126,8 +120,10 @@ struct AudiobookApp: App {
                     SeriesDetailPageView(
                         seriesName: container.libraryViewModel.state.selectedSeriesName ?? "Series",
                         books: container.libraryViewModel.state.selectedSeriesBooks,
+                        progressSnapshot: container.libraryViewModel.seriesProgress(for: container.libraryViewModel.state.selectedSeriesBooks),
                         coverURLForBook: { container.libraryViewModel.coverURL(for: $0) },
                         progressPercentForBookId: { container.libraryViewModel.progressPercent(for: $0) },
+                        isCompletedForBookId: { container.libraryViewModel.isCompleted(for: $0) },
                         isAdmin: container.profileViewModel.user?.role == "admin",
                         onOpenBook: { bookId, title in
                             container.libraryViewModel.clearSeriesDetail()
@@ -411,11 +407,11 @@ struct AudiobookApp: App {
 #if os(iOS)
         .ignoresSafeArea(.keyboard)
 #endif
-        .logSize("TabView")
     }
 
     private func signOutAndReset() async {
         await container.authViewModel.signOut()
+        container.setRealtimeLifecycleActive(false)
         container.libraryViewModel.reset()
         container.playerViewModel.reset()
         container.profileStatsViewModel.reset()
@@ -438,22 +434,6 @@ struct AudiobookApp: App {
         }
 
         return URL(string: "https://audiobook.aedev.pro")!
-    }
-}
-
-private extension View {
-    func logSize(_ label: String) -> some View {
-        self.overlay(
-            GeometryReader { proxy in
-                Color.clear
-                    .onAppear {
-                        print("[LOG] \(label) size: \(proxy.size), safeAreaInsets: \(proxy.safeAreaInsets)")
-                    }
-                    .onChange(of: proxy.size) { newValue in
-                        print("[LOG] \(label) size changed: \(newValue), safeAreaInsets: \(proxy.safeAreaInsets)")
-                    }
-            }
-        )
     }
 }
 

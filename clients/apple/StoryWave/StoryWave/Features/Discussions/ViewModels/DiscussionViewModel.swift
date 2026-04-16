@@ -275,6 +275,44 @@ final class DiscussionViewModel: ObservableObject {
         await loadMessages(channelId: channelId)
     }
 
+    func applyRealtimeMessageCreated(_ message: DiscussionMessageDTO) {
+        guard message.lang == localization.locale,
+              message.channelKey == state.selectedChannelId else {
+            return
+        }
+
+        guard !state.messages.contains(where: { $0.id == message.id }) else {
+            return
+        }
+
+        state.messages.append(message)
+        messagesCache[cacheKeyForMessages(channelId: message.channelKey)] = MessageCacheEntry(
+            timestamp: Date(),
+            locale: localization.locale,
+            messages: state.messages,
+            hasMore: state.hasMoreMessages
+        )
+    }
+
+    func applyRealtimeMessageDeleted(messageId: String, lang: String, channelKey: String) {
+        guard lang == localization.locale,
+              channelKey == state.selectedChannelId else {
+            return
+        }
+
+        state.messages.removeAll { $0.id == messageId }
+        if replyingToMessageId == messageId {
+            replyingToMessageId = nil
+        }
+
+        messagesCache[cacheKeyForMessages(channelId: channelKey)] = MessageCacheEntry(
+            timestamp: Date(),
+            locale: localization.locale,
+            messages: state.messages,
+            hasMore: state.hasMoreMessages
+        )
+    }
+
     private func cacheKeyForMessages(channelId: String) -> String {
         "\(localization.locale.lowercased())::\(channelId)"
     }

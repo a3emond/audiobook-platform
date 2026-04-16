@@ -753,6 +753,20 @@ final class AdminViewModel: ObservableObject {
         }
     }
 
+    func applyRealtimeJobUpdate(_ job: AdminJobDTO) {
+        if let index = jobs.firstIndex(where: { $0.id == job.id }) {
+            jobs[index] = job
+        } else {
+            jobs.insert(job, at: 0)
+        }
+
+        jobsTotal = max(jobsTotal, jobs.count)
+
+        if selectedJob?.id == job.id {
+            selectedJob = job
+        }
+    }
+
     private func compareBooksForManagement(_ lhs: BookDTO, _ rhs: BookDTO) -> Bool {
         let lhsSeries = (lhs.series ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let rhsSeries = (rhs.series ?? "").trimmingCharacters(in: .whitespacesAndNewlines)

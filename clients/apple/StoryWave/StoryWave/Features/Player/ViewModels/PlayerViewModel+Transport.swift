@@ -7,6 +7,23 @@ import AudiobookCore
 
 extension PlayerViewModel {
 
+    func markCompletedPressed() async {
+        guard !state.bookId.isEmpty else { return }
+
+        state.isSaving = true
+        defer { state.isSaving = false }
+
+        do {
+            _ = try await repository.markCompleted(bookId: state.bookId)
+            state.isCompleted = true
+            state.errorMessage = nil
+            appCacheService.invalidateLibrary()
+            broadcastLiveProgress(force: true)
+        } catch {
+            state.errorMessage = "Could not mark this book as completed."
+        }
+    }
+
     // MARK: Play / Pause
 
     func playPressed() {
@@ -68,6 +85,7 @@ extension PlayerViewModel {
                 lastChapterIndex: state.currentChapterIndex,
                 secondsIntoChapter: chapterOffsetSeconds()
             )
+            appCacheService.invalidateLibrary()
             broadcastLiveProgress(force: true)
         } catch {
             state.errorMessage = "Could not save progress."
@@ -191,6 +209,7 @@ extension PlayerViewModel {
             lastChapterIndex: state.currentChapterIndex,
             secondsIntoChapter: chapterOffsetSeconds()
         )
+        appCacheService.invalidateLibrary()
         broadcastLiveProgress(force: true)
     }
 

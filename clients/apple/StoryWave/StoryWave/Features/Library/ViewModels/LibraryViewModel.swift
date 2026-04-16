@@ -4,6 +4,19 @@ import Combine
 
 @MainActor
 final class LibraryViewModel: ObservableObject {
+    private static let progressDateParser: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private static let progressDateParserFallback: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+    private let progressDebugEnabled = true
+
     // MARK: Published State
 
     @Published private(set) var state = LibraryViewState()
@@ -27,6 +40,8 @@ final class LibraryViewModel: ObservableObject {
     private let initialBooksLimit = 60
     private let booksPageSize = 60
     private let collectionsPageSize = 24
+    private let progressPageSize = 100
+    private let maxProgressPages = 10
     private let cacheTTL: TimeInterval = 90
     private let progressRefreshTTL: TimeInterval = 12
 
@@ -65,6 +80,7 @@ final class LibraryViewModel: ObservableObject {
                     self.snapshotCache = nil
                     self.searchCache.removeAll()
                     self.bookDetailsCache.removeAll()
+                    Task { await self.refreshProgressIfNeeded(force: true) }
                 case .book(let id):
                     self.bookDetailsCache.removeValue(forKey: id)
                     self.snapshotCache = nil
@@ -96,6 +112,55 @@ final class LibraryViewModel: ObservableObject {
         state.progressPercent(for: bookId)
     }
 
+    func debugProgressSnapshot(for bookId: String, source: String) {
+        guard progressDebugEnabled else { return }
+
+        let progress = state.progressRecord(for: bookId)
+        let percent = state.progressPercent(for: bookId)
+        let activeBook = state.allBooks.first(where: { $0.id == bookId })
+        let continueItems = state.continueListeningItems
+        let continueIndex = continueItems.firstIndex(where: { $0.book.id == bookId })
+        let continuePreview = continueItems.prefix(5).map {
+            "\($0.book.id.prefix(8)):\($0.progress.positionSeconds)@\($0.progress.lastListenedAt ?? $0.progress.updatedAt ?? "nil")"
+        }.joined(separator: ",")
+        let normalizedTitle = normalizeDebugTitle(activeBook?.title)
+        let titlePeerBooks = state.allBooks.filter { normalizeDebugTitle($0.title) == normalizedTitle }
+        let titlePeerPreview = titlePeerBooks.prefix(6).map { peer in
+            let peerProgress = state.progressRecord(for: peer.id)
+            let peerPercent = state.progressPercent(for: peer.id)
+            let peerPercentText = peerPercent.map { String(format: "%.3f", $0) } ?? "nil"
+            let peerTimestamp = peerProgress?.lastListenedAt ?? peerProgress?.updatedAt ?? "nil"
+            return "\(peer.id.prefix(8))|p=\(peerProgress?.positionSeconds ?? -1)|pct=\(peerPercentText)|ts=\(peerTimestamp)"
+        }.joined(separator: ",")
+        let recordLast = progress?.lastListenedAt ?? "nil"
+        let percentText = percent.map { String(format: "%.4f", $0) } ?? "nil"
+        let continueIndexText = continueIndex.map(String.init) ?? "nil"
+
+        print(
+            "[ProgressDebug][Library][\(source)] " +
+            "bookId=\(bookId) " +
+            "title=\(activeBook?.title ?? "<missing>") " +
+            "recordPos=\(progress?.positionSeconds ?? -1) " +
+            "recordDuration=\(progress?.durationAtSave ?? -1) " +
+            "recordCompleted=\(progress?.completed ?? false) " +
+            "recordLast=\(recordLast) " +
+            "percent=\(percentText) " +
+            "continueIndex=\(continueIndexText) " +
+            "continueCount=\(continueItems.count) " +
+            "continueTop5=\(continuePreview) " +
+            "titlePeerCount=\(titlePeerBooks.count) " +
+            "titlePeers=\(titlePeerPreview)"
+        )
+    }
+
+    func isCompleted(for bookId: String) -> Bool {
+        state.isCompleted(for: bookId)
+    }
+
+    func seriesProgress(for books: [BookDTO]) -> SeriesProgressSnapshot {
+        state.seriesProgress(for: books)
+    }
+
     func loadLibrary(forceRefresh: Bool = false) async {
         if !forceRefresh, let snapshot = snapshotCache, Date().timeIntervalSince(snapshot.timestamp) <= cacheTTL {
             applySnapshot(snapshot)
@@ -122,11 +187,12 @@ final class LibraryViewModel: ObservableObject {
             state.collectionsOffset = collectionsPage.collections.count
             state.collectionsHasMore = state.collectionsOffset < collectionsPage.total
 
-            if let progressPage = try? await progressRepository.listMine(limit: 100, offset: 0) {
-                state.allProgress = progressPage.progress
+            if let progress = try? await fetchProgressSnapshot() {
+                state.allProgress = progress
                 lastProgressRefreshAt = Date()
-            } else {
-                state.allProgress = []
+            } else if state.allProgress.isEmpty,
+                      let fallbackPage = try? await progressRepository.listMine(limit: 50, offset: 0) {
+                state.allProgress = deduplicatedProgress(fallbackPage.progress)
                 lastProgressRefreshAt = Date()
             }
 
@@ -157,8 +223,12 @@ final class LibraryViewModel: ObservableObject {
                 state.collectionsHasMore = state.collectionsOffset < page.total
             } catch {}
 
-            if let progressPage = try? await progressRepository.listMine(limit: 100, offset: 0) {
-                state.allProgress = progressPage.progress
+            if let progress = try? await fetchProgressSnapshot() {
+                state.allProgress = progress
+                lastProgressRefreshAt = Date()
+            } else if state.allProgress.isEmpty,
+                      let fallbackPage = try? await progressRepository.listMine(limit: 50, offset: 0) {
+                state.allProgress = deduplicatedProgress(fallbackPage.progress)
                 lastProgressRefreshAt = Date()
             }
 
@@ -348,6 +418,59 @@ final class LibraryViewModel: ObservableObject {
         lastProgressRefreshAt = nil
     }
 
+    func applyRealtimeProgressSync(
+        bookId: String,
+        positionSeconds: Int?,
+        durationAtSave: Int?,
+        completed: Bool?,
+        timestamp: String?
+    ) async {
+        guard !bookId.isEmpty else { return }
+
+        let safePosition = max(positionSeconds ?? 0, 0)
+        let safeDuration = max(durationAtSave ?? 0, 0)
+        let eventTimestamp = timestamp
+
+        if let existingIndex = state.allProgress.firstIndex(where: { $0.bookId == bookId }) {
+            let existing = state.allProgress[existingIndex]
+            let merged = ProgressRecordDTO(
+                bookId: existing.bookId,
+                positionSeconds: positionSeconds ?? existing.positionSeconds,
+                durationAtSave: safeDuration > 0 ? safeDuration : existing.durationAtSave,
+                completed: completed ?? existing.completed,
+                lastListenedAt: eventTimestamp ?? existing.lastListenedAt ?? existing.updatedAt,
+                updatedAt: eventTimestamp ?? existing.updatedAt ?? existing.lastListenedAt
+            )
+
+            // Avoid extra view churn when no effective data changed.
+            if merged.positionSeconds != existing.positionSeconds ||
+               merged.durationAtSave != existing.durationAtSave ||
+               merged.completed != existing.completed ||
+               merged.lastListenedAt != existing.lastListenedAt ||
+               merged.updatedAt != existing.updatedAt {
+                state.allProgress[existingIndex] = merged
+            }
+        } else {
+            let record = ProgressRecordDTO(
+                bookId: bookId,
+                positionSeconds: safePosition,
+                durationAtSave: safeDuration,
+                completed: completed ?? false,
+                lastListenedAt: eventTimestamp,
+                updatedAt: eventTimestamp
+            )
+            state.allProgress.append(record)
+        }
+
+        state.allProgress = deduplicatedProgress(state.allProgress)
+        lastProgressRefreshAt = Date()
+        await hydrateContinueListeningBooks(maxFetch: 1)
+
+        if progressDebugEnabled {
+            debugProgressSnapshot(for: bookId, source: "applyRealtimeProgressSync")
+        }
+    }
+
     private func refreshProgressIfNeeded(force: Bool = false) async {
         if !force,
            let lastProgressRefreshAt,
@@ -355,22 +478,81 @@ final class LibraryViewModel: ObservableObject {
             return
         }
 
-        guard let progressPage = try? await progressRepository.listMine(limit: 100, offset: 0) else {
+        guard let progress = try? await fetchProgressSnapshot() else {
             return
         }
 
-        state.allProgress = progressPage.progress
+        state.allProgress = progress
         lastProgressRefreshAt = Date()
         await hydrateContinueListeningBooks()
-        refreshSnapshotCache()
+    }
+
+    private func fetchProgressSnapshot() async throws -> [ProgressRecordDTO] {
+        var offset = 0
+        var pageCount = 0
+        var collected: [ProgressRecordDTO] = []
+
+        while pageCount < maxProgressPages {
+            let page = try await progressRepository.listMine(limit: progressPageSize, offset: offset)
+            collected.append(contentsOf: page.progress)
+            pageCount += 1
+
+            if !page.hasMore || page.progress.isEmpty {
+                break
+            }
+
+            offset = page.offset + page.limit
+        }
+
+        if collected.isEmpty {
+            let fallbackPage = try await progressRepository.listMine(limit: 50, offset: 0)
+            return deduplicatedProgress(fallbackPage.progress)
+        }
+
+        return deduplicatedProgress(collected)
+    }
+
+    private func deduplicatedProgress(_ progress: [ProgressRecordDTO]) -> [ProgressRecordDTO] {
+        var deduped: [String: ProgressRecordDTO] = [:]
+        for record in progress {
+            if let existing = deduped[record.bookId] {
+                let recordTimestamp = progressTimestamp(record)
+                let existingTimestamp = progressTimestamp(existing)
+                if recordTimestamp > existingTimestamp ||
+                    (recordTimestamp == existingTimestamp && record.positionSeconds >= existing.positionSeconds) {
+                    deduped[record.bookId] = record
+                }
+            } else {
+                deduped[record.bookId] = record
+            }
+        }
+        return Array(deduped.values)
     }
 
     private func hydrateContinueListeningBooks(maxFetch: Int = 8) async {
-        let existingIds = Set(state.allBooks.map(\.id))
+        var existingIds = Set(state.allBooks.map(\.id))
         let candidateIds = state.allProgress
             .filter { !$0.completed && $0.positionSeconds > 0 }
-            .sorted { ($0.lastListenedAt ?? "") > ($1.lastListenedAt ?? "") }
+            .sorted { progressTimestamp($0) > progressTimestamp($1) }
             .map(\.bookId)
+
+        // Re-inject known books that were previously cached but are currently absent from the
+        // rendered catalog list. Without this, a realtime-updated active book can have progress
+        // data but still be "missing" from card surfaces.
+        var reinjectedCount = 0
+        for bookId in candidateIds {
+            guard !existingIds.contains(bookId), let cached = bookDetailsCache[bookId] else {
+                continue
+            }
+
+            state.allBooks.append(cached)
+            existingIds.insert(bookId)
+            reinjectedCount += 1
+
+            if reinjectedCount >= maxFetch {
+                break
+            }
+        }
 
         let missingIds = candidateIds.filter { id in
             !existingIds.contains(id) && bookDetailsCache[id] == nil
@@ -383,9 +565,30 @@ final class LibraryViewModel: ObservableObject {
                 bookDetailsCache[book.id] = book
                 if !state.allBooks.contains(where: { $0.id == book.id }) {
                     state.allBooks.append(book)
+                    existingIds.insert(book.id)
                 }
             }
         }
+    }
+
+    private func progressTimestamp(_ progress: ProgressRecordDTO) -> TimeInterval {
+        guard let raw = progress.lastListenedAt ?? progress.updatedAt else {
+            return 0
+        }
+
+        if let date = Self.progressDateParser.date(from: raw)
+            ?? Self.progressDateParserFallback.date(from: raw) {
+            return date.timeIntervalSince1970
+        }
+
+        return 0
+    }
+
+    private func normalizeDebugTitle(_ title: String?) -> String {
+        guard let title else { return "" }
+        return title
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
     }
 
     private func mergedBooks(current: [BookDTO], incoming: [BookDTO]) -> [BookDTO] {

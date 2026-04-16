@@ -45,6 +45,22 @@ public struct ProgressRecordDTO: Codable, Identifiable, Sendable {
     public let completed: Bool
     public let lastListenedAt: String?
     public let updatedAt: String?
+
+    public init(
+        bookId: String,
+        positionSeconds: Int,
+        durationAtSave: Int,
+        completed: Bool,
+        lastListenedAt: String?,
+        updatedAt: String?
+    ) {
+        self.bookId = bookId
+        self.positionSeconds = positionSeconds
+        self.durationAtSave = durationAtSave
+        self.completed = completed
+        self.lastListenedAt = lastListenedAt
+        self.updatedAt = updatedAt
+    }
 }
 
 public struct ProgressPageDTO: Decodable, Sendable {

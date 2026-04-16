@@ -61,47 +61,107 @@ private struct ContinueListeningCardView: View {
     let onTap: () -> Void
 
     private let cardSize: CGFloat = 86
+    private let startedProgressFallbackPercent: Double = 0.01
+    private let overlayDebugEnabled = true
 
     private var progressPercent: Double {
-        guard progress.durationAtSave > 0 else { return 0 }
-        return min(1, max(0, Double(progress.positionSeconds) / Double(progress.durationAtSave)))
+        if progress.completed {
+            return 1
+        }
+
+        let progressDuration = normalizedDurationSeconds(progress.durationAtSave)
+        let bookDuration = normalizedDurationSeconds(book.duration)
+        let duration = max(progressDuration ?? 0, bookDuration ?? 0)
+        guard duration > 0 else {
+            return progress.positionSeconds > 0 ? startedProgressFallbackPercent : 0
+        }
+
+        let position = normalizedDurationSeconds(progress.positionSeconds) ?? 0
+        return min(1, max(0, Double(position) / Double(duration)))
+    }
+
+    private var progressText: String {
+        String(format: "%.4f", progressPercent)
+    }
+
+    private var clampedProgressPercent: CGFloat {
+        let raw = min(1, max(0, progressPercent))
+        if raw <= 0 {
+            return 0
+        }
+        if raw >= 1 {
+            return 1
+        }
+        return CGFloat(max(0.01, min(0.99, raw)))
+    }
+
+    private var progressFillWidth: CGFloat {
+        cardSize * clampedProgressPercent
+    }
+
+    private var safeCoverURLText: String {
+        guard let coverURL else { return "nil" }
+        guard var components = URLComponents(url: coverURL, resolvingAgainstBaseURL: false) else {
+            return coverURL.absoluteString
+        }
+
+        components.queryItems = components.queryItems?.map { item in
+            if item.name == "access_token" {
+                return URLQueryItem(name: item.name, value: "[redacted]")
+            }
+            return item
+        }
+
+        return components.string ?? coverURL.absoluteString
+    }
+
+    private func logOverlayState(_ reason: String) {
+        guard overlayDebugEnabled else { return }
+
+        print(
+            "[OverlayDebug][ContinueCard][\(reason)] " +
+            "bookId=\(book.id) " +
+            "title=\(book.title) " +
+            "position=\(progress.positionSeconds) " +
+            "durationAtSave=\(progress.durationAtSave) " +
+            "completed=\(progress.completed) " +
+            "progress=\(progressText) " +
+            "showProgressPill=true " +
+            "showProgressBar=true " +
+            "isAdmin=\(isAdmin) " +
+            "coverURL=\(safeCoverURLText)"
+        )
+    }
+
+    private func normalizedDurationSeconds(_ rawValue: Int?) -> Int? {
+        guard let rawValue, rawValue > 0 else { return nil }
+        if rawValue > 200_000 {
+            return max(1, rawValue / 1000)
+        }
+        return rawValue
     }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
             Button(action: onTap) {
-                ZStack(alignment: .bottomLeading) {
-                    RemoteCoverImageView(
-                        url: coverURL,
-                        fallbackText: book.title.prefix(2).uppercased(),
-                        fallbackFontSize: 18
-                    )
-                    .frame(width: cardSize, height: cardSize)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                    VStack(spacing: 0) {
-                        HStack {
-                            Text("\(Int(progressPercent * 100))%")
-                                .font(.caption2.bold())
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .background(Color.black.opacity(0.78))
-                                .foregroundStyle(.white)
-                                .clipShape(Capsule())
-                            Spacer()
-                        }
-                        .padding(6)
-
-                        Spacer()
-
+                BookCoverFrameView(
+                    url: coverURL,
+                    fallbackText: book.title.prefix(2).uppercased(),
+                    fallbackFontSize: 18,
+                    size: CGSize(width: cardSize, height: cardSize),
+                    cornerRadius: 10
+                ) {
+                    ZStack {
                         VStack(spacing: 0) {
+                            Spacer()
+
                             Text(book.title)
                                 .font(.system(size: 10, weight: .semibold))
                                 .lineLimit(1)
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, 6)
-                                .padding(.bottom, 5)
+                                .padding(.bottom, 7)
                                 .padding(.top, 14)
                                 .background(
                                     LinearGradient(
@@ -110,24 +170,38 @@ private struct ContinueListeningCardView: View {
                                         endPoint: .bottom
                                     )
                                 )
-
-                            GeometryReader { geometry in
-                                ZStack(alignment: .leading) {
-                                    Rectangle()
-                                        .fill(Color.black.opacity(0.35))
-                                    Rectangle()
-                                        .fill(Branding.accent)
-                                        .frame(width: geometry.size.width * progressPercent)
-                                }
-                            }
-                            .frame(height: 3)
                         }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+
+                        VStack(spacing: 0) {
+                            Spacer()
+                            ZStack(alignment: .leading) {
+                                Rectangle()
+                                    .fill(Color.black.opacity(0.35))
+                                    .frame(width: cardSize, height: 3)
+                                Rectangle()
+                                    .fill(Branding.accent)
+                                    .frame(width: progressFillWidth, height: 3)
+                            }
+                            .frame(width: cardSize, height: 3, alignment: .leading)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                        .zIndex(3)
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                 }
-                .frame(width: cardSize, height: cardSize)
-                .shadow(color: .black.opacity(0.25), radius: 4, x: 0, y: 2)
             }
             .buttonStyle(.plain)
+
+            BookProgressPillView(
+                progressPercent: progressPercent,
+                font: .caption2.bold(),
+                horizontalPadding: 5,
+                verticalPadding: 2
+            )
+            .padding(6)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .zIndex(2)
 
             if isAdmin {
                 Button("Edit") {
@@ -137,6 +211,18 @@ private struct ContinueListeningCardView: View {
                 .controlSize(.mini)
                 .padding(5)
             }
+        }
+        .onAppear {
+            logOverlayState("onAppear")
+        }
+        .onChange(of: progress.positionSeconds) { _, _ in
+            logOverlayState("positionChanged")
+        }
+        .onChange(of: progress.durationAtSave) { _, _ in
+            logOverlayState("durationChanged")
+        }
+        .onChange(of: progress.completed) { _, _ in
+            logOverlayState("completedChanged")
         }
     }
 }
