@@ -34,6 +34,7 @@ final class RemoteCommandsAdapterImpl: RemoteCommandsAdapter {
     private var remoteCommandsConfigured = false
     private var playCommandTarget: Any?
     private var pauseCommandTarget: Any?
+    private var togglePlayPauseCommandTarget: Any?
     private var skipForwardCommandTarget: Any?
     private var skipBackwardCommandTarget: Any?
     private var nextTrackCommandTarget: Any?
@@ -63,6 +64,7 @@ final class RemoteCommandsAdapterImpl: RemoteCommandsAdapter {
         let center = MPRemoteCommandCenter.shared()
         center.playCommand.isEnabled = true
         center.pauseCommand.isEnabled = true
+        center.togglePlayPauseCommand.isEnabled = true
         center.skipForwardCommand.isEnabled = true
         center.skipBackwardCommand.isEnabled = true
         center.nextTrackCommand.isEnabled = true
@@ -76,6 +78,11 @@ final class RemoteCommandsAdapterImpl: RemoteCommandsAdapter {
         pauseCommandTarget = center.pauseCommand.addTarget { [weak self] _ in
             guard let self else { return .commandFailed }
             self.playerActions?.pausePressed()
+            return .success
+        }
+        togglePlayPauseCommandTarget = center.togglePlayPauseCommand.addTarget { [weak self] _ in
+            guard let self else { return .commandFailed }
+            self.playerActions?.togglePlayPausePressed()
             return .success
         }
         skipForwardCommandTarget = center.skipForwardCommand.addTarget { [weak self] _ in
@@ -105,12 +112,14 @@ final class RemoteCommandsAdapterImpl: RemoteCommandsAdapter {
         let center = MPRemoteCommandCenter.shared()
         if let t = playCommandTarget { center.playCommand.removeTarget(t) }
         if let t = pauseCommandTarget { center.pauseCommand.removeTarget(t) }
+        if let t = togglePlayPauseCommandTarget { center.togglePlayPauseCommand.removeTarget(t) }
         if let t = skipForwardCommandTarget { center.skipForwardCommand.removeTarget(t) }
         if let t = skipBackwardCommandTarget { center.skipBackwardCommand.removeTarget(t) }
         if let t = nextTrackCommandTarget { center.nextTrackCommand.removeTarget(t) }
         if let t = previousTrackCommandTarget { center.previousTrackCommand.removeTarget(t) }
         playCommandTarget = nil
         pauseCommandTarget = nil
+        togglePlayPauseCommandTarget = nil
         skipForwardCommandTarget = nil
         skipBackwardCommandTarget = nil
         nextTrackCommandTarget = nil
@@ -323,6 +332,7 @@ final class RemoteCommandsAdapterImpl: RemoteCommandsAdapter {
 protocol PlayerRemoteCommandActions: AnyObject {
     func playPressed()
     func pausePressed()
+    func togglePlayPausePressed()
     func handleSkipForwardMediaAction()
     func handleSkipBackwardMediaAction()
 }

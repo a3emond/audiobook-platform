@@ -56,6 +56,14 @@ extension PlayerViewModel {
         Task { await saveProgressSilently() }
     }
 
+    func togglePlayPausePressed() {
+        if state.isPlaying {
+            pausePressed()
+        } else {
+            playPressed()
+        }
+    }
+
     // MARK: Media Buttons
 
     func handleSkipBackwardMediaAction() { seekBy(-state.backwardJumpSeconds, source: .mediaCommand) }
