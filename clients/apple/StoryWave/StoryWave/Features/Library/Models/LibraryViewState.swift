@@ -42,6 +42,7 @@ struct LibraryViewState {
     var errorMessage: String? = nil
     var booksOffset: Int = 0
     var booksHasMore: Bool = false
+    var seriesExpectedBookCount: [String: Int] = [:]
     var collectionsOffset: Int = 0
     var collectionsHasMore: Bool = false
     var selectedSeriesName: String? = nil
@@ -80,11 +81,22 @@ struct LibraryViewState {
     }
 
     var seriesRails: [(name: String, books: [BookDTO])] {
-        groupedSeriesRails(
+        let grouped = groupedSeriesRails(
             from: allBooks,
             includeStandalone: false,
             hideTrailingSeriesWhenBooksHasMore: false
         )
+
+        guard !seriesExpectedBookCount.isEmpty else {
+            return grouped
+        }
+
+        return grouped.compactMap { rail in
+            guard let expected = seriesExpectedBookCount[rail.name], expected > 0 else {
+                return booksHasMore ? nil : rail
+            }
+            return rail.books.count >= expected ? rail : nil
+        }
     }
 
     var displayedSearchSeriesRails: [(name: String, books: [BookDTO])] {

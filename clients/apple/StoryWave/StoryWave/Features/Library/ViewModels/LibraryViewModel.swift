@@ -39,6 +39,7 @@ final class LibraryViewModel: ObservableObject {
 
     private let initialBooksLimit = 60
     private let booksPageSize = 60
+    private let seriesPageSize = 200
     private let collectionsPageSize = 24
     private let progressPageSize = 100
     private let maxProgressPages = 10
@@ -58,6 +59,7 @@ final class LibraryViewModel: ObservableObject {
         let progress: [ProgressRecordDTO]
         let booksOffset: Int
         let booksHasMore: Bool
+        let seriesExpectedBookCount: [String: Int]
         let collectionsOffset: Int
         let collectionsHasMore: Bool
         let timestamp: Date
@@ -177,10 +179,12 @@ final class LibraryViewModel: ObservableObject {
                 limit: initialBooksLimit,
                 offset: 0
             )
+            async let seriesTask = fetchSeriesExpectedBookCount()
             async let collectionsTask = repository.listCollections(limit: collectionsPageSize, offset: 0)
-            let (booksPage, collectionsPage) = try await (booksTask, collectionsTask)
+            let (booksPage, seriesExpectedBookCount, collectionsPage) = try await (booksTask, seriesTask, collectionsTask)
 
             state.allBooks = booksPage.books
+            state.seriesExpectedBookCount = seriesExpectedBookCount
             state.collections = collectionsPage.collections
             state.booksOffset = booksPage.books.count
             state.booksHasMore = state.booksOffset < booksPage.total
@@ -215,6 +219,9 @@ final class LibraryViewModel: ObservableObject {
                 state.booksHasMore = state.booksOffset < page.total
             } catch {
                 state.errorMessage = "Could not load library."
+            }
+            if let seriesExpectedBookCount = try? await fetchSeriesExpectedBookCount() {
+                state.seriesExpectedBookCount = seriesExpectedBookCount
             }
             do {
                 let page = try await repository.listCollections(limit: collectionsPageSize, offset: 0)
@@ -605,6 +612,33 @@ final class LibraryViewModel: ObservableObject {
         return ordered.map { byId[$0.id] ?? $0 }
     }
 
+    private func fetchSeriesExpectedBookCount() async throws -> [String: Int] {
+        var offset = 0
+        var collected: [String: Int] = [:]
+
+        while true {
+            let page = try await repository.listSeriesPage(
+                language: localization.locale,
+                limit: seriesPageSize,
+                offset: offset
+            )
+
+            for summary in page.series {
+                let name = summary.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !name.isEmpty {
+                    collected[name] = summary.bookCount
+                }
+            }
+
+            offset += page.series.count
+            if page.series.isEmpty || offset >= page.total {
+                break
+            }
+        }
+
+        return collected
+    }
+
     private func refreshSnapshotCache() {
         snapshotCache = LibrarySnapshotCache(
             books: state.allBooks,
@@ -612,6 +646,7 @@ final class LibraryViewModel: ObservableObject {
             progress: state.allProgress,
             booksOffset: state.booksOffset,
             booksHasMore: state.booksHasMore,
+            seriesExpectedBookCount: state.seriesExpectedBookCount,
             collectionsOffset: state.collectionsOffset,
             collectionsHasMore: state.collectionsHasMore,
             timestamp: Date()
@@ -624,6 +659,7 @@ final class LibraryViewModel: ObservableObject {
         state.allProgress = snapshot.progress
         state.booksOffset = snapshot.booksOffset
         state.booksHasMore = snapshot.booksHasMore
+        state.seriesExpectedBookCount = snapshot.seriesExpectedBookCount
         state.collectionsOffset = snapshot.collectionsOffset
         state.collectionsHasMore = snapshot.collectionsHasMore
 

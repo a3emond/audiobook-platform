@@ -8,6 +8,7 @@ public protocol LibraryRepository {
     func createCollection(payload: UpsertCollectionRequestDTO) async throws -> CollectionDTO
     func updateCollection(id: String, payload: UpsertCollectionRequestDTO) async throws -> CollectionDTO
     func deleteCollection(id: String) async throws
+    func listSeriesPage(language: String?, limit: Int, offset: Int) async throws -> SeriesPageDTO
     func listSeries(language: String?) async throws -> [String]
     func seriesDetail(name: String, language: String?) async throws -> SeriesDetailDTO
 }
@@ -67,15 +68,21 @@ public final class LibraryRepositoryImpl: LibraryRepository {
         try await authService.authenticatedDelete(path: "api/v1/collections/\(id)")
     }
 
-    public func listSeries(language: String? = nil) async throws -> [String] {
-        var params: [String: String] = [:]
+    public func listSeriesPage(language: String? = nil, limit: Int = 200, offset: Int = 0) async throws -> SeriesPageDTO {
+        var params: [String: String] = [
+            "limit": String(limit),
+            "offset": String(offset)
+        ]
         if let language, !language.isEmpty {
             params["language"] = language
         }
 
-        struct SeriesListDTO: Decodable { let series: [String] }
-        let response: SeriesListDTO = try await authService.authenticatedGet(path: "api/v1/series", queryParams: params)
-        return response.series
+        return try await authService.authenticatedGet(path: "api/v1/series", queryParams: params)
+    }
+
+    public func listSeries(language: String? = nil) async throws -> [String] {
+        let page = try await listSeriesPage(language: language, limit: 200, offset: 0)
+        return page.series.map(\.name)
     }
 
     public func seriesDetail(name: String, language: String? = nil) async throws -> SeriesDetailDTO {

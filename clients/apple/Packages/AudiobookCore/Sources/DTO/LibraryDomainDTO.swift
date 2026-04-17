@@ -36,6 +36,21 @@ public struct SeriesDetailDTO: Decodable, Sendable {
     public let books: [BookDTO]
 }
 
+public struct SeriesSummaryDTO: Decodable, Sendable {
+    public let id: String
+    public let name: String
+    public let bookCount: Int
+    public let totalDuration: Int
+    public let authors: [String]
+    public let genres: [String]
+    public let coverPath: String?
+}
+
+public struct SeriesPageDTO: Decodable, Sendable {
+    public let series: [SeriesSummaryDTO]
+    public let total: Int
+}
+
 public struct ProgressRecordDTO: Codable, Identifiable, Sendable {
     public var id: String { bookId }
 
