@@ -127,9 +127,13 @@ export function sleepTimerLabel(mode: SleepTimerMode): string {
       return 'End chapter';
     default:
       return 'Disabled';
-  // Sleep labels are kept here so mode-to-text mapping stays consistent across UI call sites.
+    // Sleep labels are kept here so mode-to-text mapping stays consistent across UI call sites.
   }
 }
+
+//=================================
+//=========TIME FORMATTING=========
+//=================================
 
 export function formatTime(totalSeconds: number): string {
   const value = Math.max(0, Math.floor(totalSeconds));

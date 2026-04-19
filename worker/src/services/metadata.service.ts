@@ -15,6 +15,46 @@ export interface Metadata {
   chapters: Chapter[];
 }
 
+interface ChapterTimebase {
+  numerator: number;
+  denominator: number;
+}
+
+const DEFAULT_TIMEBASE: ChapterTimebase = {
+  numerator: 1,
+  denominator: 1000,
+};
+
+function parseTimebase(value: string): ChapterTimebase | null {
+  const [numeratorRaw, denominatorRaw] = value.split("/");
+  const numerator = Number(numeratorRaw);
+  const denominator = Number(denominatorRaw);
+
+  if (
+    !Number.isFinite(numerator) ||
+    !Number.isFinite(denominator) ||
+    numerator <= 0 ||
+    denominator <= 0
+  ) {
+    return null;
+  }
+
+  return { numerator, denominator };
+}
+
+function toMilliseconds(
+  timestampValue: string,
+  timebase: ChapterTimebase,
+): number {
+  const units = Number(timestampValue);
+  if (!Number.isFinite(units)) {
+    return 0;
+  }
+
+  const seconds = (units * timebase.numerator) / timebase.denominator;
+  return Math.max(0, Math.round(seconds * 1000));
+}
+
 export class MetadataService {
   async parseFFmetadata(filePath: string): Promise<Metadata> {
     const content = await fs.readFile(filePath, "utf-8");
@@ -28,6 +68,7 @@ export class MetadataService {
     };
 
     let currentChapter: Partial<Chapter> | null = null;
+    let currentChapterTimebase: ChapterTimebase = DEFAULT_TIMEBASE;
 
     for (const line of lines) {
       const trimmed = line.trim();
@@ -47,6 +88,7 @@ export class MetadataService {
         }
 
         currentChapter = {};
+        currentChapterTimebase = DEFAULT_TIMEBASE;
         continue;
       }
 
@@ -58,10 +100,15 @@ export class MetadataService {
       }
 
       if (currentChapter !== null) {
-        if (key === "START") {
-          currentChapter.start = Number(value);
+        if (key === "TIMEBASE") {
+          const parsed = parseTimebase(value);
+          if (parsed) {
+            currentChapterTimebase = parsed;
+          }
+        } else if (key === "START") {
+          currentChapter.start = toMilliseconds(value, currentChapterTimebase);
         } else if (key === "END") {
-          currentChapter.end = Number(value);
+          currentChapter.end = toMilliseconds(value, currentChapterTimebase);
         } else if (key === "title") {
           currentChapter.title = value;
         }
