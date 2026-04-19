@@ -13,12 +13,33 @@ import {
   formatSha256,
 } from "../services/checksum.service.js";
 import { atomicWriteFile } from "../utils/atomic-write.js";
+import { repairChapterTimingScale } from "../utils/chapter-timing.js";
 import { normalizeOptionalText } from "../utils/normalize.js";
 import { JobLogger } from "../utils/job-logger.js";
 
 const ffmpeg = new FFmpegService();
 const metadataService = new MetadataService();
 const fileService = new FileService();
+
+function parseBooleanEnv(name: string, fallback = false): boolean {
+  const raw = process.env[name];
+  if (!raw) {
+    return fallback;
+  }
+
+  const normalized = raw.trim().toLowerCase();
+  return (
+    normalized === "1" ||
+    normalized === "true" ||
+    normalized === "yes" ||
+    normalized === "on"
+  );
+}
+
+const FORCE_CHAPTER_REPAIR_IGNORE_OVERRIDES = parseBooleanEnv(
+  "WORKER_CHAPTER_TIMING_REPAIR_IGNORE_OVERRIDES",
+  false,
+);
 
 interface ChapterPatch {
   title: string;
@@ -37,6 +58,8 @@ interface WriteMetadataJobPayload {
   // and used to overwrite the DB chapters (corrects wrong-unit ingestion artifacts).
   // Only applies when the book is a ready M4B and overrides.chapters is false.
   fixChapterTiming?: boolean;
+  // Emergency migration switch: allows timing repair even when overrides.chapters=true.
+  forceChapterTimingRepair?: boolean;
 }
 
 interface BookRecord {
@@ -149,9 +172,36 @@ export async function handleWriteMetadataJob(
       syncOnly: !hasMetadataChanges,
     });
 
+    const bypassChapterOverride =
+      payload.forceChapterTimingRepair === true ||
+      FORCE_CHAPTER_REPAIR_IGNORE_OVERRIDES;
+    const chapterOverrideLocked =
+      (book.overrides?.chapters ?? false) && !bypassChapterOverride;
+
+    if (bypassChapterOverride && (book.overrides?.chapters ?? false)) {
+      logger.warn("Chapter override bypass enabled for timing repair", {
+        bookId: payload.bookId,
+        source:
+          payload.forceChapterTimingRepair === true
+            ? "payload"
+            : "env:WORKER_CHAPTER_TIMING_REPAIR_IGNORE_OVERRIDES",
+      });
+    }
+
     const isM4bFile = book.filePath.toLowerCase().endsWith(".m4b");
     const canRewriteBinary =
       isM4bFile && (book.processingState ?? "ready") === "ready";
+    let probedDurationMs: number | null = null;
+
+    const getDurationMs = async (): Promise<number> => {
+      if (probedDurationMs === null) {
+        probedDurationMs = Math.round(
+          (await ffmpeg.probeFile(book.filePath)).duration * 1000,
+        );
+      }
+
+      return probedDurationMs;
+    };
 
     let existing: Metadata = { chapters: [] };
     if (canRewriteBinary) {
@@ -178,7 +228,7 @@ export async function handleWriteMetadataJob(
     } else if (
       payload.fixChapterTiming &&
       canRewriteBinary &&
-      !(book.overrides?.chapters ?? false)
+      !chapterOverrideLocked
     ) {
       const extracted = await ffmpeg.extractChaptersFromFile(book.filePath);
       if (extracted.length > 0) {
@@ -193,12 +243,35 @@ export async function handleWriteMetadataJob(
           count: mergedChapters.length,
         });
       } else {
-        mergedChapters =
-          book.chapters && book.chapters.length > 0
-            ? book.chapters
-            : existing.chapters;
+        const existingChapters = existing.chapters ?? [];
+        const bookChapters = book.chapters ?? [];
+
+        if (existingChapters.length > 0) {
+          // Prefer parsed file metadata when fix was requested and ffprobe chapters are missing.
+          mergedChapters = existingChapters;
+        } else if (bookChapters.length > 0) {
+          const durationMs = await getDurationMs();
+          const repaired = repairChapterTimingScale(bookChapters, durationMs);
+
+          if (repaired) {
+            mergedChapters = repaired.chapters;
+            logger.warn(
+              "fixChapterTiming fallback repaired chapter scale from DB timing",
+              {
+                bookId: payload.bookId,
+                count: mergedChapters.length,
+                scale: repaired.scale,
+              },
+            );
+          } else {
+            mergedChapters = bookChapters;
+          }
+        } else {
+          mergedChapters = [];
+        }
+
         logger.warn(
-          "fixChapterTiming requested but ffprobe returned no chapters; keeping existing",
+          "fixChapterTiming requested but ffprobe returned no chapters; fallback chapter source used",
           {
             bookId: payload.bookId,
           },
@@ -209,6 +282,27 @@ export async function handleWriteMetadataJob(
         book.chapters && book.chapters.length > 0
           ? book.chapters
           : existing.chapters;
+    }
+
+    if (
+      canRewriteBinary &&
+      !chapterOverrideLocked &&
+      (!payload.chapters || payload.chapters.length === 0) &&
+      mergedChapters.length > 0
+    ) {
+      const repaired = repairChapterTimingScale(
+        mergedChapters,
+        await getDurationMs(),
+      );
+
+      if (repaired) {
+        mergedChapters = repaired.chapters;
+        logger.warn("Chapter timing auto-repaired before remux", {
+          bookId: payload.bookId,
+          count: mergedChapters.length,
+          scale: repaired.scale,
+        });
+      }
     }
 
     const merged: Metadata = {

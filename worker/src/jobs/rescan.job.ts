@@ -11,10 +11,31 @@ import {
   computeFileSha256,
   formatSha256,
 } from "../services/checksum.service.js";
+import { hasLikelyChapterTimingMismatch } from "../utils/chapter-timing.js";
 import { JobLogger } from "../utils/job-logger.js";
 
 const ffmpeg = new FFmpegService();
 const fileService = new FileService();
+
+function parseBooleanEnv(name: string, fallback = false): boolean {
+  const raw = process.env[name];
+  if (!raw) {
+    return fallback;
+  }
+
+  const normalized = raw.trim().toLowerCase();
+  return (
+    normalized === "1" ||
+    normalized === "true" ||
+    normalized === "yes" ||
+    normalized === "on"
+  );
+}
+
+const FORCE_CHAPTER_REPAIR_IGNORE_OVERRIDES = parseBooleanEnv(
+  "WORKER_CHAPTER_TIMING_REPAIR_IGNORE_OVERRIDES",
+  false,
+);
 
 interface RescanJobPayload {
   force?: boolean;
@@ -41,33 +62,6 @@ interface BookRecord {
 }
 
 const ACTIVE_JOB_STATUSES = ["queued", "running", "retrying"] as const;
-
-function hasChapterTimingMismatch(
-  book: BookRecord,
-  durationSeconds: number,
-): boolean {
-  if (
-    !Array.isArray(book.chapters) ||
-    book.chapters.length === 0 ||
-    durationSeconds <= 0
-  ) {
-    return false;
-  }
-
-  const maxChapterEnd = book.chapters.reduce((max, chapter) => {
-    return Number.isFinite(chapter.end) ? Math.max(max, chapter.end) : max;
-  }, 0);
-
-  if (maxChapterEnd <= 0) {
-    return false;
-  }
-
-  const expectedDurationMs = durationSeconds * 1000;
-  const ratio = maxChapterEnd / expectedDurationMs;
-
-  // Normal chapter endpoints should finish close to full duration in milliseconds.
-  return ratio < 0.25 || ratio > 4;
-}
 
 function isReadyM4b(book: BookRecord): boolean {
   return Boolean(
@@ -189,7 +183,10 @@ export async function handleRescanJob(
         const durationMismatch =
           typeof book.duration === "number" &&
           Math.round(book.duration) !== duration;
-        const chapterTimingMismatch = hasChapterTimingMismatch(book, duration);
+        const chapterTimingMismatch = hasLikelyChapterTimingMismatch(
+          book.chapters ?? [],
+          duration * 1000,
+        );
         const dirtyStatus = (book.fileSync?.status ?? "in_sync") !== "in_sync";
         const needsSanitize = isMp3Source(book);
         const needsWriteMetadata =
@@ -247,7 +244,13 @@ export async function handleRescanJob(
             } else {
               await enqueueBookJob(
                 "WRITE_METADATA",
-                { bookId, fixChapterTiming: chapterTimingMismatch },
+                {
+                  bookId,
+                  fixChapterTiming: chapterTimingMismatch,
+                  forceChapterTimingRepair:
+                    chapterTimingMismatch &&
+                    FORCE_CHAPTER_REPAIR_IGNORE_OVERRIDES,
+                },
                 35,
               );
               writeMetadataQueued += 1;
