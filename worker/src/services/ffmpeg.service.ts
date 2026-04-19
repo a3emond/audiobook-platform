@@ -185,17 +185,49 @@ export class FFmpegService {
     }
   }
 
+  // Extracts chapter timestamps directly from the audio container using ffprobe.
+  // start_time/end_time are always in seconds regardless of the file's internal timebase,
+  // so this is the safe path to recover chapters when embedded TIMEBASE is non-standard.
+  async extractChaptersFromFile(
+    filePath: string,
+  ): Promise<
+    Array<{ index: number; title: string; startMs: number; endMs: number }>
+  > {
+    const cmd = `ffprobe -v quiet -print_format json -show_chapters "${filePath}"`;
+
+    const { stdout } = await execAsync(cmd, { timeout: DEFAULT_TIMEOUT_MS });
+    const data = JSON.parse(stdout) as {
+      chapters?: Array<{
+        start_time?: string;
+        end_time?: string;
+        tags?: Record<string, unknown>;
+      }>;
+    };
+
+    if (!Array.isArray(data.chapters) || data.chapters.length === 0) {
+      return [];
+    }
+
+    return data.chapters
+      .map((ch, idx) => {
+        const startMs = Math.round(parseFloat(ch.start_time ?? "0") * 1000);
+        const endMs = Math.round(parseFloat(ch.end_time ?? "0") * 1000);
+        const title =
+          (ch.tags?.title as string | undefined)?.trim() ||
+          `Chapter ${idx + 1}`;
+        return { index: idx, title, startMs, endMs };
+      })
+      .filter((ch) => ch.endMs > ch.startMs);
+  }
+
   async buildM4bFromAudio(
     inputPath: string,
     metadataPath: string,
     outputPath: string,
     coverPath?: string | null,
   ): Promise<void> {
-	// Building M4B can be long-running, so it uses the extended timeout.
-    const args = [
-      "-i",
-      `"${inputPath}"`,
-    ];
+    // Building M4B can be long-running, so it uses the extended timeout.
+    const args = ["-i", `"${inputPath}"`];
 
     if (coverPath) {
       args.push("-i", `"${coverPath}"`);
@@ -215,14 +247,7 @@ export class FFmpegService {
         "2",
       );
     } else {
-      args.push(
-        "-map",
-        "0:a",
-        "-map_metadata",
-        "1",
-        "-map_chapters",
-        "1",
-      );
+      args.push("-map", "0:a", "-map_metadata", "1", "-map_chapters", "1");
     }
 
     args.push("-c:a", "aac", "-b:a", "96k");

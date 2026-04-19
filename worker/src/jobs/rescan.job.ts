@@ -245,7 +245,11 @@ export async function handleRescanJob(
                 { bookId },
               );
             } else {
-              await enqueueBookJob("WRITE_METADATA", { bookId }, 35);
+              await enqueueBookJob(
+                "WRITE_METADATA",
+                { bookId, fixChapterTiming: chapterTimingMismatch },
+                35,
+              );
               writeMetadataQueued += 1;
               remediated += 1;
               logger.info("Queued metadata remediation", {

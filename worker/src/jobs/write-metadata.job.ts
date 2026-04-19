@@ -33,6 +33,10 @@ interface WriteMetadataJobPayload {
   author?: string;
   series?: string | null;
   genre?: string | null;
+  // When true, chapter timestamps are re-extracted from the audio file via ffprobe
+  // and used to overwrite the DB chapters (corrects wrong-unit ingestion artifacts).
+  // Only applies when the book is a ready M4B and overrides.chapters is false.
+  fixChapterTiming?: boolean;
 }
 
 interface BookRecord {
@@ -118,7 +122,8 @@ export async function handleWriteMetadataJob(
       payload.author !== undefined ||
       payload.series !== undefined ||
       payload.genre !== undefined ||
-      (payload.chapters !== undefined && payload.chapters.length > 0);
+      (payload.chapters !== undefined && payload.chapters.length > 0) ||
+      Boolean(payload.fixChapterTiming);
 
     const db = mongoose.connection.db;
     if (!db) {
@@ -164,16 +169,47 @@ export async function handleWriteMetadataJob(
       existing = await metadataService.parseFFmetadata(metadataPath);
     }
 
-    const mergedChapters =
-      payload.chapters && payload.chapters.length > 0
-        ? normalizeChapters(payload.chapters)
-        : canRewriteBinary &&
-            existing.chapters.length > 0 &&
-            !(book.overrides?.chapters ?? false)
-          ? existing.chapters
-          : book.chapters && book.chapters.length > 0
+    // fixChapterTiming: re-extract chapter timestamps from the binary via ffprobe.
+    // ffprobe start_time/end_time are always in seconds, so converting to ms is safe
+    // regardless of what TIMEBASE the original file was encoded with.
+    let mergedChapters: Chapter[];
+    if (payload.chapters && payload.chapters.length > 0) {
+      mergedChapters = normalizeChapters(payload.chapters);
+    } else if (
+      payload.fixChapterTiming &&
+      canRewriteBinary &&
+      !(book.overrides?.chapters ?? false)
+    ) {
+      const extracted = await ffmpeg.extractChaptersFromFile(book.filePath);
+      if (extracted.length > 0) {
+        mergedChapters = extracted.map((ch) => ({
+          index: ch.index,
+          title: ch.title,
+          start: ch.startMs,
+          end: ch.endMs,
+        }));
+        logger.info("Chapter timing re-extracted from binary", {
+          bookId: payload.bookId,
+          count: mergedChapters.length,
+        });
+      } else {
+        mergedChapters =
+          book.chapters && book.chapters.length > 0
             ? book.chapters
             : existing.chapters;
+        logger.warn(
+          "fixChapterTiming requested but ffprobe returned no chapters; keeping existing",
+          {
+            bookId: payload.bookId,
+          },
+        );
+      }
+    } else {
+      mergedChapters =
+        book.chapters && book.chapters.length > 0
+          ? book.chapters
+          : existing.chapters;
+    }
 
     const merged: Metadata = {
       title:
