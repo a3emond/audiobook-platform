@@ -1,10 +1,10 @@
 @if (imageUrl && !imageFailed) {
-  <div class="cover" [attr.aria-label]="alt" [style.--cover-aspect]="aspectRatio">
+  <div class="cover" [attr.aria-label]="alt" [style.--cover-aspect]="aspectRatio" [class.is-completed]="completed">
     <img [src]="imageUrl" [attr.alt]="alt" (error)="onError()" />
     @if (completed) {
-      <div class="status-overlay completed-overlay">
+      <div class="completed-marker" [attr.aria-label]="'common.completed' | t">
         <span class="check">✓</span>
-        <span>{{ 'common.completed' | t }}</span>
+        <span class="label">{{ 'common.completed' | t }}</span>
       </div>
     } @else if (showProgressOverlay()) {
       <div class="status-overlay progress-overlay">
@@ -16,12 +16,12 @@
     }
   </div>
 } @else {
-  <div class="cover fallback" [attr.aria-label]="alt" [style.--cover-aspect]="aspectRatio">
+  <div class="cover fallback" [attr.aria-label]="alt" [style.--cover-aspect]="aspectRatio" [class.is-completed]="completed">
     <span>{{ fallback }}</span>
     @if (completed) {
-      <div class="status-overlay completed-overlay">
+      <div class="completed-marker" [attr.aria-label]="'common.completed' | t">
         <span class="check">✓</span>
-        <span>{{ 'common.completed' | t }}</span>
+        <span class="label">{{ 'common.completed' | t }}</span>
       </div>
     } @else if (showProgressOverlay()) {
       <div class="status-overlay progress-overlay">
