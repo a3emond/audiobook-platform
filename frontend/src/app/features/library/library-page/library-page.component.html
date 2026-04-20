@@ -36,6 +36,16 @@
     <button type="button" class="clear-filter-btn" (click)="clearFilter()" [disabled]="!hasActiveQuery()">{{ 'common.clear' | t }}</button>
   </section>
 
+  @if (shouldShowFrenchEnglishFallbackNotice()) {
+    <section class="fr-unavailable-note" role="status" aria-live="polite">
+      <h2>{{ 'library.frUnavailable.title' | t }}</h2>
+      <p>{{ 'library.frUnavailable.body' | t:{ count: frenchBookCount() } }}</p>
+      <button type="button" class="fr-unavailable-switch" (click)="switchBackToEnglish()">
+        {{ 'library.frUnavailable.switchCta' | t }}
+      </button>
+    </section>
+  }
+
   @if (loading()) {
     <p class="text-muted">{{ 'library.loading' | t }}</p>
   }

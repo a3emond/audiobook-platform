@@ -18,6 +18,7 @@ import { ProgressService } from '../../../core/services/progress.service';
 import { SettingsService } from '../../../core/services/settings.service';
 import { BookCardComponent } from '../book-card/book-card.component';
 import { CollectionCardComponent } from '../collection-card/collection-card.component';
+import { persistPreferredLocale } from '../../../app.data';
 import type { RailState, SeriesRail } from './library-page.types';
 import {
   collectionPreviewUrls,
@@ -46,6 +47,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   collectionName = '';
 
   readonly latestBooks = signal<Book[]>([]);
+  readonly frenchBookCount = signal(0);
   readonly seriesRails = signal<SeriesRail[]>([]);
   readonly seriesPageSize = 6;
   readonly seriesLoadedCount = signal(0);
@@ -122,6 +124,22 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.reload();
   }
 
+  async switchBackToEnglish(): Promise<void> {
+    if (!this.i18n.isFrench()) {
+      return;
+    }
+
+    try {
+      await persistPreferredLocale('en', this.i18n, this.auth, this.settingsService);
+    } catch {
+      // Keep local UI stable if profile persistence fails.
+    }
+  }
+
+  shouldShowFrenchEnglishFallbackNotice(): boolean {
+    return this.i18n.isFrench() && this.frenchBookCount() === 0;
+  }
+
   // Reload orchestrates the page bootstrap: books, user settings, and progress
   // are fetched together so filtering and rails stay consistent.
   reload(): void {
@@ -134,6 +152,12 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
       progress: this.progressService.listMineAll(100),
     }).subscribe({
       next: ({ booksResponse, settings, progress }) => {
+        const frenchBooks = booksResponse.books.filter((book) => {
+          const language = book.language?.toLowerCase();
+          return language === 'fr' || language?.startsWith('fr-');
+        });
+        this.frenchBookCount.set(frenchBooks.length);
+
         const showCompleted = settings.library?.showCompleted ?? true;
         const completedIds = new Set(
           progress.filter((p) => p.completed).map((p) => p.bookId),

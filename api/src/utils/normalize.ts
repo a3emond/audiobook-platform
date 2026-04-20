@@ -11,7 +11,8 @@ export function normalizeOptionalText(value: unknown): string | null {
 	return normalized ? normalized : null;
 }
 
-export function normalizeTagToken(value: string): string {
+//used to evercome issues with sting-based free-form tags (e.g. "Sci-Fi", "sci fi", "sci_fi" should all be normalized to "sci-fi")
+export function normalizeTagToken(value: string): string { 
 	return value
 		.trim()
 		.toLocaleLowerCase()
