@@ -94,11 +94,33 @@ Returns the authoritative list of all admin-only endpoints exposed by the API.
 
 ## Book Management Endpoints
 
+### POST /jobs/remediate-cover-overrides
+
+Force-queue a full `RESCAN` pass dedicated to remediating existing books where admin cover overrides must be re-applied.
+
+**Request body:** (empty)
+
+**Response body (202 Accepted):**
+
+```json
+{
+  "queued": true,
+  "jobId": "507f1f77bcf86cd799439011"
+}
+```
+
+**Behavior:**
+
+- enqueues `RESCAN` with `force: true`
+- marks trigger as `manual-admin-cover-remediation` for auditability
+- uses worker remediation logic to re-embed admin cover override when drift is detected on existing content
+
 ### POST /books/upload
 
 Upload an audiobook file and enqueue ingest processing.
 
 **Request:**
+- `POST /api/v1/admin/jobs/remediate-cover-overrides` - Queue forced cover-override remediation rescan
 
 - `multipart/form-data`
 - `file` (required): audiobook file (`.m4b`, `.m4a`, `.mp3`, `.ogg`, `.wav`)

@@ -309,7 +309,8 @@ INGEST_MP3_AS_M4B done
 
 1. Load Book document
 2. Generate FFmetadata file from provided chapters
-3. Remux audio with new metadata using FFmpeg
+3. If `overrides.cover=true` and `coverPath` exists, remux with metadata + enforced admin cover
+4. Otherwise remux audio with metadata only
 4. Move remuxed file to temporary location
 5. Compute checksum of new file
 6. Atomically replace original audio file
@@ -440,11 +441,17 @@ INGEST_MP3_AS_M4B done
 1. Load Book document
 2. Validate replacement file exists
 3. Probe new file (duration, format)
-4. Compute SHA256 checksum
-5. Atomically replace original audio file
-6. Extract cover from new file (if `extractCover: true`)
-7. Update Book with new duration, checksum, chapter list
-8. Mark file as in-sync
+4. Atomically replace original audio file
+5. If `overrides.cover=true`, re-remux replacement file with persisted admin cover to enforce precedence
+6. If `overrides.cover=false`, extract cover from replacement file and refresh `coverPath`
+7. Compute checksum/duration from the final packed file on disk
+8. Update Book with final duration, checksum, chapter list
+9. Mark file as in-sync
+
+**Admin Cover Precedence Rule**:
+
+- Once `REPLACE_COVER` sets `overrides.cover=true`, `REPLACE_FILE` will not allow embedded cover from a replacement source file to win.
+- The worker re-packs the resulting audio so the admin-uploaded cover remains embedded and externally served.
 
 **Success Output**:
 
@@ -486,18 +493,27 @@ INGEST_MP3_AS_M4B done
    - Recompute duration and checksum
    - Compare with database values
    - Update sync status and timestamps
-4. Collect statistics (scanned, updated, missing, errors)
+  - If `overrides.cover=true`, compare embedded cover hash against persisted admin cover file
+  - Queue `WRITE_METADATA` remediation with `enforceCoverRemux=true` when cover override drift is detected
+4. Collect statistics (scanned, updated, missing, errors, drift/remediation counters)
 
 **Success Output**:
 
 ```json
 {
   "force": false,
+  "trigger": "manual-admin-cover-remediation",
   "targetCount": 127,
   "scanned": 127,
   "updated": 12,
   "missing": 2,
-  "errors": 1
+  "errors": 1,
+  "drifted": 8,
+  "remediated": 8,
+  "writeMetadataQueued": 5,
+  "sanitizeQueued": 3,
+  "coverOverrideRemediationQueued": 4,
+  "skippedExistingRemediation": 0
 }
 ```
 

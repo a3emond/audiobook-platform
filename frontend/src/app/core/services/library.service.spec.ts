@@ -17,7 +17,7 @@ describe('LibraryService', () => {
     await firstValueFrom(service.listBooks({ q: 'fitz', limit: 20, offset: 0 }));
 
     expect(apiSpy.get).toHaveBeenCalledWith('/books', {
-      params: { q: 'fitz', limit: 20, offset: 0 },
+      params: { q: 'fitz', limit: 20, offset: 0, language: 'en' },
     });
   });
 

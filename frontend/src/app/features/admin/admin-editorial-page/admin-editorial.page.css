@@ -1,0 +1,135 @@
+.editorial-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.page-header h1 {
+  margin: 0;
+}
+
+.page-header p {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+}
+
+.create-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  align-items: end;
+}
+
+.editor-layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 280px 1fr;
+}
+
+.blocks-list {
+  display: grid;
+  gap: 0.5rem;
+  align-content: start;
+}
+
+.block-pill {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 0.65rem 0.7rem;
+  background: transparent;
+  color: inherit;
+  display: grid;
+}
+
+.block-pill small {
+  color: var(--text-muted);
+}
+
+.block-pill.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.block-editor {
+  display: grid;
+  gap: 1rem;
+}
+
+.block-head,
+.items-head,
+.actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.meta-grid,
+.item-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.items-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.item-card {
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.7rem;
+  background: color-mix(in srgb, var(--card-bg) 86%, var(--accent) 4%);
+}
+
+.target-preview {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.item-actions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.btn-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--card-border);
+  background: transparent;
+  color: inherit;
+}
+
+.btn-icon.danger,
+.btn-danger {
+  border-color: color-mix(in srgb, #ff5b5b 40%, var(--card-border));
+  color: #ff7a7a;
+}
+
+.check-row {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.text-info {
+  color: #6bcf90;
+}
+
+@media (max-width: 960px) {
+  .editor-layout {
+    grid-template-columns: 1fr;
+  }
+}

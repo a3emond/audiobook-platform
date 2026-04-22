@@ -22,6 +22,7 @@ import userRoutes from "./modules/users/user.routes.js";
 import streamRoutes from "./modules/streaming/stream.routes.js";
 import { streamAuthMiddleware } from "./modules/streaming/stream-auth.middleware.js";
 import discussionRoutes from "./modules/discussions/discussion.routes.js";
+import editorialRoutes from "./modules/editorial/editorial.routes.js";
 
 export function createApp() {
   const app = express();
@@ -55,6 +56,7 @@ export function createApp() {
     app.use(`${prefix}/discussions`, authMiddleware, discussionRoutes);
     app.use(`${prefix}/collections`, authMiddleware, collectionRoutes);
     app.use(`${prefix}/series`, authMiddleware, seriesRoutes);
+    app.use(`${prefix}/editorial`, authMiddleware, editorialRoutes);
     app.use(`${prefix}/stats`, authMiddleware, statsRoutes);
   }
 

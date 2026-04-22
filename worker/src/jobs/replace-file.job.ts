@@ -33,6 +33,7 @@ interface BookRecord {
 		author?: boolean;
 		series?: boolean;
 		chapters?: boolean;
+		cover?: boolean;
 	};
 }
 
@@ -90,13 +91,13 @@ export async function handleReplaceFileJob(
 
 	const metadataPath = `/tmp/replace-file-metadata-${job._id}.txt`;
 	const coverTmpPath = path.join(path.dirname(book.filePath), `cover.tmp-${job._id}.jpg`);
+	const remuxPath = `/tmp/replace-file-audio-${job._id}.m4b`;
 
 	try {
 		const probeInfo = await ffmpeg.probeFile(payload.sourcePath);
-		const checksum = formatSha256(await computeFileSha256(payload.sourcePath));
 		logger.info("Source file analyzed", {
 			duration: Math.round(probeInfo.duration),
-			checksum,
+			checksum: formatSha256(await computeFileSha256(payload.sourcePath)),
 		});
 
 		await ffmpeg.extractMetadata(payload.sourcePath, metadataPath);
@@ -104,27 +105,65 @@ export async function handleReplaceFileJob(
 
 		await atomicWriteFile(book.filePath, payload.sourcePath);
 
+		const overrides = book.overrides ?? {};
 		let coverPath = book.coverPath ?? null;
-		try {
-			await ffmpeg.extractCover(book.filePath, coverTmpPath);
-			const hasCover = await fileService.exists(coverTmpPath);
-			if (hasCover) {
-				const finalCoverPath = path.join(path.dirname(book.filePath), "cover.jpg");
-				await fileService.moveFile(coverTmpPath, finalCoverPath);
-				coverPath = finalCoverPath;
-				logger.info("Cover refreshed from replacement file", { coverPath });
+		if (!overrides.cover) {
+			try {
+				await ffmpeg.extractCover(book.filePath, coverTmpPath);
+				const hasCover = await fileService.exists(coverTmpPath);
+				if (hasCover) {
+					const finalCoverPath = path.join(path.dirname(book.filePath), "cover.jpg");
+					await fileService.moveFile(coverTmpPath, finalCoverPath);
+					coverPath = finalCoverPath;
+					logger.info("Cover refreshed from replacement file", { coverPath });
+				}
+			} catch (error) {
+				logger.warn("Cover extraction failed (non-fatal)", {
+					bookId: payload.bookId,
+					error: error instanceof Error ? error.message : String(error),
+				});
 			}
-		} catch (error) {
-			logger.warn("Cover extraction failed (non-fatal)", {
+		} else {
+			logger.info("Cover refresh skipped: manual cover override is active", {
 				bookId: payload.bookId,
-				error: error instanceof Error ? error.message : String(error),
+				coverPath,
 			});
+
+			if (coverPath) {
+				const coverExists = await fileService.exists(coverPath);
+				if (coverExists && book.filePath.toLowerCase().endsWith(".m4b")) {
+					await ffmpeg.remuxWithMetadataAndCover(
+						book.filePath,
+						metadataPath,
+						coverPath,
+						remuxPath,
+					);
+					await atomicWriteFile(book.filePath, remuxPath);
+					logger.info("Manual cover override reattached to replacement file", {
+						bookId: payload.bookId,
+						coverPath,
+					});
+				} else if (!coverExists) {
+					logger.warn("Manual cover override active but cover file is missing", {
+						bookId: payload.bookId,
+						coverPath,
+					});
+				} else {
+					logger.warn("Manual cover override active but replacement target is not M4B", {
+						bookId: payload.bookId,
+						filePath: book.filePath,
+					});
+				}
+			}
 		}
 
-		const overrides = book.overrides ?? {};
+		const finalProbeInfo = await ffmpeg.probeFile(book.filePath);
+		const finalChecksum = formatSha256(await computeFileSha256(book.filePath));
+		const finalDuration = Math.round(finalProbeInfo.duration);
+
 		const metadataUpdate: Record<string, unknown> = {
-			checksum,
-			duration: Math.round(probeInfo.duration),
+			checksum: finalChecksum,
+			duration: finalDuration,
 			coverPath,
 			"fileSync.status": "in_sync",
 			"fileSync.lastReadAt": new Date(),
@@ -155,16 +194,16 @@ export async function handleReplaceFileJob(
 
 		logger.info("Replace file job completed", {
 			bookId: payload.bookId,
-			checksum,
-			duration: Math.round(probeInfo.duration),
+			checksum: finalChecksum,
+			duration: finalDuration,
 		});
 
 		return {
 			bookId: payload.bookId,
 			filePath: book.filePath,
 			sourcePath: payload.sourcePath,
-			checksum,
-			duration: Math.round(probeInfo.duration),
+			checksum: finalChecksum,
+			duration: finalDuration,
 			chapters: extractedMetadata.chapters.length,
 			coverPath,
 		};
@@ -188,6 +227,7 @@ export async function handleReplaceFileJob(
 	} finally {
 		await fileService.deleteFile(metadataPath);
 		await fileService.deleteFile(coverTmpPath);
+		await fileService.deleteFile(remuxPath);
 		await logger.persist();
 	}
 }

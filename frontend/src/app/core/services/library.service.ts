@@ -32,6 +32,7 @@ import type {
   Collection,
   ListBooksResponse,
   ListCollectionsResponse,
+  ListEditorialBlocksResponse,
   ListSeriesResponse,
   SeriesDetail,
 } from '../models/api.models';
@@ -94,6 +95,10 @@ export class LibraryService {
 
   deleteCollection(collectionId: string): Observable<void> {
     return this.api.delete<void>(`/collections/${collectionId}`);
+  }
+
+  listEditorialBlocks(scope: 'library' = 'library'): Observable<ListEditorialBlocksResponse> {
+    return this.api.get<ListEditorialBlocksResponse>('/editorial/blocks/active', { params: { scope } });
   }
 
   // Locale fallback keeps browsing consistent with the currently selected UI language.

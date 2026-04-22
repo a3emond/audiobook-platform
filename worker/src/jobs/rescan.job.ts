@@ -1,3 +1,4 @@
+import path from "path";
 import mongoose from "mongoose";
 
 import {
@@ -45,6 +46,7 @@ interface RescanJobPayload {
 interface BookRecord {
   _id: mongoose.Types.ObjectId;
   filePath?: string | null;
+  coverPath?: string | null;
   checksum?: string | null;
   duration?: number | null;
   chapters?: Array<{
@@ -53,6 +55,9 @@ interface BookRecord {
   }>;
   fileSync?: {
     status?: "in_sync" | "dirty" | "writing" | "error";
+  };
+  overrides?: {
+    cover?: boolean;
   };
   processingState?:
     | "ready"
@@ -131,6 +136,7 @@ export async function handleRescanJob(
     let remediated = 0;
     let writeMetadataQueued = 0;
     let sanitizeQueued = 0;
+    let coverOverrideRemediationQueued = 0;
     let skippedExistingRemediation = 0;
     const trigger = payload.trigger || "manual";
 
@@ -187,6 +193,43 @@ export async function handleRescanJob(
           book.chapters ?? [],
           duration * 1000,
         );
+        let coverOverrideMismatch = false;
+        if (
+          isReadyM4b(book) &&
+          (book.overrides?.cover ?? false) &&
+          book.coverPath
+        ) {
+          const expectedCoverExists = await fileService.exists(book.coverPath);
+          if (!expectedCoverExists) {
+            coverOverrideMismatch = true;
+            logger.warn("Admin cover override active but cover file missing", {
+              bookId: String(book._id),
+              coverPath: book.coverPath,
+            });
+          } else {
+            const tmpCoverPath = path.join(
+              "/tmp",
+              `rescan-cover-${String(book._id)}-${String(job._id)}.jpg`,
+            );
+            try {
+              await ffmpeg.extractCover(book.filePath, tmpCoverPath);
+              const extractedCoverExists = await fileService.exists(tmpCoverPath);
+              if (!extractedCoverExists) {
+                coverOverrideMismatch = true;
+              } else {
+                const [embeddedCoverHash, expectedCoverHash] = await Promise.all([
+                  computeFileSha256(tmpCoverPath),
+                  computeFileSha256(book.coverPath),
+                ]);
+                coverOverrideMismatch = embeddedCoverHash !== expectedCoverHash;
+              }
+            } catch {
+              coverOverrideMismatch = true;
+            } finally {
+              await fileService.deleteFile(tmpCoverPath).catch(() => undefined);
+            }
+          }
+        }
         const dirtyStatus = (book.fileSync?.status ?? "in_sync") !== "in_sync";
         const needsSanitize = isMp3Source(book);
         const needsWriteMetadata =
@@ -194,7 +237,8 @@ export async function handleRescanJob(
           (dirtyStatus ||
             checksumMismatch ||
             durationMismatch ||
-            chapterTimingMismatch);
+            chapterTimingMismatch ||
+            coverOverrideMismatch);
         const now = new Date();
 
         if (needsSanitize || needsWriteMetadata) {
@@ -247,6 +291,7 @@ export async function handleRescanJob(
                 {
                   bookId,
                   fixChapterTiming: chapterTimingMismatch,
+                  enforceCoverRemux: coverOverrideMismatch,
                   forceChapterTimingRepair:
                     chapterTimingMismatch &&
                     FORCE_CHAPTER_REPAIR_IGNORE_OVERRIDES,
@@ -254,12 +299,16 @@ export async function handleRescanJob(
                 35,
               );
               writeMetadataQueued += 1;
+              if (coverOverrideMismatch) {
+                coverOverrideRemediationQueued += 1;
+              }
               remediated += 1;
               logger.info("Queued metadata remediation", {
                 bookId,
                 checksumMismatch,
                 durationMismatch,
                 chapterTimingMismatch,
+                coverOverrideMismatch,
                 dirtyStatus,
               });
             }
@@ -273,6 +322,7 @@ export async function handleRescanJob(
                 checksumMismatch,
                 durationMismatch,
                 chapterTimingMismatch,
+                coverOverrideMismatch,
                 dirtyStatus,
               },
             );
@@ -325,6 +375,7 @@ export async function handleRescanJob(
       remediated,
       writeMetadataQueued,
       sanitizeQueued,
+      coverOverrideRemediationQueued,
       skippedExistingRemediation,
     });
 
@@ -340,6 +391,7 @@ export async function handleRescanJob(
       remediated,
       writeMetadataQueued,
       sanitizeQueued,
+      coverOverrideRemediationQueued,
       skippedExistingRemediation,
     };
   } catch (error) {

@@ -175,6 +175,12 @@ export class AdminService {
 					description: "Queue any supported background job",
 				},
 				{
+					method: "POST",
+					path: "/api/admin/jobs/remediate-cover-overrides",
+					area: "jobs",
+					description: "Force rescan and remediate admin cover overrides on existing content",
+				},
+				{
 					method: "GET",
 					path: "/api/admin/jobs/stats",
 					area: "jobs",

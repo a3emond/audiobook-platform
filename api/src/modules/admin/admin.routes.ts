@@ -12,6 +12,7 @@ import { BookController } from "../books/book.controller.js";
 import { JobController } from "../jobs/job.controller.js";
 import { WorkerSettingsController } from "../jobs/worker-settings.controller.js";
 import { UserController } from "../users/user.controller.js";
+import { EditorialController } from "../editorial/editorial.controller.js";
 import { AdminController } from "./admin.controller.js";
 import { adminAuditMiddleware } from "./admin-audit.middleware.js";
 
@@ -40,6 +41,13 @@ router.post(
 );
 router.post("/books/:bookId/cover", upload.single("cover"), AdminController.replaceBookCover);
 
+router.get("/editorial/options", EditorialController.listCatalogOptions);
+router.get("/editorial/blocks", EditorialController.listAdminBlocks);
+router.post("/editorial/blocks", EditorialController.createBlock);
+router.patch("/editorial/blocks/:blockId", EditorialController.updateBlock);
+router.delete("/editorial/blocks/:blockId", EditorialController.deleteBlock);
+router.put("/editorial/blocks/:blockId/items", EditorialController.replaceItems);
+
 router.get("/books", BookController.listBooks);
 router.get("/books/:bookId", BookController.getBook);
 router.patch("/books/:bookId/metadata", BookController.updateMetadata);
@@ -48,6 +56,7 @@ router.post("/books/:bookId/extract-cover", BookController.extractCover);
 router.delete("/books/:bookId", BookController.deleteBook);
 
 router.post("/jobs/enqueue", idempotencyMiddleware, JobController.enqueueJob);
+router.post("/jobs/remediate-cover-overrides", AdminController.triggerCoverOverrideRemediation);
 router.get("/jobs/stats", JobController.getStats);
 router.get("/jobs", JobController.listJobs);
 router.get("/jobs/events", JobController.streamJobEvents);

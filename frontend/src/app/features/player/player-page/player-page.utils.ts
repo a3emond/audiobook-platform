@@ -1,14 +1,11 @@
 import type { Book, Chapter } from '../../../core/models/api.models';
+import { coverUrlForBook } from '../../../core/utils/cover-url';
 
 import type { SleepTimerMode } from './player-page.types';
 
 // Player page utilities: keep formatting and chapter/progress math outside the component class.
 export function computeCoverUrl(book: Book, token: string | null): string {
-  if (!book.coverPath || !token) {
-    return '';
-  }
-
-  return `/streaming/books/${book.id}/cover?access_token=${encodeURIComponent(token)}`;
+  return coverUrlForBook(book, token);
 }
 
 export function chapterStartSeconds(chapter: Chapter): number {

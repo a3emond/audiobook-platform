@@ -58,6 +58,9 @@ interface WriteMetadataJobPayload {
   // and used to overwrite the DB chapters (corrects wrong-unit ingestion artifacts).
   // Only applies when the book is a ready M4B and overrides.chapters is false.
   fixChapterTiming?: boolean;
+  // When true, metadata remux is explicitly requested to enforce admin cover
+  // override for existing content drift detected by parity/rescan checks.
+  enforceCoverRemux?: boolean;
   // Emergency migration switch: allows timing repair even when overrides.chapters=true.
   forceChapterTimingRepair?: boolean;
 }
@@ -65,6 +68,7 @@ interface WriteMetadataJobPayload {
 interface BookRecord {
   _id: mongoose.Types.ObjectId;
   filePath: string;
+  coverPath?: string | null;
   processingState?:
     | "ready"
     | "pending_sanitize"
@@ -77,6 +81,7 @@ interface BookRecord {
   chapters?: Chapter[];
   overrides?: {
     chapters?: boolean;
+    cover?: boolean;
   };
   version?: number;
 }
@@ -146,7 +151,8 @@ export async function handleWriteMetadataJob(
       payload.series !== undefined ||
       payload.genre !== undefined ||
       (payload.chapters !== undefined && payload.chapters.length > 0) ||
-      Boolean(payload.fixChapterTiming);
+      Boolean(payload.fixChapterTiming) ||
+      Boolean(payload.enforceCoverRemux);
 
     const db = mongoose.connection.db;
     if (!db) {
@@ -169,6 +175,7 @@ export async function handleWriteMetadataJob(
       bookId: payload.bookId,
       filePath: book.filePath,
       processingState: book.processingState ?? "ready",
+      enforceCoverRemux: payload.enforceCoverRemux === true,
       syncOnly: !hasMetadataChanges,
     });
 
@@ -332,13 +339,43 @@ export async function handleWriteMetadataJob(
 
     if (canRewriteBinary) {
       await metadataService.writeFFmetadata(metadataPath, merged);
-      await ffmpeg.remuxWithMetadata(book.filePath, metadataPath, remuxPath);
+
+      const shouldEnforceCoverOverride = Boolean(
+        book.overrides?.cover && book.coverPath,
+      );
+
+      if (shouldEnforceCoverOverride) {
+        const coverPath = book.coverPath as string;
+        const coverExists = await fileService.exists(coverPath);
+        if (coverExists) {
+          await ffmpeg.remuxWithMetadataAndCover(
+            book.filePath,
+            metadataPath,
+            coverPath,
+            remuxPath,
+          );
+          logger.info("Audio remuxed with metadata and enforced admin cover", {
+            bookId: payload.bookId,
+            coverPath,
+          });
+        } else {
+          logger.warn("Cover override active but cover file missing during metadata remux", {
+            bookId: payload.bookId,
+            coverPath,
+          });
+          await ffmpeg.remuxWithMetadata(book.filePath, metadataPath, remuxPath);
+          logger.info("Audio remuxed with metadata", { bookId: payload.bookId });
+        }
+      } else {
+        await ffmpeg.remuxWithMetadata(book.filePath, metadataPath, remuxPath);
+        logger.info("Audio remuxed with metadata", { bookId: payload.bookId });
+      }
+
       await atomicWriteFile(book.filePath, remuxPath);
       syncedChecksum = formatSha256(await computeFileSha256(book.filePath));
       syncedDuration = Math.round(
         (await ffmpeg.probeFile(book.filePath)).duration,
       );
-      logger.info("Audio remuxed with metadata", { bookId: payload.bookId });
     } else {
       logger.warn("Binary remux deferred: source is not ready M4B", {
         bookId: payload.bookId,

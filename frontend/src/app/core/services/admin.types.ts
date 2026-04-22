@@ -208,4 +208,99 @@ export interface UpdateBookChaptersPayload {
   }>;
 }
 
+export type AdminEditorialItemType = 'series' | 'book';
+
+export interface AdminEditorialBlockItem {
+  id: string;
+  itemType: AdminEditorialItemType;
+  target: string;
+  position: number;
+  badge?: string | null;
+  kicker?: string | null;
+  customTitle?: string | null;
+  customImage?: string | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  isActive: boolean;
+}
+
+export interface AdminEditorialBlock {
+  id: string;
+  slug: string;
+  scope: 'library';
+  title: string;
+  subtitle?: string | null;
+  displayType: 'fan_cards';
+  theme?: string | null;
+  isActive: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  sortOrder: number;
+  maxItems: number;
+  items: AdminEditorialBlockItem[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateAdminEditorialBlockPayload {
+  slug: string;
+  scope?: 'library';
+  title: string;
+  subtitle?: string | null;
+  displayType?: 'fan_cards';
+  theme?: string | null;
+  isActive?: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  sortOrder?: number;
+  maxItems?: number;
+}
+
+export interface UpdateAdminEditorialBlockPayload {
+  slug?: string;
+  scope?: 'library';
+  title?: string;
+  subtitle?: string | null;
+  displayType?: 'fan_cards';
+  theme?: string | null;
+  isActive?: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  sortOrder?: number;
+  maxItems?: number;
+}
+
+export interface ReplaceAdminEditorialItemsPayload {
+  items: Array<{
+    id?: string;
+    itemType: AdminEditorialItemType;
+    target: string;
+    position?: number;
+    badge?: string | null;
+    kicker?: string | null;
+    customTitle?: string | null;
+    customImage?: string | null;
+    startsAt?: string | null;
+    endsAt?: string | null;
+    isActive?: boolean;
+  }>;
+}
+
+export interface AdminEditorialSeriesOption {
+  name: string;
+  bookCount: number;
+}
+
+export interface AdminEditorialBookOption {
+  id: string;
+  title: string;
+  author: string;
+  series?: string | null;
+}
+
+export interface AdminEditorialCatalogOptions {
+  series: AdminEditorialSeriesOption[];
+  books: AdminEditorialBookOption[];
+}
+
 export type { Book };

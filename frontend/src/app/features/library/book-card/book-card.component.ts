@@ -2,6 +2,7 @@ import { Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import type { Book } from '../../../core/models/api.models';
+import { coverUrlForBook } from '../../../core/utils/cover-url';
 import { AuthService } from '../../../core/services/auth.service';
 import { I18nService } from '../../../core/services/i18n.service';
 import { LibraryProgressService } from '../../../core/services/library-progress.service';
@@ -25,17 +26,7 @@ export class BookCardComponent {
   readonly detailOpen = signal(false);
 
   readonly coverUrl = computed(() => {
-    const b = this.book();
-    if (!b?.coverPath) {
-      return '';
-    }
-
-    const token = this.auth.accessToken();
-    if (!token) {
-      return '';
-    }
-
-    return `/streaming/books/${b.id}/cover?access_token=${encodeURIComponent(token)}`;
+    return coverUrlForBook(this.book(), this.auth.accessToken());
   });
 
   coverInitials(): string {

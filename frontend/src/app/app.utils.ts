@@ -1,4 +1,5 @@
 import type { Book, Progress } from './core/models/api.models';
+import { coverUrlForBook } from './core/utils/cover-url';
 
 interface InProgressBookItem {
   book: Book;
@@ -7,11 +8,7 @@ interface InProgressBookItem {
 
 // App-level helpers: keep navbar/mini-player display math and progress list shaping outside the root component.
 export function coverUrl(book: Book, token: string | null): string {
-  if (!book.coverPath || !token) {
-    return '';
-  }
-
-  return `/streaming/books/${book.id}/cover?access_token=${encodeURIComponent(token)}`;
+  return coverUrlForBook(book, token);
 }
 
 export function coverInitials(book: Book): string {

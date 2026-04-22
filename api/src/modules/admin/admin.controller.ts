@@ -138,4 +138,17 @@ export class AdminController {
 
 		res.status(202).json({ queued: true, jobId });
 	}
+
+	static async triggerCoverOverrideRemediation(
+		_req: Request,
+		res: Response<{ queued: boolean; jobId: string }>,
+	) {
+		const job = await JobService.enqueueJob(
+			"RESCAN",
+			{ force: true, trigger: "manual-admin-cover-remediation" },
+			3,
+		);
+
+		res.status(202).json({ queued: true, jobId: job.id });
+	}
 }

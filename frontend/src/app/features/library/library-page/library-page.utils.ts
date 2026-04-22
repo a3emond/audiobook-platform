@@ -1,4 +1,5 @@
 import type { Book, Collection, SeriesDetail, SeriesSummary } from '../../../core/models/api.models';
+import { coverUrlForBook } from '../../../core/utils/cover-url';
 import type {
   CollectionDerivation,
   CollectionPreviewUrl,
@@ -50,14 +51,16 @@ export function collectionPreviewUrls(
   }
 
   const ids = collection.bookIds.slice(0, 3);
-  const available = new Set(books.filter((book) => !!book.coverPath).map((book) => book.id));
+  const byId = new Map(books.map((book) => [book.id, book]));
 
   return ids
-    .filter((id) => available.has(id))
-    .map((id) => ({
-      bookId: id,
-      url: `/streaming/books/${id}/cover?access_token=${encodeURIComponent(token)}`,
-    }));
+    .map((id) => byId.get(id))
+    .filter((book): book is Book => Boolean(book?.coverPath))
+    .map((book) => ({
+      bookId: book.id,
+      url: coverUrlForBook(book, token),
+    }))
+    .filter((preview) => preview.url.length > 0);
 }
 
 // Deduping across rails ensures collection preview lookup stays O(1) with stable ids.

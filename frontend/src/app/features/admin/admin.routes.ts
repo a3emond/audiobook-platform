@@ -15,6 +15,10 @@ export const adminRoutes: Routes = [
 		loadComponent: () => import('./admin-books-page/admin-books.page').then((m) => m.AdminBooksPage),
 	},
 	{
+		path: 'editorial',
+		loadComponent: () => import('./admin-editorial-page/admin-editorial.page').then((m) => m.AdminEditorialPage),
+	},
+	{
 		path: 'books/:bookId',
 		loadComponent: () => import('./admin-edit-page/admin-edit.page').then((m) => m.AdminEditPage),
 	},

@@ -42,6 +42,36 @@ Heavy jobs are subject to optional time-window scheduling configured in worker s
 
 ## Endpoints
 
+### Trigger Cover-Override Remediation
+
+**POST** `/api/v1/admin/jobs/remediate-cover-overrides`
+
+Queue a forced `RESCAN` pass intended for existing-catalog remediation when admin-selected cover overrides must win over file-level drift.
+
+#### Request
+
+Empty body.
+
+#### Response — 202 Accepted
+
+```json
+{
+  "queued": true,
+  "jobId": "507f1f77bcf86cd799439011"
+}
+```
+
+#### Behavior
+
+- Enqueues `RESCAN` with payload:
+
+```json
+{
+  "force": true,
+  "trigger": "manual-admin-cover-remediation"
+}
+```
+
 ### Enqueue Job
 
 **POST** `/api/v1/admin/jobs/enqueue`
@@ -255,13 +285,25 @@ stateDiagram-v2
 ```json
 {
   "force": false,
+  "trigger": "manual-admin-cover-remediation",
   "targetCount": 27,
   "scanned": 27,
   "updated": 25,
   "missing": 1,
-  "errors": 1
+  "errors": 1,
+  "drifted": 6,
+  "remediated": 6,
+  "writeMetadataQueued": 4,
+  "sanitizeQueued": 2,
+  "coverOverrideRemediationQueued": 3,
+  "skippedExistingRemediation": 0
 }
 ```
+
+Notes:
+
+- `coverOverrideRemediationQueued` counts existing books where admin cover override drift was detected and remediation was queued.
+- `writeMetadataQueued` can include `enforceCoverRemux: true` payloads so cover override is re-embedded into the audio container.
 
 ---
 

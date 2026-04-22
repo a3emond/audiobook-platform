@@ -58,6 +58,8 @@ export interface Book {
   title: string;
   author: string;
   duration: number;
+  version?: number;
+  updatedAt?: string;
   language?: 'fr' | 'en' | string | null;
   coverPath?: string | null;
   series?: string | null;
@@ -179,6 +181,59 @@ export interface Collection {
 
 export interface ListCollectionsResponse extends PaginationMeta {
   collections: Collection[];
+}
+
+export type EditorialItemType = 'series' | 'book';
+
+export interface EditorialResolvedBook {
+  type: 'book';
+  id: string;
+  title: string;
+  author: string;
+  version?: number;
+  updatedAt?: string;
+  series?: string | null;
+  coverPath?: string | null;
+}
+
+export interface EditorialResolvedSeries {
+  type: 'series';
+  name: string;
+  bookCount: number;
+  previewBooks: Array<{
+    id: string;
+    title: string;
+    version?: number;
+    updatedAt?: string;
+    coverPath?: string | null;
+  }>;
+}
+
+export interface EditorialBlockItem {
+  id: string;
+  itemType: EditorialItemType;
+  target: string;
+  position: number;
+  badge?: string | null;
+  kicker?: string | null;
+  title?: string | null;
+  image?: string | null;
+  entity: EditorialResolvedBook | EditorialResolvedSeries;
+}
+
+export interface EditorialBlock {
+  id: string;
+  slug: string;
+  scope: 'library';
+  title: string;
+  subtitle?: string | null;
+  displayType: 'fan_cards';
+  theme?: string | null;
+  items: EditorialBlockItem[];
+}
+
+export interface ListEditorialBlocksResponse {
+  blocks: EditorialBlock[];
 }
 
 export type DiscussionLanguage = 'fr' | 'en';

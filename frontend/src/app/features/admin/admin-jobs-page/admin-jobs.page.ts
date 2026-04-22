@@ -216,4 +216,26 @@ export class AdminJobsPage implements OnInit, OnDestroy {
       },
     });
   }
+
+  triggerCoverOverrideRemediation(): void {
+    this.jobActionInProgress.set('cover-remediation');
+    this.jobActionMessage.set(null);
+
+    this.admin.triggerCoverOverrideRemediation().subscribe({
+      next: (response) => {
+        this.jobActionInProgress.set(null);
+        this.jobActionMessage.set(`Cover remediation scan queued (${response.jobId})`);
+        clearTimeout(this.actionMessageTimer);
+        this.actionMessageTimer = setTimeout(() => this.jobActionMessage.set(null), 3500);
+      },
+      error: (error: unknown) => {
+        this.jobActionInProgress.set(null);
+        this.jobActionMessage.set(
+          error instanceof Error ? error.message : 'Could not queue cover remediation scan',
+        );
+        clearTimeout(this.actionMessageTimer);
+        this.actionMessageTimer = setTimeout(() => this.jobActionMessage.set(null), 3500);
+      },
+    });
+  }
 }

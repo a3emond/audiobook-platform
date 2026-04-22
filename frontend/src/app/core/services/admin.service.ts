@@ -28,9 +28,12 @@ import { ApiService } from './api.service';
 import { RealtimeService } from './realtime.service';
 import type {
   AdminCoverage,
+  AdminEditorialCatalogOptions,
+  AdminEditorialBlock,
   AdminJob,
   AdminOverview,
   AdminUser,
+  CreateAdminEditorialBlockPayload,
   Book,
   GetJobLogsResponse,
   JobEventStreamHandle,
@@ -39,6 +42,8 @@ import type {
   ListBooksResponse,
   ListJobsResponse,
   SearchLogsResponse,
+  ReplaceAdminEditorialItemsPayload,
+  UpdateAdminEditorialBlockPayload,
   UpdateBookChaptersPayload,
   UpdateBookMetadataPayload,
   WorkerSettings,
@@ -83,6 +88,30 @@ export class AdminService {
     return this.api.get<AdminCoverage>('/admin/coverage');
   }
 
+  getEditorialCatalogOptions(): Observable<AdminEditorialCatalogOptions> {
+    return this.api.get<AdminEditorialCatalogOptions>('/admin/editorial/options');
+  }
+
+  listEditorialBlocks(): Observable<{ blocks: AdminEditorialBlock[] }> {
+    return this.api.get<{ blocks: AdminEditorialBlock[] }>('/admin/editorial/blocks');
+  }
+
+  createEditorialBlock(payload: CreateAdminEditorialBlockPayload): Observable<AdminEditorialBlock> {
+    return this.api.post<AdminEditorialBlock, CreateAdminEditorialBlockPayload>('/admin/editorial/blocks', payload);
+  }
+
+  updateEditorialBlock(blockId: string, payload: UpdateAdminEditorialBlockPayload): Observable<AdminEditorialBlock> {
+    return this.api.patch<AdminEditorialBlock, UpdateAdminEditorialBlockPayload>(`/admin/editorial/blocks/${blockId}`, payload);
+  }
+
+  replaceEditorialBlockItems(blockId: string, payload: ReplaceAdminEditorialItemsPayload): Observable<AdminEditorialBlock> {
+    return this.api.put<AdminEditorialBlock, ReplaceAdminEditorialItemsPayload>(`/admin/editorial/blocks/${blockId}/items`, payload);
+  }
+
+  deleteEditorialBlock(blockId: string): Observable<{ deleted: true }> {
+    return this.api.delete<{ deleted: true }>(`/admin/editorial/blocks/${blockId}`);
+  }
+
   // Uploads enqueue worker jobs rather than completing synchronously in the request.
   uploadBook(file: File, language: 'fr' | 'en'): Observable<{ jobId: string }> {
     return this.api.postFormData<{ jobId: string }>('/admin/books/upload', buildBookUploadForm(file, language));
@@ -112,6 +141,13 @@ export class AdminService {
       type,
       payload,
     });
+  }
+
+  triggerCoverOverrideRemediation(): Observable<{ queued: boolean; jobId: string }> {
+    return this.api.post<{ queued: boolean; jobId: string }, Record<string, never>>(
+      '/admin/jobs/remediate-cover-overrides',
+      {},
+    );
   }
 
   getWorkerSettings(): Observable<WorkerSettings> {

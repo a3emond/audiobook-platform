@@ -55,6 +55,72 @@
   }
 
   @if (!loading()) {
+    @if (hasFeaturedRow()) {
+      <section class="row-block">
+        <div class="row-head">
+          <div class="row-title-wrap">
+            <h2>{{ featuredBlock()?.title }}</h2>
+            @if (featuredBlock()?.theme) {
+              <span class="series-progress-pill">{{ featuredBlock()?.theme }}</span>
+            }
+          </div>
+        </div>
+        @if (featuredBlock()?.subtitle) {
+          <p class="featured-subtitle">{{ featuredBlock()?.subtitle }}</p>
+        }
+        <div class="rail-wrap" [class.fade-left]="canScrollLeft('featured')" [class.fade-right]="canScrollRight('featured')">
+          @if (railOverflows('featured')) {
+            <button
+              type="button"
+              class="rail-nav left"
+              [disabled]="!canScrollLeft('featured')"
+              (click)="scrollRail('featured', featuredRail, -1)"
+              [attr.aria-label]="'common.scrollLeft' | t"
+            >
+              ‹
+            </button>
+          }
+          <div class="media-rail featured-rail" #railEl #featuredRail data-rail-id="featured" role="list" (scroll)="onRailScroll('featured', featuredRail)">
+          @for (item of featuredItems(); track item.id) {
+            <article class="featured-cell card" role="listitem">
+              <a class="featured-card-link" [routerLink]="featuredCardLink(item)">
+                <div class="featured-cover-fan">
+                  @if (featuredCardCoverUrls(item).length > 0) {
+                    @for (url of featuredCardCoverUrls(item); track url; let i = $index) {
+                      <div class="fan-image-wrap" [class.i0]="i === 0" [class.i1]="i === 1" [class.i2]="i === 2">
+                        <img class="fan-image" [src]="url" [alt]="item.title || ''" loading="lazy" />
+                      </div>
+                    }
+                  } @else {
+                    <div class="fan-fallback">{{ (item.title || '?').slice(0, 1) }}</div>
+                  }
+                </div>
+                <div class="featured-copy">
+                  @if (item.badge) {
+                    <span class="featured-badge">{{ item.badge }}</span>
+                  }
+                  <h3>{{ item.title }}</h3>
+                  <p>{{ featuredCardSubtitle(item) }}</p>
+                </div>
+              </a>
+            </article>
+          }
+          </div>
+          @if (railOverflows('featured')) {
+            <button
+              type="button"
+              class="rail-nav right"
+              [disabled]="!canScrollRight('featured')"
+              (click)="scrollRail('featured', featuredRail, 1)"
+              aria-label="Scroll right"
+            >
+              ›
+            </button>
+          }
+        </div>
+      </section>
+    }
+
     @if (showLatestRow()) {
       <section class="row-block">
         <div class="row-head">

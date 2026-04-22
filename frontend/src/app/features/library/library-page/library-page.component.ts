@@ -3,11 +3,13 @@ import { AfterViewInit, Component, DestroyRef, ElementRef, OnDestroy, OnInit, Qu
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { forkJoin, skip } from 'rxjs';
+import { catchError, forkJoin, of, skip } from 'rxjs';
 
 import type {
   Book,
   Collection,
+  EditorialBlock,
+  EditorialBlockItem,
 } from '../../../core/models/api.models';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 import { I18nService } from '../../../core/services/i18n.service';
@@ -16,6 +18,7 @@ import { LibraryService } from '../../../core/services/library.service';
 import { LibraryProgressService } from '../../../core/services/library-progress.service';
 import { ProgressService } from '../../../core/services/progress.service';
 import { SettingsService } from '../../../core/services/settings.service';
+import { coverUrlForBook } from '../../../core/utils/cover-url';
 import { BookCardComponent } from '../book-card/book-card.component';
 import { CollectionCardComponent } from '../collection-card/collection-card.component';
 import { persistPreferredLocale } from '../../../app.data';
@@ -47,6 +50,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   collectionName = '';
 
   readonly latestBooks = signal<Book[]>([]);
+  readonly featuredBlock = signal<EditorialBlock | null>(null);
   readonly frenchBookCount = signal(0);
   readonly seriesRails = signal<SeriesRail[]>([]);
   readonly seriesPageSize = 6;
@@ -150,13 +154,17 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
       booksResponse: this.library.listBooks({ q: this.q || undefined, limit: 120, offset: 0 }),
       settings: this.settingsService.getMine(),
       progress: this.progressService.listMineAll(100),
+      editorial: this.library.listEditorialBlocks('library').pipe(
+        catchError(() => of({ blocks: [] })),
+      ),
     }).subscribe({
-      next: ({ booksResponse, settings, progress }) => {
+      next: ({ booksResponse, settings, progress, editorial }) => {
         const frenchBooks = booksResponse.books.filter((book) => {
           const language = book.language?.toLowerCase();
           return language === 'fr' || language?.startsWith('fr-');
         });
         this.frenchBookCount.set(frenchBooks.length);
+        this.featuredBlock.set(editorial.blocks[0] ?? null);
 
         const showCompleted = settings.library?.showCompleted ?? true;
         const completedIds = new Set(
@@ -357,7 +365,55 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   showLatestRow(): boolean {
-    return !this.hasActiveQuery() && this.latestBooks().length > 0;
+    return !this.hasActiveQuery() && !this.hasFeaturedRow() && this.latestBooks().length > 0;
+  }
+
+  hasFeaturedRow(): boolean {
+    const block = this.featuredBlock();
+    return !this.hasActiveQuery() && !!block && block.items.length > 0;
+  }
+
+  featuredItems(): EditorialBlockItem[] {
+    return this.featuredBlock()?.items ?? [];
+  }
+
+  featuredCardCoverUrls(item: EditorialBlockItem): string[] {
+    const token = this.auth.accessToken();
+    if (!token) {
+      return [];
+    }
+
+    if (item.entity.type === 'book') {
+      const entity = item.entity;
+      const url = coverUrlForBook(entity, token);
+      return url ? [url] : [];
+    }
+
+    return item.entity.previewBooks
+      .filter((book) => !!book.coverPath)
+      .slice(0, 3)
+      .map((book) => coverUrlForBook(book, token))
+      .filter((url) => url.length > 0);
+  }
+
+  featuredCardLink(item: EditorialBlockItem): [string, string] {
+    if (item.entity.type === 'book') {
+      return ['/player', item.entity.id];
+    }
+
+    return ['/series', item.entity.name];
+  }
+
+  featuredCardSubtitle(item: EditorialBlockItem): string {
+    if (item.kicker?.trim()) {
+      return item.kicker.trim();
+    }
+
+    if (item.entity.type === 'book') {
+      return item.entity.author;
+    }
+
+    return `${item.entity.bookCount} books`;
   }
 
   hasSeriesRows(): boolean {
@@ -373,7 +429,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   shouldShowNoBooksState(): boolean {
-    return !this.loading() && this.latestBooks().length === 0 && this.seriesRails().length === 0;
+    return !this.loading() && !this.hasFeaturedRow() && this.latestBooks().length === 0 && this.seriesRails().length === 0;
   }
 
   hasActiveQuery(): boolean {

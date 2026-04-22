@@ -1,0 +1,189 @@
+<section class="admin-page editorial-page">
+  <header class="page-header">
+    <h1>Editorial Featured Blocks</h1>
+    <p>Build flexible home rows mixing series and standalone books.</p>
+  </header>
+
+  <section class="card create-block">
+    <h2>Create Block</h2>
+    <div class="create-grid">
+      <label>
+        <span>Slug</span>
+        <input [(ngModel)]="createSlug" placeholder="home-featured" />
+      </label>
+      <label>
+        <span>Title</span>
+        <input [(ngModel)]="createTitle" placeholder="Featured right now" />
+      </label>
+      <button type="button" class="btn" [disabled]="saving()" (click)="createBlock()">Create</button>
+    </div>
+  </section>
+
+  @if (error()) {
+    <p class="text-error">{{ error() }}</p>
+  }
+
+  @if (info()) {
+    <p class="text-info">{{ info() }}</p>
+  }
+
+  @if (loading()) {
+    <p>Loading editorial blocks...</p>
+  } @else {
+    <section class="editor-layout">
+      <aside class="card blocks-list">
+        <h2>Blocks</h2>
+        @if (blocks().length === 0) {
+          <p class="text-muted">No blocks yet.</p>
+        }
+        @for (block of blocks(); track block.id) {
+          <button
+            type="button"
+            class="block-pill"
+            [class.active]="selectedBlockId() === block.id"
+            (click)="selectBlock(block.id)"
+          >
+            <span>{{ block.title }}</span>
+            <small>{{ block.slug }}</small>
+          </button>
+        }
+      </aside>
+
+      <section class="card block-editor" *ngIf="selectedBlock() as block">
+        <div class="block-head">
+          <h2>Edit Block</h2>
+          <button type="button" class="btn btn-danger" [disabled]="saving()" (click)="deleteSelectedBlock()">Delete</button>
+        </div>
+
+        <div class="meta-grid">
+          <label>
+            <span>Slug</span>
+            <input [(ngModel)]="editSlug" />
+          </label>
+          <label>
+            <span>Title</span>
+            <input [(ngModel)]="editTitle" />
+          </label>
+          <label>
+            <span>Subtitle</span>
+            <input [(ngModel)]="editSubtitle" placeholder="Optional" />
+          </label>
+          <label>
+            <span>Theme</span>
+            <input [(ngModel)]="editTheme" placeholder="horror-october" />
+          </label>
+          <label>
+            <span>Sort order</span>
+            <input type="number" [(ngModel)]="editSortOrder" />
+          </label>
+          <label>
+            <span>Max items</span>
+            <input type="number" min="1" max="24" [(ngModel)]="editMaxItems" />
+          </label>
+          <label>
+            <span>Starts at</span>
+            <input type="datetime-local" [(ngModel)]="editStartsAt" />
+          </label>
+          <label>
+            <span>Ends at</span>
+            <input type="datetime-local" [(ngModel)]="editEndsAt" />
+          </label>
+          <label class="check-row">
+            <input type="checkbox" [(ngModel)]="editIsActive" />
+            <span>Active</span>
+          </label>
+        </div>
+
+        <div class="actions-row">
+          <button type="button" class="btn" [disabled]="saving()" (click)="saveBlockMeta()">Save Block</button>
+        </div>
+
+        <div class="items-head">
+          <h3>Items</h3>
+          <div class="actions-row">
+            <button type="button" class="btn btn-secondary" (click)="addItem('series')">+ Series</button>
+            <button type="button" class="btn btn-secondary" (click)="addItem('book')">+ Book</button>
+          </div>
+        </div>
+
+        @if (itemsDraft().length === 0) {
+          <p class="text-muted">Add items to feature this block.</p>
+        }
+
+        <div class="items-list">
+          @for (item of itemsDraft(); track item.id ?? $index) {
+            <article class="item-card">
+              <div class="item-top">
+                <strong>#{{ $index + 1 }}</strong>
+                <div class="item-actions">
+                  <button type="button" class="btn-icon" (click)="moveItem($index, -1)" [disabled]="$index === 0">↑</button>
+                  <button type="button" class="btn-icon" (click)="moveItem($index, 1)" [disabled]="$index === itemsDraft().length - 1">↓</button>
+                  <button type="button" class="btn-icon danger" (click)="removeItem($index)">×</button>
+                </div>
+              </div>
+
+              <div class="item-grid">
+                <label>
+                  <span>Type</span>
+                  <select [(ngModel)]="item.itemType">
+                    <option value="series">Series</option>
+                    <option value="book">Book</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Target</span>
+                  @if (item.itemType === 'series') {
+                    <select [(ngModel)]="item.target">
+                      @for (series of seriesOptions(); track series.name) {
+                        <option [ngValue]="series.name">{{ series.name }} ({{ series.bookCount }})</option>
+                      }
+                    </select>
+                  } @else {
+                    <select [(ngModel)]="item.target">
+                      @for (book of bookOptions(); track book.id) {
+                        <option [ngValue]="book.id">{{ book.title }} - {{ book.author }} @if (book.series) { • {{ book.series }} }</option>
+                      }
+                    </select>
+                  }
+                </label>
+                <label>
+                  <span>Badge</span>
+                  <input [(ngModel)]="item.badge" placeholder="New release" />
+                </label>
+                <label>
+                  <span>Kicker</span>
+                  <input [(ngModel)]="item.kicker" placeholder="Spooky season" />
+                </label>
+                <label>
+                  <span>Custom title</span>
+                  <input [(ngModel)]="item.customTitle" placeholder="Optional" />
+                </label>
+                <label>
+                  <span>Custom image URL</span>
+                  <input [(ngModel)]="item.customImage" placeholder="Optional" />
+                </label>
+                <label>
+                  <span>Starts at</span>
+                  <input type="datetime-local" [(ngModel)]="item.startsAt" />
+                </label>
+                <label>
+                  <span>Ends at</span>
+                  <input type="datetime-local" [(ngModel)]="item.endsAt" />
+                </label>
+                <label class="check-row">
+                  <input type="checkbox" [(ngModel)]="item.isActive" />
+                  <span>Active</span>
+                </label>
+              </div>
+              <p class="target-preview">Selected: {{ itemTargetLabel(item) }}</p>
+            </article>
+          }
+        </div>
+
+        <div class="actions-row">
+          <button type="button" class="btn" [disabled]="saving()" (click)="saveItems()">Save Items</button>
+        </div>
+      </section>
+    </section>
+  }
+</section>

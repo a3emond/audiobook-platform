@@ -136,7 +136,7 @@ Example (defaults): 2 s → 4 s → 8 s → 16 s → … → 60 s cap
 | `EXTRACT_COVER` | 50 | No | No | Extract embedded cover art |
 | `REPLACE_COVER` | 50 | No | No | Replace cover and remux |
 | `REPLACE_FILE` | 20 | Yes | No | Swap audio file for a book |
-| `RESCAN` | 50 | No | No | Verify library files, sync DB |
+| `RESCAN` | 50 | No | No | Verify library files, sync DB, and queue existing-content remediation |
 | `DELETE_BOOK` | 50 | No | No | Remove book record and files |
 
 ---
@@ -220,6 +220,7 @@ sequenceDiagram
 ```
 # Job queue
 POST   /api/v1/admin/jobs/enqueue          Create job
+POST   /api/v1/admin/jobs/remediate-cover-overrides  Force cover-override remediation rescan
 GET    /api/v1/admin/jobs                  List (filterable)
 GET    /api/v1/admin/jobs/stats            Queue counters
 GET    /api/v1/admin/jobs/:jobId           Get one job
@@ -249,6 +250,14 @@ PATCH  /api/v1/admin/users/:userId/role
 GET    /api/v1/admin/users/:userId/sessions
 DELETE /api/v1/admin/users/:userId/sessions
 ```
+
+## Existing Content Remediation Notes
+
+- `REPLACE_COVER` sets `overrides.cover=true` and persists `coverPath` as the admin-selected source of truth.
+- `REPLACE_FILE` enforces this precedence: when `overrides.cover=true`, replacement audio is re-packed so the admin cover remains embedded.
+- `WRITE_METADATA` remux also enforces admin cover when `overrides.cover=true`.
+- `RESCAN` parity checks detect cover drift for existing books and queue remediation (`WRITE_METADATA` with `enforceCoverRemux=true`).
+- The dedicated route `POST /api/v1/admin/jobs/remediate-cover-overrides` exists for one-click full-catalog remediation.
 
 ---
 

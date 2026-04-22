@@ -78,6 +78,7 @@ import {
 import { ProgressService } from './progress.service';
 import { StatsService } from './stats.service';
 import { LibraryService } from './library.service';
+import { coverUrlForBook } from '../utils/cover-url';
 import {
   chapterStartSeconds,
   currentChapterIndex,
@@ -974,12 +975,7 @@ export class PlayerService {
 
   // ─── Private: Helpers ─────────────────────────────────────────────────────
   private coverUrlForBook(book: Book): string {
-    const token = this.auth.accessToken();
-    if (!book.coverPath || !token) {
-      return '';
-    }
-
-    return `/streaming/books/${book.id}/cover?access_token=${encodeURIComponent(token)}`;
+    return coverUrlForBook(book, this.auth.accessToken());
   }
 
   // Labels are only for presence display, so the heuristic aims for readable rather than perfect detection.
