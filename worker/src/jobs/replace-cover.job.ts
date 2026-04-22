@@ -47,6 +47,7 @@ interface ReplaceCoverJobPayload {
 interface BookRecord {
   _id: mongoose.Types.ObjectId;
   filePath: string;
+  processingState?: string;
   title?: string | null;
   author?: string | null;
   series?: string | null;
@@ -121,7 +122,12 @@ export async function handleReplaceCoverJob(
 
   const metadataPath = `/tmp/replace-cover-metadata-${job._id}.txt`;
   const remuxPath = `/tmp/replace-cover-audio-${job._id}.m4b`;
+  const sourceIsM4b = book.filePath.toLowerCase().endsWith(".m4b");
+  const targetAudioPath = sourceIsM4b
+    ? book.filePath
+    : path.join(path.dirname(book.filePath), "audio.m4b");
   const finalCoverPath = path.join(path.dirname(book.filePath), "cover.jpg");
+  let jobSuccess = false;
 
   try {
     let chaptersForRemux = book.chapters ?? [];
@@ -175,18 +181,39 @@ export async function handleReplaceCoverJob(
     logger.debug("Metadata written from DB truth source", {
       chapters: chaptersForRemux.length,
     });
-    await ffmpeg.remuxWithMetadataAndCover(
-      book.filePath,
-      metadataPath,
-      payload.sourcePath,
-      remuxPath,
-    );
-    logger.debug("Audio remux with new cover completed");
-    await atomicWriteFile(book.filePath, remuxPath);
+    if (sourceIsM4b) {
+      await ffmpeg.remuxWithMetadataAndCover(
+        book.filePath,
+        metadataPath,
+        payload.sourcePath,
+        remuxPath,
+      );
+      logger.debug("Audio remux with new cover completed");
+    } else {
+      logger.warn("Replace cover source is MP3; rebuilding as M4B", {
+        bookId: payload.bookId,
+        filePath: book.filePath,
+        processingState: book.processingState ?? "unknown",
+      });
+      await ffmpeg.buildM4bFromAudio(
+        book.filePath,
+        metadataPath,
+        remuxPath,
+        payload.sourcePath,
+      );
+      logger.debug("MP3 source rebuilt as M4B with new cover");
+    }
+    await atomicWriteFile(targetAudioPath, remuxPath);
+    if (!sourceIsM4b && targetAudioPath !== book.filePath) {
+      await fileService.deleteFile(book.filePath).catch(() => undefined);
+      logger.info("Original MP3 removed after cover rebuild", {
+        filePath: book.filePath,
+      });
+    }
     await atomicWriteFile(finalCoverPath, payload.sourcePath);
-    const checksum = formatSha256(await computeFileSha256(book.filePath));
+    const checksum = formatSha256(await computeFileSha256(targetAudioPath));
     const duration = Math.round(
-      (await ffmpeg.probeFile(book.filePath)).duration,
+      (await ffmpeg.probeFile(targetAudioPath)).duration,
     );
 
     await booksCollection.updateOne(
@@ -194,12 +221,14 @@ export async function handleReplaceCoverJob(
       {
         $set: {
           ...(repairedChapters ? { chapters: repairedChapters } : {}),
+          filePath: targetAudioPath,
           coverPath: finalCoverPath,
           checksum,
           duration,
           "overrides.cover": true,
           "fileSync.status": "in_sync",
           "fileSync.lastWriteAt": new Date(),
+          processingState: "ready",
           version: Math.max(1, (book.version ?? 1) + 1),
           lastScannedAt: new Date(),
           updatedAt: new Date(),
@@ -209,13 +238,16 @@ export async function handleReplaceCoverJob(
 
     logger.info("Replace cover job completed", {
       bookId: payload.bookId,
+      filePath: targetAudioPath,
       coverPath: finalCoverPath,
       checksum,
     });
 
+    jobSuccess = true;
+
     return {
       bookId: payload.bookId,
-      filePath: book.filePath,
+      filePath: targetAudioPath,
       coverPath: finalCoverPath,
       checksum,
       duration,
@@ -240,7 +272,7 @@ export async function handleReplaceCoverJob(
   } finally {
     await fileService.deleteFile(metadataPath);
     await fileService.deleteFile(remuxPath);
-    if (payload.cleanupSource) {
+    if (jobSuccess && payload.cleanupSource) {
       await fileService.deleteFile(payload.sourcePath);
       logger.debug("Source cover cleaned up", {
         sourcePath: payload.sourcePath,
