@@ -6,35 +6,39 @@
     </div>
   </header>
 
+  <app-content-help
+    tooltip="Filter and sort the catalog quickly from here."
+    anchor="top-right"
+    tooltipPlacement="auto"
+    size="sm"
+  >
   <section class="toolbar card">
-    <label>
-      <span>{{ 'common.filter' | t }}</span>
+    <app-field-help [label]="'common.filter' | t" hint="Title, author, or keyword search." tooltip="Applies to books and series rows.">
       <input
         name="q"
         [(ngModel)]="q"
         (ngModelChange)="onFilterChange()"
         [placeholder]="'library.filter.placeholder' | t"
       />
-    </label>
-    <label>
-      <span>Series tags</span>
+    </app-field-help>
+    <app-field-help label="Series tags" hint="Comma-separated tags." tooltip="Example: litrpg, progression">
       <input
         name="seriesTags"
         [(ngModel)]="seriesTags"
         (ngModelChange)="onFilterChange()"
         placeholder="e.g. litrpg, progression"
       />
-    </label>
-    <label>
-      <span>Sort series</span>
+    </app-field-help>
+    <app-field-help label="Sort series" hint="Choose how series rows are ordered." tooltip="Controls series rail ordering.">
       <select name="seriesSort" [(ngModel)]="seriesSort" (ngModelChange)="onFilterChange()">
         <option value="activity">Recent activity</option>
         <option value="relevance">Relevance</option>
         <option value="alphabetical">A-Z</option>
       </select>
-    </label>
+    </app-field-help>
     <button type="button" class="clear-filter-btn" (click)="clearFilter()" [disabled]="!hasActiveQuery()">{{ 'common.clear' | t }}</button>
   </section>
+  </app-content-help>
 
   @if (shouldShowFrenchEnglishFallbackNotice()) {
     <section class="fr-unavailable-note" role="status" aria-live="polite">
@@ -305,15 +309,18 @@
     <div class="modal-backdrop" (click)="closeCreateCollectionModal()">
       <div class="modal card" (click)="$event.stopPropagation()">
         <h3>{{ 'collections.new' | t }}</h3>
-        <label>
-          <span>{{ 'common.name' | t }}</span>
+        <app-field-help
+          [label]="'common.name' | t"
+          hint="Give your collection a memorable title."
+          tooltip="Used in collection rails and detail page header."
+        >
           <input
             name="collectionName"
             [(ngModel)]="collectionName"
             [placeholder]="'collections.placeholder' | t"
             (keyup.enter)="createCollection()"
           />
-        </label>
+        </app-field-help>
 
         @if (collectionModalError()) {
           <p class="text-error">{{ collectionModalError() }}</p>

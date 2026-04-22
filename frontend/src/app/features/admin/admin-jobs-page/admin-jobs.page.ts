@@ -8,6 +8,8 @@ import type {
   JobEventStreamHandle,
   WorkerQueueSettings,
 } from '../../../core/services/admin.types';
+import { ContentHelpComponent } from '../../../shared/ui/content-help/content-help.component';
+import { InfoTooltipComponent } from '../../../shared/ui/info-tooltip/info-tooltip.component';
 import { AdminJobLogsComponent } from '../admin-job-logs/admin-job-logs.component';
 import {
   fromWorkerSettingsDraft,
@@ -20,7 +22,7 @@ import {
 @Component({
   selector: 'app-admin-jobs-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, AdminJobLogsComponent],
+  imports: [CommonModule, FormsModule, AdminJobLogsComponent, ContentHelpComponent, InfoTooltipComponent],
   templateUrl: './admin-jobs.page.html',
   styleUrl: './admin-jobs.page.css',
 })

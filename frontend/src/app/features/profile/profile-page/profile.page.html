@@ -4,12 +4,32 @@
     <p class="hero-subtitle">Account details, listening stats, and activity in one place.</p>
   </header>
 
-  <nav class="section-nav card" aria-label="Profile sections">
-    <button type="button" [class.active]="activeSection() === 'account'" (click)="scrollToSection('account')">Account</button>
-    <button type="button" [class.active]="activeSection() === 'security'" (click)="scrollToSection('security')">Security</button>
-    <button type="button" [class.active]="activeSection() === 'stats'" (click)="scrollToSection('stats')">Stats</button>
-    <button type="button" [class.active]="activeSection() === 'history'" (click)="scrollToSection('history')">History</button>
-  </nav>
+  <app-content-help
+    tooltip="Quick navigation block. Use these tabs to jump between profile sections."
+    anchor="top-right"
+    tooltipPlacement="auto"
+    size="sm"
+    maxWidth="16rem"
+    offset="0.35rem"
+  >
+    <nav class="section-nav card" aria-label="Profile sections">
+      <div class="section-nav-item">
+        <button type="button" [class.active]="activeSection() === 'account'" (click)="scrollToSection('account')">Account</button>
+      </div>
+
+      <div class="section-nav-item">
+        <button type="button" [class.active]="activeSection() === 'security'" (click)="scrollToSection('security')">Security</button>
+      </div>
+
+      <div class="section-nav-item">
+        <button type="button" [class.active]="activeSection() === 'stats'" (click)="scrollToSection('stats')">Stats</button>
+      </div>
+
+      <div class="section-nav-item">
+        <button type="button" [class.active]="activeSection() === 'history'" (click)="scrollToSection('history')">History</button>
+      </div>
+    </nav>
+  </app-content-help>
 
   <section id="account" class="card account" *ngIf="auth.user() as user">
     <h2>Account & Preferences</h2>
@@ -19,51 +39,72 @@
     <p *ngIf="preferencesSuccess()" class="text-success">{{ preferencesSuccess() }}</p>
 
     <form class="account-grid" (ngSubmit)="savePreferences()">
-      <label>
-        Display Name
+      <app-field-help
+        label="Display Name"
+        hint="How your name appears across the app."
+        tooltip="Optional. Leave empty to use your account default."
+      >
         <input name="displayName" [(ngModel)]="displayName" />
-      </label>
+      </app-field-help>
 
-      <label>
-        Preferred Locale
+      <app-field-help
+        label="Preferred Locale"
+        hint="Controls language preference for supported UI text."
+        tooltip="This preference is saved to your profile."
+      >
         <select name="preferredLocale" [(ngModel)]="preferredLocale">
           <option value="en">English</option>
           <option value="fr">Francais</option>
         </select>
-      </label>
+      </app-field-help>
 
-      <label>
-        Forward Jump
+      <app-field-help
+        label="Forward Jump"
+        hint="Skip ahead amount in the player."
+        tooltip="Used by the forward control during playback."
+      >
         <select name="forwardJumpSeconds" [(ngModel)]="forwardJumpSeconds">
           <option *ngFor="let value of jumpOptions" [ngValue]="value">{{ value }} seconds</option>
         </select>
-      </label>
+      </app-field-help>
 
-      <label>
-        Backward Jump
+      <app-field-help
+        label="Backward Jump"
+        hint="Rewind amount in the player."
+        tooltip="Used by the back control during playback."
+      >
         <select name="backwardJumpSeconds" [(ngModel)]="backwardJumpSeconds">
           <option *ngFor="let value of jumpOptions" [ngValue]="value">{{ value }} seconds</option>
         </select>
-      </label>
+      </app-field-help>
 
-      <label>
-        Playback Rate
+      <app-field-help
+        label="Playback Rate"
+        hint="Default speed when starting playback."
+        tooltip="Range is 0.5x to 3x."
+      >
         <input name="rate" type="number" step="0.05" min="0.5" max="3" [(ngModel)]="playbackRate" />
-      </label>
+      </app-field-help>
 
-      <label>
-        Resume Rewind Threshold
+      <app-field-help
+        label="Resume Rewind Threshold"
+        hint="Minimum pause time before rewind-on-resume can apply."
+        tooltip="Longer pauses can trigger a short rewind when playback resumes."
+      >
         <select name="rewindThresholdSeconds" [(ngModel)]="rewindThresholdSeconds">
           <option *ngFor="let option of thresholdOptions" [ngValue]="option.seconds">{{ option.label }}</option>
         </select>
-      </label>
+      </app-field-help>
 
-      <label>
-        Resume Rewind Amount
+      <app-field-help
+        label="Resume Rewind Amount"
+        hint="Seconds to rewind when threshold conditions are met."
+        tooltip="Choose the amount that helps you regain context after breaks."
+      >
         <select name="rewindSeconds" [(ngModel)]="rewindSeconds">
           <option *ngFor="let value of jumpOptions" [ngValue]="value">{{ value }} seconds</option>
         </select>
-      </label>
+      </app-field-help>
 
       <label class="checkbox-row">
         <input name="rewindEnabled" type="checkbox" [(ngModel)]="resumeRewindEnabled" />
@@ -90,20 +131,17 @@
         <p *ngIf="passwordError()" class="text-error">{{ passwordError() }}</p>
         <p *ngIf="passwordSuccess()" class="text-success">{{ passwordSuccess() }}</p>
 
-        <label>
-          Current Password
+        <app-field-help label="Current Password" tooltip="Use your existing password for verification.">
           <input type="password" name="currentPassword" [(ngModel)]="currentPassword" required />
-        </label>
+        </app-field-help>
 
-        <label>
-          New Password
+        <app-field-help label="New Password" hint="Use at least 8 characters." tooltip="Choose a strong unique password.">
           <input type="password" name="newPassword" [(ngModel)]="newPassword" required />
-        </label>
+        </app-field-help>
 
-        <label>
-          Confirm New Password
+        <app-field-help label="Confirm New Password" tooltip="Must match the new password exactly.">
           <input type="password" name="confirmNewPassword" [(ngModel)]="confirmNewPassword" required />
-        </label>
+        </app-field-help>
 
         <button class="btn" type="submit" [disabled]="passwordSaving()">{{ passwordSaving() ? 'Updating...' : 'Update Password' }}</button>
       </form>
@@ -113,20 +151,17 @@
         <p *ngIf="emailError()" class="text-error">{{ emailError() }}</p>
         <p *ngIf="emailSuccess()" class="text-success">{{ emailSuccess() }}</p>
 
-        <label>
-          Current Password
+        <app-field-help label="Current Password" tooltip="Required to confirm this account change.">
           <input type="password" name="emailCurrentPassword" [(ngModel)]="emailCurrentPassword" required />
-        </label>
+        </app-field-help>
 
-        <label>
-          New Email
+        <app-field-help label="New Email" tooltip="Future logins and notifications will use this address.">
           <input type="email" name="newEmail" [(ngModel)]="newEmail" required />
-        </label>
+        </app-field-help>
 
-        <label>
-          Confirm New Email
+        <app-field-help label="Confirm New Email" tooltip="Re-enter to avoid typos before submitting.">
           <input type="email" name="confirmNewEmail" [(ngModel)]="confirmNewEmail" required />
-        </label>
+        </app-field-help>
 
         <button class="btn" type="submit" [disabled]="emailSaving()">{{ emailSaving() ? 'Updating...' : 'Update Email' }}</button>
       </form>

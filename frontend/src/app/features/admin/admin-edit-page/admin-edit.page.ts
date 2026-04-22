@@ -6,13 +6,15 @@ import { ActivatedRoute, Router } from '@angular/router';
 import type { Book } from '../../../core/models/api.models';
 import { AdminService } from '../../../core/services/admin.service';
 import { prepareCoverImageFile, prepareCoverImageFromUrl } from '../../../core/utils/image-upload';
+import { ContentHelpComponent } from '../../../shared/ui/content-help/content-help.component';
+import { FieldHelpComponent } from '../../../shared/ui/field-help/field-help.component';
 import type { EditableChapter } from './admin-edit-page.types';
 import { buildMetadataPayload, hydrateEditableChapters, nextChapterRow, validateChapterRows } from './admin-edit-page.utils';
 
 @Component({
 	selector: 'app-admin-edit-page',
 	standalone: true,
-	imports: [CommonModule, FormsModule],
+	imports: [CommonModule, FormsModule, FieldHelpComponent, ContentHelpComponent],
 	templateUrl: './admin-edit.page.html',
 	styleUrl: './admin-edit.page.css',
 })

@@ -18,8 +18,10 @@
         </div>
 
         <form (ngSubmit)="submit()" class="form" novalidate>
-          <label>
-            {{ 'auth.displayName.label' | t }} <span class="opt">{{ 'common.optional' | t }}</span>
+          <app-field-help
+            [label]="('auth.displayName.label' | t) + ' (' + ('common.optional' | t) + ')'"
+            [tooltip]="'Display name shown in your profile.'"
+          >
             <input
               name="displayName"
               [(ngModel)]="displayName"
@@ -27,10 +29,9 @@
               autocomplete="name"
               [placeholder]="'auth.displayName.placeholder' | t"
             />
-          </label>
+          </app-field-help>
 
-          <label>
-            {{ 'auth.email.label' | t }}
+          <app-field-help [label]="'auth.email.label' | t" [tooltip]="'Email used for sign-in and recovery.'">
             <input
               name="email"
               [(ngModel)]="email"
@@ -39,10 +40,9 @@
               autocomplete="email"
               [placeholder]="'auth.email.placeholder' | t"
             />
-          </label>
+          </app-field-help>
 
-          <label>
-            {{ 'auth.password.label' | t }}
+          <app-field-help [label]="'auth.password.label' | t" [tooltip]="'At least 8 characters.'">
             <input
               name="password"
               [(ngModel)]="password"
@@ -51,10 +51,9 @@
               autocomplete="new-password"
               [placeholder]="'auth.password.newPlaceholder' | t"
             />
-          </label>
+          </app-field-help>
 
-          <label>
-            {{ 'auth.password.confirmLabel' | t }}
+          <app-field-help [label]="'auth.password.confirmLabel' | t" [tooltip]="'Must match the password above.'">
             <input
               name="confirm"
               [(ngModel)]="confirm"
@@ -63,7 +62,7 @@
               autocomplete="new-password"
               [placeholder]="'auth.password.confirmPlaceholder' | t"
             />
-          </label>
+          </app-field-help>
 
           <p *ngIf="validationError()" class="text-error">{{ validationError() }}</p>
           <p *ngIf="error()" class="text-error">{{ error() }}</p>

@@ -1,0 +1,12 @@
+<label class="field-help-group">
+  <span class="field-help-label-row">
+    <span class="field-help-label">{{ label() }}</span>
+    @if (tooltip()) {
+      <app-info-tooltip [text]="tooltip() ?? ''" />
+    }
+  </span>
+  <ng-content />
+  @if (hint()) {
+    <small class="field-help-hint">{{ hint() }}</small>
+  }
+</label>

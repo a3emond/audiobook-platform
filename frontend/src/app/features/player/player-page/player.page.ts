@@ -12,6 +12,7 @@ import type { PlaybackDeviceSession } from '../../../core/services/player.servic
 import { PlayerService } from '../../../core/services/player.service';
 import { ProgressService } from '../../../core/services/progress.service';
 import { SettingsService } from '../../../core/services/settings.service';
+import { FieldHelpComponent } from '../../../shared/ui/field-help/field-help.component';
 import { ReadMoreComponent } from '../../../shared/ui/read-more/read-more.component';
 import { PlayerControlsComponent } from '../player-controls/controls';
 import { SleepTimerMode } from './player-page.types';
@@ -38,7 +39,7 @@ import { PlayerSleepTimer } from './player-sleep-timer';
 @Component({
 	selector: 'app-player-page',
 	standalone: true,
-	imports: [CommonModule, RouterLink, PlayerControlsComponent, ReadMoreComponent],
+	imports: [CommonModule, RouterLink, PlayerControlsComponent, ReadMoreComponent, FieldHelpComponent],
 	templateUrl: './player.page.html',
 	styleUrl: './player.page.css',
 })

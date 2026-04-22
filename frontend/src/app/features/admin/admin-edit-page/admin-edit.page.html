@@ -6,55 +6,55 @@
 			<p *ngIf="success()" class="success">{{ success() }}</p>
 
 			<!-- Metadata section -->
-			<form *ngIf="!loading()" (ngSubmit)="saveMetadata()" class="grid">
+			<app-content-help
+				*ngIf="!loading()"
+				tooltip="Edit core metadata used by library browsing, search, and playback details."
+				anchor="top-right"
+				tooltipPlacement="auto"
+				size="sm"
+			>
+			<form (ngSubmit)="saveMetadata()" class="grid">
 				<h2>Metadata</h2>
-				<label>
-					Title
+				<app-field-help label="Title" tooltip="Primary display title in all client apps.">
 					<input name="title" [(ngModel)]="title" />
-				</label>
+				</app-field-help>
 
-				<label>
-					Author
+				<app-field-help label="Author" tooltip="Author or narrator credit shown on cards and details.">
 					<input name="author" [(ngModel)]="author" />
-				</label>
+				</app-field-help>
 
-				<label>
-					Series
+				<app-field-help label="Series" tooltip="Optional series grouping label.">
 					<input name="series" [(ngModel)]="series" />
-				</label>
+				</app-field-help>
 
-				<label>
-					Series Index
+				<app-field-help label="Series Index" tooltip="Book number within the series.">
 					<input name="seriesIndex" type="number" [(ngModel)]="seriesIndex" />
-				</label>
+				</app-field-help>
 
-				<label>
-					Genre
+				<app-field-help label="Genre" tooltip="Single genre label used in metadata display.">
 					<input name="genre" [(ngModel)]="genre" />
-				</label>
+				</app-field-help>
 
-				<label>
-					Language
+				<app-field-help label="Language" tooltip="Primary language used by localization filters.">
 					<select name="language" [(ngModel)]="language">
 						<option value="en">English</option>
 						<option value="fr">French</option>
 					</select>
-				</label>
+				</app-field-help>
 
-				<label>
-					Tags (comma-separated)
+				<app-field-help label="Tags (comma-separated)" tooltip="Used by search and series tag filtering.">
 					<input name="tags" [(ngModel)]="tagsRaw" />
-				</label>
+				</app-field-help>
 
-				<label>
-					Description (default)
+				<app-field-help label="Description (default)" tooltip="Fallback description when locale-specific text is absent.">
 					<textarea name="description" [(ngModel)]="descriptionDefault"></textarea>
-				</label>
+				</app-field-help>
 
 				<button type="submit" class="btn-action" [disabled]="savingMetadata()">
 					{{ savingMetadata() ? 'Saving...' : 'Save Metadata' }}
 				</button>
 			</form>
+			</app-content-help>
 
 			<div class="actions" *ngIf="!loading()">
 				<label class="cover-upload">

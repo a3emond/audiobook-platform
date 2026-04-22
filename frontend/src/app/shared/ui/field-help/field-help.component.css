@@ -1,0 +1,24 @@
+:host {
+  display: block;
+}
+
+.field-help-group {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.field-help-label-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.field-help-label {
+  font-weight: 600;
+}
+
+.field-help-hint {
+  color: var(--color-text-muted, var(--text-muted, #9ca3af));
+  font-size: 0.75rem;
+  line-height: 1.35;
+}

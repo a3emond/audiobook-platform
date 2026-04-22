@@ -5,15 +5,18 @@
 			</header>
 
 			<section class="filters card">
-				<label>
-					<span>Filter</span>
+				<app-field-help
+					label="Filter"
+					hint="Search by title, author, or id."
+					tooltip="Filtering is applied client-side on loaded history rows."
+				>
 					<input
 						name="query"
 						[(ngModel)]="query"
 						(ngModelChange)="onFilterChange()"
 						placeholder="Filter by title, author, or book id"
 					/>
-				</label>
+				</app-field-help>
 				<button type="button" class="clear-filter" (click)="clearFilter()" [disabled]="!hasActiveFilter()">Clear</button>
 			</section>
 

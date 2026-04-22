@@ -19,8 +19,10 @@
         </div>
 
         <form (ngSubmit)="submit()" class="form" novalidate>
-          <label>
-            {{ 'auth.email.label' | t }}
+          <app-field-help
+            [label]="'auth.email.label' | t"
+            [tooltip]="'Used to sign in to your account.'"
+          >
             <input
               name="email"
               [(ngModel)]="email"
@@ -29,10 +31,12 @@
               autocomplete="email"
               [placeholder]="'auth.email.placeholder' | t"
             />
-          </label>
+          </app-field-help>
 
-          <label>
-            {{ 'auth.password.label' | t }}
+          <app-field-help
+            [label]="'auth.password.label' | t"
+            [tooltip]="'Use your account password.'"
+          >
             <input
               name="password"
               [(ngModel)]="password"
@@ -41,7 +45,7 @@
               autocomplete="current-password"
               [placeholder]="'auth.password.currentPlaceholder' | t"
             />
-          </label>
+          </app-field-help>
 
           <p *ngIf="error()" class="text-error">{{ error() }}</p>
 

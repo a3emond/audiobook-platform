@@ -21,13 +21,14 @@
 
 .toolbar {
   display: flex;
-  align-items: end;
+  align-items: flex-start;
   flex-wrap: wrap;
   gap: 0.8rem;
 }
 
-.toolbar label {
+.toolbar app-field-help {
   flex: 1;
+  min-width: 12rem;
 }
 
 .clear-filter-btn {
@@ -38,6 +39,8 @@
   font-size: 0.82rem;
   font-weight: 700;
   padding: 0.5rem 0.72rem;
+  align-self: flex-end;
+  margin-bottom: 0.15rem;
 }
 
 .clear-filter-btn:disabled {

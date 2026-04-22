@@ -33,14 +33,17 @@
 
 					@if (!isCompleted()) {
 						<div class="progress-head">
-							<label>
-								<span>Chapter</span>
+							<app-field-help
+								label="Chapter"
+								hint="Choose a chapter to jump directly."
+								tooltip="Selection seeks the active playback position to that chapter start."
+							>
 								<select [value]="activeChapterIndex()" (change)="onChapterSelected($event)">
 									<option *ngFor="let chapter of chapters(); let i = index" [value]="i">
 										{{ i + 1 }}. {{ chapter.title }}
 									</option>
 								</select>
-							</label>
+							</app-field-help>
 
 							<div class="menu-wrap controls-menu-wrap">
 								<button

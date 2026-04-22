@@ -19,6 +19,8 @@ import { LibraryProgressService } from '../../../core/services/library-progress.
 import { ProgressService } from '../../../core/services/progress.service';
 import { SettingsService } from '../../../core/services/settings.service';
 import { coverUrlForBook } from '../../../core/utils/cover-url';
+import { ContentHelpComponent } from '../../../shared/ui/content-help/content-help.component';
+import { FieldHelpComponent } from '../../../shared/ui/field-help/field-help.component';
 import { BookCardComponent } from '../book-card/book-card.component';
 import { CollectionCardComponent } from '../collection-card/collection-card.component';
 import { persistPreferredLocale } from '../../../app.data';
@@ -35,7 +37,7 @@ import {
 @Component({
   selector: 'app-library-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, BookCardComponent, CollectionCardComponent, TranslatePipe],
+  imports: [CommonModule, FormsModule, RouterLink, BookCardComponent, CollectionCardComponent, TranslatePipe, FieldHelpComponent, ContentHelpComponent],
   templateUrl: './library-page.component.html',
   styleUrl: './library-page.component.css',
 })

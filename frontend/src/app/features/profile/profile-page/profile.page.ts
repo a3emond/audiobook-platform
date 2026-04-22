@@ -11,6 +11,8 @@ import { I18nService } from '../../../core/services/i18n.service';
 import { LibraryService } from '../../../core/services/library.service';
 import { SettingsService } from '../../../core/services/settings.service';
 import { StatsService } from '../../../core/services/stats.service';
+import { ContentHelpComponent } from '../../../shared/ui/content-help/content-help.component';
+import { FieldHelpComponent } from '../../../shared/ui/field-help/field-help.component';
 import { JUMP_OPTIONS, THRESHOLD_OPTIONS } from './profile-page.constants';
 import {
   changeEmail,
@@ -33,7 +35,7 @@ import { validateEmailForm, validatePasswordForm } from './profile-page.validato
 @Component({
   selector: 'app-profile-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, ContentHelpComponent, FieldHelpComponent],
   templateUrl: './profile.page.html',
   styleUrl: './profile.page.css',
 })

@@ -1,0 +1,37 @@
+<span
+  class="info-tooltip-root"
+  [class.is-open]="open()"
+  [class.is-disabled]="disabled()"
+  [attr.data-placement]="placement()"
+  (mouseenter)="show()"
+  (mouseleave)="hide()"
+>
+  <button
+    type="button"
+    class="info-tooltip-trigger"
+    [class.size-sm]="size() === 'sm'"
+    [class.size-md]="size() === 'md'"
+    [class.size-lg]="size() === 'lg'"
+    [disabled]="disabled()"
+    [attr.aria-label]="resolvedAriaLabel()"
+    [attr.aria-expanded]="open()"
+    [attr.aria-describedby]="tooltipId"
+    [attr.aria-controls]="tooltipId"
+    (focus)="show()"
+    (blur)="hide()"
+    (click)="toggle()"
+  >
+    {{ icon() }}
+  </button>
+
+  <span
+    [id]="tooltipId"
+    class="info-tooltip-bubble"
+    role="tooltip"
+    [attr.aria-hidden]="!open()"
+    [style.--tooltip-max-width]="maxWidth()"
+    [class.is-visible]="open()"
+  >
+    {{ text() }}
+  </span>
+</span>

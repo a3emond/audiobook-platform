@@ -3,6 +3,7 @@ import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { AdminService } from '../../../core/services/admin.service';
+import { FieldHelpComponent } from '../../../shared/ui/field-help/field-help.component';
 import type {
   AdminEditorialBlock,
   AdminEditorialBlockItem,
@@ -27,7 +28,7 @@ interface EditableItem {
 @Component({
   selector: 'app-admin-editorial-page',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, FieldHelpComponent],
   templateUrl: './admin-editorial.page.html',
   styleUrl: './admin-editorial.page.css',
 })

@@ -1,0 +1,166 @@
+:host {
+  display: inline-flex;
+  align-items: center;
+  --tooltip-accent: var(--color-accent, #ff8a00);
+  --tooltip-fg: var(--color-text, #f3f4f6);
+  --tooltip-muted: var(--color-text-muted, #9ca3af);
+  --tooltip-surface: var(--color-surface, #0b0e14);
+  --tooltip-border: var(--color-border, rgba(255, 255, 255, 0.18));
+  --tooltip-shadow: 0 14px 34px rgba(0, 0, 0, 0.38);
+}
+
+.info-tooltip-root {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.info-tooltip-trigger {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--tooltip-border);
+  color: var(--tooltip-muted);
+  background: color-mix(in srgb, var(--tooltip-surface) 82%, transparent);
+  cursor: help;
+  user-select: none;
+  font-weight: 700;
+  transition: transform 140ms ease, border-color 180ms ease, color 180ms ease,
+    background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.info-tooltip-trigger:hover,
+.info-tooltip-trigger:focus-visible {
+  color: var(--tooltip-fg);
+  border-color: color-mix(in srgb, var(--tooltip-accent) 50%, var(--tooltip-border));
+  background: color-mix(in srgb, var(--tooltip-accent) 16%, var(--tooltip-surface));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tooltip-accent) 18%, transparent);
+  transform: translateY(-1px);
+}
+
+.info-tooltip-trigger:focus-visible {
+  outline: none;
+}
+
+.info-tooltip-trigger:disabled {
+  opacity: 0.5;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
+.info-tooltip-trigger.size-sm {
+  width: 0.95rem;
+  height: 0.95rem;
+  font-size: 0.62rem;
+}
+
+.info-tooltip-trigger.size-md {
+  width: 1.06rem;
+  height: 1.06rem;
+  font-size: 0.67rem;
+}
+
+.info-tooltip-trigger.size-lg {
+  width: 1.22rem;
+  height: 1.22rem;
+  font-size: 0.72rem;
+}
+
+.info-tooltip-bubble {
+  position: absolute;
+  z-index: 30;
+  max-width: var(--tooltip-max-width, 18rem);
+  min-width: 9.5rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--tooltip-border);
+  background: color-mix(in srgb, var(--tooltip-surface) 92%, black 8%);
+  color: var(--tooltip-fg);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  box-shadow: var(--tooltip-shadow);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px) scale(0.98);
+  transform-origin: center;
+  transition: opacity 150ms ease, transform 170ms ease;
+}
+
+.info-tooltip-bubble::after {
+  content: '';
+  position: absolute;
+  width: 0.5rem;
+  height: 0.5rem;
+  background: inherit;
+  border-right: 1px solid var(--tooltip-border);
+  border-bottom: 1px solid var(--tooltip-border);
+}
+
+.info-tooltip-root[data-placement='top'] .info-tooltip-bubble {
+  left: 50%;
+  bottom: calc(100% + 0.5rem);
+  transform: translate(-50%, 4px) scale(0.98);
+}
+
+.info-tooltip-root[data-placement='top'] .info-tooltip-bubble::after {
+  left: calc(50% - 0.25rem);
+  bottom: -0.29rem;
+  transform: rotate(45deg);
+}
+
+.info-tooltip-root[data-placement='right'] .info-tooltip-bubble {
+  left: calc(100% + 0.5rem);
+  top: 50%;
+  transform: translate(-4px, -50%) scale(0.98);
+}
+
+.info-tooltip-root[data-placement='right'] .info-tooltip-bubble::after {
+  left: -0.29rem;
+  top: calc(50% - 0.25rem);
+  transform: rotate(135deg);
+}
+
+.info-tooltip-root[data-placement='bottom'] .info-tooltip-bubble {
+  left: 50%;
+  top: calc(100% + 0.5rem);
+  transform: translate(-50%, -4px) scale(0.98);
+}
+
+.info-tooltip-root[data-placement='bottom'] .info-tooltip-bubble::after {
+  left: calc(50% - 0.25rem);
+  top: -0.29rem;
+  transform: rotate(225deg);
+}
+
+.info-tooltip-root[data-placement='left'] .info-tooltip-bubble {
+  right: calc(100% + 0.5rem);
+  top: 50%;
+  transform: translate(4px, -50%) scale(0.98);
+}
+
+.info-tooltip-root[data-placement='left'] .info-tooltip-bubble::after {
+  right: -0.29rem;
+  top: calc(50% - 0.25rem);
+  transform: rotate(-45deg);
+}
+
+.info-tooltip-bubble.is-visible {
+  opacity: 1;
+}
+
+.info-tooltip-root[data-placement='top'] .info-tooltip-bubble.is-visible {
+  transform: translate(-50%, 0) scale(1);
+}
+
+.info-tooltip-root[data-placement='right'] .info-tooltip-bubble.is-visible {
+  transform: translate(0, -50%) scale(1);
+}
+
+.info-tooltip-root[data-placement='bottom'] .info-tooltip-bubble.is-visible {
+  transform: translate(-50%, 0) scale(1);
+}
+
+.info-tooltip-root[data-placement='left'] .info-tooltip-bubble.is-visible {
+  transform: translate(0, -50%) scale(1);
+}

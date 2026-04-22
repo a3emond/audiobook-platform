@@ -36,18 +36,27 @@
   }
 
   @if (editingBooks() && !isAutoCollection()) {
+    <app-content-help
+      tooltip="Use this editor to curate which books appear in this collection."
+      anchor="top-right"
+      tooltipPlacement="auto"
+      size="sm"
+    >
     <section class="editor card">
       <h3>{{ 'collections.manageBooks' | t }}</h3>
 
-      <label>
-        <span>{{ 'collections.filterBooks' | t }}</span>
+      <app-field-help
+        [label]="'collections.filterBooks' | t"
+        [hint]="'Search by title or author while selecting books.'"
+        [tooltip]="'Only affects the selector list below.'"
+      >
         <input
           name="collectionBookSearch"
           [(ngModel)]="editorFilter"
           (ngModelChange)="onEditorFilterChange()"
           [placeholder]="'collections.filterPlaceholder' | t"
         />
-      </label>
+      </app-field-help>
 
       <div class="editor-list">
         @for (book of editorBooks(); track book.id) {
@@ -67,5 +76,6 @@
         <button type="button" class="btn btn-secondary" (click)="closeBooksEditor()">{{ 'common.cancel' | t }}</button>
       </div>
     </section>
+    </app-content-help>
   }
 </section>

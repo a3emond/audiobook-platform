@@ -92,6 +92,13 @@
   font-size: 0.78rem;
 }
 
+.field-help {
+  margin: 0.15rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
 .item-top {
   display: flex;
   align-items: center;

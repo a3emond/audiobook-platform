@@ -6,12 +6,13 @@ import { Router, RouterLink } from '@angular/router';
 import { AppConfigService } from '../../../core/services/config.service';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 import { AuthService } from '../../../core/services/auth.service';
+import { FieldHelpComponent } from '../../../shared/ui/field-help/field-help.component';
 import { OAuthButtonsComponent } from '../oauth-buttons/oauth-buttons';
 
 @Component({
   selector: 'app-login-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, OAuthButtonsComponent, TranslatePipe],
+  imports: [CommonModule, FormsModule, RouterLink, OAuthButtonsComponent, TranslatePipe, FieldHelpComponent],
   templateUrl: './login.page.html',
   styleUrl: './login.page.css',
 })

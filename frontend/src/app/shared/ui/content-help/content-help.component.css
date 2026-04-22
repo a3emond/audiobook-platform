@@ -1,0 +1,70 @@
+:host {
+  display: block;
+}
+
+.content-help-wrap {
+  position: relative;
+  display: block;
+}
+
+.content-help-wrap.is-inline {
+  display: inline-block;
+}
+
+.content-help-target {
+  display: block;
+}
+
+.content-help-wrap.is-inline .content-help-target {
+  display: inline-block;
+}
+
+.content-help-anchor {
+  position: absolute;
+  z-index: 5;
+  display: inline-flex;
+}
+
+.content-help-anchor[data-anchor='top-left'] {
+  top: var(--content-help-offset, 0.3rem);
+  left: var(--content-help-offset, 0.3rem);
+}
+
+.content-help-anchor[data-anchor='top-center'] {
+  top: var(--content-help-offset, 0.3rem);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.content-help-anchor[data-anchor='top-right'] {
+  top: var(--content-help-offset, 0.3rem);
+  right: var(--content-help-offset, 0.3rem);
+}
+
+.content-help-anchor[data-anchor='right-center'] {
+  right: var(--content-help-offset, 0.3rem);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.content-help-anchor[data-anchor='bottom-right'] {
+  right: var(--content-help-offset, 0.3rem);
+  bottom: var(--content-help-offset, 0.3rem);
+}
+
+.content-help-anchor[data-anchor='bottom-center'] {
+  left: 50%;
+  bottom: var(--content-help-offset, 0.3rem);
+  transform: translateX(-50%);
+}
+
+.content-help-anchor[data-anchor='bottom-left'] {
+  left: var(--content-help-offset, 0.3rem);
+  bottom: var(--content-help-offset, 0.3rem);
+}
+
+.content-help-anchor[data-anchor='left-center'] {
+  left: var(--content-help-offset, 0.3rem);
+  top: 50%;
+  transform: translateY(-50%);
+}

@@ -7,6 +7,7 @@ import { forkJoin } from 'rxjs';
 import type { PaginationMeta } from '../../../core/models/api.models';
 import { LibraryService } from '../../../core/services/library.service';
 import { StatsService } from '../../../core/services/stats.service';
+import { FieldHelpComponent } from '../../../shared/ui/field-help/field-help.component';
 import type { HistoryBookRow } from './history-page.types';
 import {
 	filterHistoryRows,
@@ -19,7 +20,7 @@ import {
 @Component({
 	selector: 'app-history-page',
 	standalone: true,
-	imports: [CommonModule, FormsModule, RouterLink],
+	imports: [CommonModule, FormsModule, RouterLink, FieldHelpComponent],
 	templateUrl: './history.page.html',
 	styleUrl: './history.page.css',
 })

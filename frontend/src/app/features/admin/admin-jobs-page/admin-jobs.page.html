@@ -10,7 +10,14 @@
   <p *ngIf="error()" class="text-error">{{ error() }}</p>
 
   <!-- ── Worker Queue Settings ────────────────────────────── -->
-  <section class="settings-panel" *ngIf="settingsDraft() as s">
+  <app-content-help
+    *ngIf="settingsDraft() as s"
+    tooltip="Tune worker throughput, schedule windows, and parity behavior from this panel."
+    anchor="top-right"
+    tooltipPlacement="auto"
+    size="sm"
+  >
+  <section class="settings-panel">
     <div class="settings-header">
       <h2 class="settings-title">Worker Queue Settings</h2>
       <p class="settings-help">Configure queue lanes and the automated parity scan loop.</p>
@@ -120,8 +127,9 @@
     <!-- Heavy job type chips -->
     <div class="types-section">
       <span class="field-label"
-        >Heavy job types <span class="types-hint">(click to toggle)</span></span
-      >
+        >Heavy job types <span class="types-hint">(click to toggle)</span>
+        <app-info-tooltip text="Selected types use heavy worker slots and queue rules." size="sm" placement="right" />
+      </span>
       <div class="type-chips">
         <button
           type="button"
@@ -156,12 +164,19 @@
       <span *ngIf="settingsMessage()" class="settings-msg">{{ settingsMessage() }}</span>
     </div>
   </section>
+  </app-content-help>
 
   <!-- ── Jobs queue + log detail ──────────────────────────── -->
   <div class="jobs-pane">
     <!-- Left column: queue controls + job list -->
     <div class="jobs-column">
       <!-- Action controls -->
+      <app-content-help
+        tooltip="Manual actions enqueue operational jobs immediately."
+        anchor="top-right"
+        tooltipPlacement="auto"
+        size="sm"
+      >
       <div class="job-controls">
         <button
           type="button"
@@ -189,6 +204,7 @@
         </button>
         <p *ngIf="jobActionMessage()" class="action-message">{{ jobActionMessage() }}</p>
       </div>
+      </app-content-help>
 
       <div class="jobs-list">
         <p class="pane-label">Jobs Queue</p>

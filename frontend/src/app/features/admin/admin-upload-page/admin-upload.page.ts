@@ -4,11 +4,12 @@ import { Component, inject } from '@angular/core';
 import { AdminJob } from '../../../core/services/admin.service';
 import { AdminUploadQueueService } from '../../../core/services/admin-upload-queue.service';
 import { prepareCoverImageFile, prepareCoverImageFromUrl } from '../../../core/utils/image-upload';
+import { ContentHelpComponent } from '../../../shared/ui/content-help/content-help.component';
 
 @Component({
 	selector: 'app-admin-upload-page',
 	standalone: true,
-	imports: [CommonModule],
+	imports: [CommonModule, ContentHelpComponent],
 	templateUrl: './admin-upload.page.html',
 	styleUrl: './admin-upload.page.css',
 })

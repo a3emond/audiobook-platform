@@ -1,0 +1,22 @@
+<span class="content-help-wrap" [class.is-inline]="inline()">
+  <span class="content-help-target">
+    <ng-content />
+  </span>
+
+  <span
+    #anchorNode
+    class="content-help-anchor"
+    [attr.data-anchor]="anchor()"
+    [style.--content-help-offset]="offset()"
+  >
+    <app-info-tooltip
+      [text]="tooltip()"
+      [placement]="resolvedPlacement()"
+      [size]="size()"
+      [maxWidth]="maxWidth()"
+      [disabled]="disabled()"
+      [closeOnOutsideClick]="closeOnOutsideClick()"
+      [ariaLabel]="ariaLabel()"
+    />
+  </span>
+</span>

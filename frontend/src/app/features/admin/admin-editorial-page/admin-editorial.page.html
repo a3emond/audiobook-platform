@@ -6,15 +6,22 @@
 
   <section class="card create-block">
     <h2>Create Block</h2>
+    <p class="field-help">Create a reusable featured row for the library page. You can schedule it and control item order after creation.</p>
     <div class="create-grid">
-      <label>
-        <span>Slug</span>
+      <app-field-help
+        label="Slug"
+        tooltip="Stable internal identifier used by admins and API responses."
+        hint="Internal key only; not shown to users."
+      >
         <input [(ngModel)]="createSlug" placeholder="home-featured" />
-      </label>
-      <label>
-        <span>Title</span>
+      </app-field-help>
+      <app-field-help
+        label="Title"
+        tooltip="Main heading shown above this featured row in Library."
+        hint="Displayed as the row title in Library."
+      >
         <input [(ngModel)]="createTitle" placeholder="Featured right now" />
-      </label>
+      </app-field-help>
       <button type="button" class="btn" [disabled]="saving()" (click)="createBlock()">Create</button>
     </div>
   </section>
@@ -54,43 +61,68 @@
           <h2>Edit Block</h2>
           <button type="button" class="btn btn-danger" [disabled]="saving()" (click)="deleteSelectedBlock()">Delete</button>
         </div>
+        <p class="field-help">Block settings control the whole row. Item settings below control each card in that row.</p>
 
         <div class="meta-grid">
-          <label>
-            <span>Slug</span>
+          <app-field-help
+            label="Slug"
+            tooltip="Internal block identifier."
+            hint="Used for management/API, not for user-facing text."
+          >
             <input [(ngModel)]="editSlug" />
-          </label>
-          <label>
-            <span>Title</span>
+          </app-field-help>
+          <app-field-help
+            label="Title"
+            tooltip="Displayed row heading in Library."
+            hint="Primary row heading shown to users."
+          >
             <input [(ngModel)]="editTitle" />
-          </label>
-          <label>
-            <span>Subtitle</span>
+          </app-field-help>
+          <app-field-help
+            label="Subtitle"
+            tooltip="Optional supporting text shown under the block title."
+            hint="Short context line under the title."
+          >
             <input [(ngModel)]="editSubtitle" placeholder="Optional" />
-          </label>
-          <label>
-            <span>Theme</span>
+          </app-field-help>
+          <app-field-help
+            label="Theme"
+            tooltip="Optional label chip shown beside the title (e.g. horror-october)."
+            hint="Appears as a visual tag next to the title."
+          >
             <input [(ngModel)]="editTheme" placeholder="horror-october" />
-          </label>
-          <label>
-            <span>Sort order</span>
+          </app-field-help>
+          <app-field-help
+            label="Sort order"
+            tooltip="Lower numbers appear first when multiple blocks are active."
+            hint="Controls row order among active blocks."
+          >
             <input type="number" [(ngModel)]="editSortOrder" />
-          </label>
-          <label>
-            <span>Max items</span>
+          </app-field-help>
+          <app-field-help
+            label="Max items"
+            tooltip="Maximum number of item cards rendered from this block."
+            hint="Only the first N active/scheduled items are shown."
+          >
             <input type="number" min="1" max="24" [(ngModel)]="editMaxItems" />
-          </label>
-          <label>
-            <span>Starts at</span>
+          </app-field-help>
+          <app-field-help
+            label="Starts at"
+            tooltip="Optional activation date/time for the whole block."
+            hint="Leave empty to allow immediate display."
+          >
             <input type="datetime-local" [(ngModel)]="editStartsAt" />
-          </label>
-          <label>
-            <span>Ends at</span>
+          </app-field-help>
+          <app-field-help
+            label="Ends at"
+            tooltip="Optional expiration date/time for the whole block."
+            hint="Leave empty for no automatic end date."
+          >
             <input type="datetime-local" [(ngModel)]="editEndsAt" />
-          </label>
+          </app-field-help>
           <label class="check-row">
             <input type="checkbox" [(ngModel)]="editIsActive" />
-            <span>Active</span>
+            <span title="When off, this block is hidden even if dates match.">Active</span>
           </label>
         </div>
 
@@ -105,6 +137,7 @@
             <button type="button" class="btn btn-secondary" (click)="addItem('book')">+ Book</button>
           </div>
         </div>
+        <p class="field-help">Items are rendered left-to-right by position. Use arrows to reorder cards.</p>
 
         @if (itemsDraft().length === 0) {
           <p class="text-muted">Add items to feature this block.</p>
@@ -123,15 +156,20 @@
               </div>
 
               <div class="item-grid">
-                <label>
-                  <span>Type</span>
+                <app-field-help
+                  label="Type"
+                  tooltip="Series cards link to a series page; book cards open player/book content."
+                >
                   <select [(ngModel)]="item.itemType">
                     <option value="series">Series</option>
                     <option value="book">Book</option>
                   </select>
-                </label>
-                <label>
-                  <span>Target</span>
+                </app-field-help>
+                <app-field-help
+                  label="Target"
+                  tooltip="Catalog entity this card points to."
+                  hint="Select exactly what opens when users click the card."
+                >
                   @if (item.itemType === 'series') {
                     <select [(ngModel)]="item.target">
                       @for (series of seriesOptions(); track series.name) {
@@ -145,34 +183,52 @@
                       }
                     </select>
                   }
-                </label>
-                <label>
-                  <span>Badge</span>
+                </app-field-help>
+                <app-field-help
+                  label="Badge"
+                  tooltip="Small highlighted label shown above the card title."
+                  hint="Optional short chip, e.g. New release."
+                >
                   <input [(ngModel)]="item.badge" placeholder="New release" />
-                </label>
-                <label>
-                  <span>Kicker</span>
+                </app-field-help>
+                <app-field-help
+                  label="Kicker"
+                  tooltip="Secondary text line under title; overrides default subtitle behavior."
+                  hint="Optional supporting line for context or theme."
+                >
                   <input [(ngModel)]="item.kicker" placeholder="Spooky season" />
-                </label>
-                <label>
-                  <span>Custom title</span>
+                </app-field-help>
+                <app-field-help
+                  label="Custom title"
+                  tooltip="Optional display title override for this card."
+                  hint="Leave empty to use catalog title/series name."
+                >
                   <input [(ngModel)]="item.customTitle" placeholder="Optional" />
-                </label>
-                <label>
-                  <span>Custom image URL</span>
+                </app-field-help>
+                <app-field-help
+                  label="Custom image URL"
+                  tooltip="Optional image override used instead of catalog cover(s)."
+                  hint="Leave empty to use existing cover artwork."
+                >
                   <input [(ngModel)]="item.customImage" placeholder="Optional" />
-                </label>
-                <label>
-                  <span>Starts at</span>
+                </app-field-help>
+                <app-field-help
+                  label="Starts at"
+                  tooltip="Optional activation date/time for this item only."
+                  hint="Useful for timed campaigns within a block."
+                >
                   <input type="datetime-local" [(ngModel)]="item.startsAt" />
-                </label>
-                <label>
-                  <span>Ends at</span>
+                </app-field-help>
+                <app-field-help
+                  label="Ends at"
+                  tooltip="Optional expiration date/time for this item only."
+                  hint="Item hides automatically after this time."
+                >
                   <input type="datetime-local" [(ngModel)]="item.endsAt" />
-                </label>
+                </app-field-help>
                 <label class="check-row">
                   <input type="checkbox" [(ngModel)]="item.isActive" />
-                  <span>Active</span>
+                  <span title="When off, this card is hidden without deleting it.">Active</span>
                 </label>
               </div>
               <p class="target-preview">Selected: {{ itemTargetLabel(item) }}</p>

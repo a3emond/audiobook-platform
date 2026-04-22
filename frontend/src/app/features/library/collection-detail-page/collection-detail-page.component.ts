@@ -10,6 +10,8 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 import { I18nService } from '../../../core/services/i18n.service';
 import { LibraryService } from '../../../core/services/library.service';
 import { ProgressService } from '../../../core/services/progress.service';
+import { ContentHelpComponent } from '../../../shared/ui/content-help/content-help.component';
+import { FieldHelpComponent } from '../../../shared/ui/field-help/field-help.component';
 import { BookCardComponent } from '../book-card/book-card.component';
 import {
   AUTO_ACTIVITY_COLLECTION_ID,
@@ -23,7 +25,7 @@ import {
 @Component({
   selector: 'app-collection-detail-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, BookCardComponent, TranslatePipe],
+  imports: [CommonModule, FormsModule, RouterLink, BookCardComponent, TranslatePipe, FieldHelpComponent, ContentHelpComponent],
   templateUrl: './collection-detail-page.component.html',
   styleUrl: './collection-detail-page.component.css',
 })

@@ -1,6 +1,13 @@
 		<div class="admin-page">
 			<h1>Admin Upload</h1>
-			<input type="file" multiple accept=".m4b,.m4a,.mp3,.ogg,.wav" (change)="onFilesPicked($event)" />
+			<app-content-help
+				tooltip="Drop audiobook files here, then review queue options before starting batch upload."
+				anchor="top-right"
+				tooltipPlacement="auto"
+				size="sm"
+			>
+				<input type="file" multiple accept=".m4b,.m4a,.mp3,.ogg,.wav" (change)="onFilesPicked($event)" />
+			</app-content-help>
 
 			<div class="actions">
 				<button type="button" class="btn-action" [disabled]="queue().length === 0 || loading()" (click)="startQueue()">
@@ -11,7 +18,14 @@
 				</button>
 			</div>
 
-			<table *ngIf="queue().length > 0" class="queue-table">
+			<app-content-help
+				*ngIf="queue().length > 0"
+				tooltip="Each row can override language and (for MP3) cover before upload."
+				anchor="top-right"
+				tooltipPlacement="auto"
+				size="sm"
+			>
+			<table class="queue-table">
 				<thead>
 					<tr>
 						<th>File</th>
@@ -77,6 +91,7 @@
 					</tr>
 				</tbody>
 			</table>
+			</app-content-help>
 
 			<section *ngIf="trackedJobIds().length > 0" class="jobs-panel">
 				<h2>Batch Job Progress</h2>
