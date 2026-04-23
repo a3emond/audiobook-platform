@@ -34,7 +34,7 @@
 
 .app-shell::before {
   content: '';
-  position: fixed;
+  position: absolute;
   inset: 0;
   background:
     radial-gradient(
@@ -52,6 +52,11 @@
       rgb(63 37 9 / 0.52) 100%
     ),
     url('/logo.png') center center / min(54vw, 28rem) auto no-repeat;
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-size:
+    100% 100%,
+    100% 100%,
+    min(54vw, 28rem) auto;
   opacity: 0.16;
   filter: saturate(0.92) contrast(1.02) blur(0.2px);
   mask-image: radial-gradient(
@@ -67,7 +72,7 @@
 
 .app-shell::after {
   content: '';
-  position: fixed;
+  position: absolute;
   inset: 0;
   background: linear-gradient(
     180deg,
@@ -77,6 +82,8 @@
     rgb(7 7 7 / 0.3) 52rem,
     rgb(5 5 5 / 0.56) 100%
   );
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
   pointer-events: none;
   z-index: -1;
 }
