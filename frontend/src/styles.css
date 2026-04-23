@@ -57,10 +57,7 @@ body {
   font-family: 'Outfit', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   font-size: 16px;
   color: var(--color-text);
-  background:
-    radial-gradient(circle at 15% -10%, rgb(255 138 0 / 0.22) 0%, transparent 34%),
-    radial-gradient(circle at 84% 2%, rgb(255 173 64 / 0.12) 0%, transparent 32%),
-    linear-gradient(180deg, #0a0a0a 0%, var(--color-bg) 42%, #050505 100%);
+  background: var(--color-bg);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   min-height: -webkit-fill-available;
