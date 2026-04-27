@@ -73,6 +73,21 @@ docker compose up --build
 curl http://localhost:8100/api/v1/health
 ```
 
+## CI/CD
+
+GitHub Actions workflow: [.github/workflows/deploy.yml](.github/workflows/deploy.yml)
+
+- Pull requests to `master` run build checks for `api`, `worker`, and `frontend`.
+- Pushes to `master` run the same checks first; deployment only runs if those checks pass.
+
+Required GitHub secrets:
+
+- `SSH_HOST`
+- `SSH_PORT`
+- `SSH_USER`
+- `SSH_PRIVATE_KEY`
+- `ENV_FILE` (full multi-line `.env` content written on the server)
+
 ## Documentation Maintenance Policy
 
 - Keep all long-form technical docs under [docs](docs).

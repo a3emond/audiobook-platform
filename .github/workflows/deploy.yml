@@ -5,9 +5,46 @@ on:
     branches: [master]
     paths-ignore:
       - "clients/**"
+  pull_request:
+    branches: [master]
+    paths-ignore:
+      - "clients/**"
+
+concurrency:
+  group: deploy-master
+  cancel-in-progress: true
 
 jobs:
+  pre-deploy-checks:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api, worker, frontend]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ matrix.service }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.service }}
+        run: npm ci
+
+      - name: Build
+        working-directory: ${{ matrix.service }}
+        run: npm run build
+
   deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: pre-deploy-checks
     runs-on: ubuntu-latest
 
     steps:
