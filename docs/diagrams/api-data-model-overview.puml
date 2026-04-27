@@ -1,0 +1,270 @@
+' title: API Data Model Overview
+' owner: platform
+' docs: docs/api/data-model-reference.md
+' updated: 2026-04-27
+
+@startuml API Data Model Overview
+
+skinparam backgroundColor white
+skinparam defaultFontColor black
+skinparam classBorderColor black
+skinparam classBackgroundColor white
+skinparam classHeaderBackgroundColor #efefef
+skinparam defaultFontName sans-serif
+skinparam shadowing false
+skinparam linetype ortho
+
+title API Data Model Overview\n<size:14>MongoDB Collections, Key Fields, and Relationships</size>
+
+package "Identity" {
+  class users {
+    +_id: ObjectId
+    --
+    email: string [unique]
+    role: admin|user
+    profile.displayName?: string
+    profile.preferredLocale: fr|en
+    createdAt: Date
+    updatedAt: Date
+  }
+
+  class auth {
+    +_id: ObjectId
+    --
+    userId: ObjectId [unique]
+    email: string
+    passwordHash?: string
+    providers[]: {type, providerId, linkedAt}
+    createdAt: Date
+    updatedAt: Date
+  }
+
+  class auth_sessions {
+    +_id: ObjectId
+    --
+    userId: ObjectId
+    tokenHash: string
+    expiresAt: Date [TTL]
+    lastUsedAt: Date
+    device?: string
+    ip?: string
+    userAgent?: string
+    createdAt: Date
+    updatedAt: Date
+  }
+
+  class user_settings {
+    +_id: ObjectId
+    --
+    userId: ObjectId [unique]
+    locale: fr|en
+    player.*
+    library.showCompleted
+    updatedAt: Date
+  }
+
+  class user_stats {
+    +_id: ObjectId
+    --
+    userId: ObjectId [unique]
+    lifetime.*
+    rolling.*
+    updatedAt: Date
+  }
+}
+
+package "Catalog & Personalization" {
+  class books {
+    +_id: ObjectId
+    --
+    filePath: string [unique]
+    checksum: string
+    title: string
+    author: string
+    series?: string
+    seriesIndex?: number
+    duration: number
+    language: en|fr
+    chapters[]
+    tags[]
+    normalizedTags[]
+    genre?: string
+    description.{default,fr,en}
+    version: number
+    processingState: enum
+    createdAt: Date
+    updatedAt: Date
+  }
+
+  class collections {
+    +_id: ObjectId
+    --
+    userId: ObjectId
+    name: string
+    bookIds[]: ObjectId
+    cover?: string
+    createdAt: Date
+    updatedAt: Date
+  }
+
+  class progress {
+    +_id: ObjectId
+    --
+    userId: ObjectId
+    bookId: ObjectId
+    positionSeconds: number
+    durationAtSave: number
+    fileChecksumAtSave: string
+    bookVersionAtSave: number
+    completed: boolean
+    completedAt?: Date
+    lastListenedAt?: Date
+    createdAt: Date
+    updatedAt: Date
+  }
+
+  class listening_sessions {
+    +_id: ObjectId
+    --
+    userId: ObjectId
+    bookId: ObjectId
+    startedAt: Date
+    endedAt: Date
+    listenedSeconds: number
+    fileChecksum: string
+    bookVersion: number
+    device: enum
+  }
+
+  class editorial_blocks {
+    +_id: ObjectId
+    --
+    slug: string [unique]
+    scope: library
+    title: string
+    isActive: boolean
+    startsAt?: Date
+    endsAt?: Date
+    sortOrder: number
+    items[]: {itemType, target, ...}
+    createdAt: Date
+    updatedAt: Date
+  }
+}
+
+package "Discussions" {
+  class discussion_channels {
+    +_id: ObjectId
+    --
+    lang: en|fr
+    key: string
+    title: string
+    description: string
+    isDefault: boolean
+    isActive: boolean
+    createdAt: Date
+    updatedAt: Date
+  }
+
+  class discussion_messages {
+    +_id: ObjectId
+    --
+    lang: en|fr
+    channelKey: string
+    authorUserId: ObjectId
+    body: string
+    replyToMessageId?: ObjectId
+    createdAt: Date
+    updatedAt: Date
+  }
+}
+
+package "Jobs & Operations" {
+  class jobs {
+    +_id: ObjectId
+    --
+    type: enum
+    status: enum
+    payload: mixed
+    output: mixed
+    error: mixed
+    attempt: number
+    maxAttempts: number
+    priority: number
+    runAfter: Date
+    startedAt?: Date
+    finishedAt?: Date
+    lockedBy?: string
+    lockedAt?: Date
+    createdAt: Date
+    updatedAt: Date
+  }
+
+  class jobLogs {
+    +_id: ObjectId
+    --
+    jobId: ObjectId
+    timestamp: Date
+    level: debug|info|warn|error
+    message: string
+    context?: mixed
+    duration?: number
+    createdAt: Date [TTL]
+  }
+
+  class worker_settings {
+    +_id: ObjectId
+    --
+    key: worker [unique]
+    queue.*
+    parity.*
+    taxonomy.*
+    createdAt: Date
+    updatedAt: Date
+  }
+
+  class admin_audit {
+    +_id: ObjectId
+    --
+    actorUserId: ObjectId
+    method: string
+    path: string
+    statusCode: number
+    targetUserId?: ObjectId
+    targetBookId?: ObjectId
+    metadata?: mixed
+    createdAt: Date
+  }
+}
+
+auth "1" --> "1" users : userId
+auth_sessions "*" --> "1" users : userId
+user_settings "1" --> "1" users : userId
+user_stats "1" --> "1" users : userId
+
+collections "*" --> "1" users : userId
+progress "*" --> "1" users : userId
+progress "*" --> "1" books : bookId
+listening_sessions "*" --> "1" users : userId
+listening_sessions "*" --> "1" books : bookId
+
+discussion_messages "*" --> "1" users : authorUserId
+discussion_messages "*" --> "0..1" discussion_messages : replyToMessageId
+discussion_messages ..> discussion_channels : (lang,channelKey) logical link
+
+jobLogs "*" --> "1" jobs : jobId
+admin_audit "*" --> "1" users : actorUserId
+admin_audit "*" --> "0..1" users : targetUserId
+admin_audit "*" --> "0..1" books : targetBookId
+
+note right of books
+Series is not a standalone collection.
+It is derived from books.series + books.seriesIndex.
+end note
+
+note bottom of editorial_blocks
+items[].target is a logical key (book or series),
+not a Mongo ObjectId ref.
+end note
+
+@enduml

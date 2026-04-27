@@ -26,6 +26,7 @@ Use this section as the single source of truth for project documentation. Any ne
 - [Admin API Endpoints](docs/api/admin-endpoints.md)
 - [Books API Endpoints](docs/api/books-endpoints.md)
 - [Collections API Endpoints](docs/api/collections-endpoints.md)
+- [API Data Model Reference](docs/api/data-model-reference.md)
 - [Progress API Endpoints](docs/api/progress-endpoints.md)
 - [Series API Endpoints](docs/api/series-endpoints.md)
 - [Settings API Endpoints](docs/api/settings-endpoints.md)
@@ -48,6 +49,7 @@ Use this section as the single source of truth for project documentation. Any ne
 ### Diagrams
 
 - [Diagrams Folder Guide](docs/diagrams/README.md)
+- [API Data Model Overview Diagram (PlantUML)](docs/diagrams/api-data-model-overview.puml)
 
 ## Repo Structure
 
