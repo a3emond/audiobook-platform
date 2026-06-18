@@ -140,12 +140,12 @@
     </div>
   </header>
 
-  @if (auth.isAuthenticated() && inProgressBooks().length > 0) {
+  @if (auth.isAuthenticated() && progressRailBooks().length > 0) {
     <section class="progress-strip" [attr.aria-label]="t('app.continueListening')">
       <div class="progress-strip-inner">
         <div class="strip-title">{{ t('app.continueListening') }}</div>
         <div class="progress-rail" role="list">
-          @for (item of inProgressBooks(); track item.book.id) {
+          @for (item of progressRailBooks(); track item.book.id) {
             <div class="progress-item-wrap" role="listitem">
               <a class="progress-item" [routerLink]="['/player', item.book.id]" [attr.aria-label]="progressTooltip(item.book)" [attr.title]="progressTooltip(item.book)">
                 <app-cover-tile

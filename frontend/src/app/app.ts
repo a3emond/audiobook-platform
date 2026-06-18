@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, effect, signal, untracked } from '@angular/core';
+import { Component, OnDestroy, computed, effect, signal, untracked } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Subscription } from 'rxjs';
 
@@ -34,6 +34,7 @@ import {
 export class App implements OnDestroy {
   readonly mobileNavOpen  = signal(false);
   readonly inProgressBooks = signal<InProgressBookItem[]>([]);
+  readonly progressRailBooks = computed(() => this.inProgressBooks().slice(0, 10));
   readonly notifications = signal<ToastItem[]>([]);
   private realtimeSub?: Subscription;
 
