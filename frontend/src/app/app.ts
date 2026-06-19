@@ -34,7 +34,7 @@ import {
 export class App implements OnDestroy {
   readonly mobileNavOpen  = signal(false);
   readonly inProgressBooks = signal<InProgressBookItem[]>([]);
-  readonly progressRailBooks = computed(() => this.inProgressBooks().slice(0, 10));
+  readonly progressRailBooks = computed(() => this.inProgressBooks().slice(0, 13));
   readonly notifications = signal<ToastItem[]>([]);
   private realtimeSub?: Subscription;
 
