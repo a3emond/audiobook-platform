@@ -253,7 +253,11 @@ export class BookReportService {
 			if (hasText(book.genre) && variantGenres.has(book.genre!)) {
 				issues.push("genre is a variant spelling of another genre (see genreVariants)");
 			}
+			// "<Series>, Book <n>" is the house style for books without a title of their own.
+			const houseStyleTitle = hasText(book.series) && book.seriesIndex !== null && book.seriesIndex !== undefined
+				&& new RegExp(`^${book.series!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}, Book \d+(\.\d+)?(, Part \d+)?$`, "i").test(book.title);
 			for (const [pattern, label] of TITLE_NOISE) {
+				if (houseStyleTitle && label === "title contains a series/volume number") continue;
 				if (pattern.test(book.title)) issues.push(label);
 			}
 			if (isAllSameCase(book.title)) issues.push("title is all upper or lower case");

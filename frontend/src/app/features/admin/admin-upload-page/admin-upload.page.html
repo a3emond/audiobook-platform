@@ -1,120 +1,159 @@
-		<div class="admin-page">
+		<div
+			class="admin-page"
+			(dragenter)="onDragEnter($event)"
+			(dragover)="onDragOver($event)"
+			(dragleave)="onDragLeave()"
+			(drop)="onDrop($event)"
+		>
 			<h1>Admin Upload</h1>
-			<app-content-help
-				tooltip="Drop audiobook files here, then review queue options before starting batch upload."
-				anchor="top-right"
-				tooltipPlacement="auto"
-				size="sm"
-			>
-				<input type="file" multiple accept=".m4b,.m4a,.mp3,.ogg,.wav" (change)="onFilesPicked($event)" />
-			</app-content-help>
 
-			<div class="actions">
-				<button type="button" class="btn-action" [disabled]="queue().length === 0 || loading()" (click)="startQueue()">
-					{{ loading() ? 'Uploading Queue...' : 'Start Batch Upload' }}
-				</button>
-				<button type="button" class="btn-action" [disabled]="loading() || queue().length === 0" (click)="clearQueue()">
-					Clear Queue
-				</button>
-			</div>
-
-			<app-content-help
-				*ngIf="queue().length > 0"
-				tooltip="Each row can override language and (for MP3) cover before upload."
-				anchor="top-right"
-				tooltipPlacement="auto"
-				size="sm"
-			>
-			<table class="queue-table">
-				<thead>
-					<tr>
-						<th>File</th>
-						<th>Type</th>
-						<th>Lang</th>
-						<th>Cover override</th>
-						<th>Status</th>
-						<th>Job</th>
-						<th>Error</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr *ngFor="let item of queue()">
-						<td>{{ item.file.name }}</td>
-						<td>{{ item.type }}</td>
-						<td>
-							<div class="lang-radio">
-								<label>
-									<input
-										type="radio"
-										[name]="'lang-' + item.id"
-										[value]="'en'"
-										[checked]="item.language === 'en'"
-										[disabled]="loading()"
-										(change)="updateItemLanguage(item.id, 'en')"
-									/>
-									EN
-								</label>
-								<label>
-									<input
-										type="radio"
-										[name]="'lang-' + item.id"
-										[value]="'fr'"
-										[checked]="item.language === 'fr'"
-										[disabled]="loading()"
-										(change)="updateItemLanguage(item.id, 'fr')"
-									/>
-									FR
-								</label>
-							</div>
-						</td>
-						<td>
-							<div *ngIf="item.type === 'mp3'" class="cover-cell">
-								<input
-									type="file"
-									accept=".jpg,.jpeg,.png,.webp"
-									[disabled]="loading()"
-									(change)="onQueueCoverPicked(item.id, $event)"
-								/>
-								<div class="cover-url-row">
-									<input #coverUrlInput type="url" placeholder="https://example.com/cover.jpg" [disabled]="loading()" />
-									<button type="button" class="btn-action" [disabled]="loading()" (click)="onQueueCoverUrlPicked(item.id, coverUrlInput.value)">
-										Use URL
-									</button>
-								</div>
-								<span>{{ item.mp3?.coverFile?.name || 'Auto-extracted' }}</span>
-							</div>
-							<span *ngIf="item.type !== 'mp3'">-</span>
-						</td>
-						<td>{{ item.status }}</td>
-						<td>{{ item.jobId || '-' }}</td>
-						<td>{{ item.error || '-' }}</td>
-					</tr>
-				</tbody>
-			</table>
-			</app-content-help>
-
-			<section *ngIf="trackedJobIds().length > 0" class="jobs-panel">
-				<h2>Batch Job Progress</h2>
-				<table class="queue-table">
-					<thead>
-						<tr>
-							<th>Job ID</th>
-							<th>Type</th>
-							<th>Status</th>
-							<th>Updated</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr *ngFor="let job of trackedJobs()">
-							<td>{{ job.id }}</td>
-							<td>{{ job.type }}</td>
-							<td>{{ job.status }}</td>
-							<td>{{ job.updatedAt || '-' }}</td>
-						</tr>
-					</tbody>
-				</table>
+			<section class="dropzone" [class.active]="dragActive()" [class.scanning]="scanning()">
+				<div class="dropzone-icon" aria-hidden="true">⇪</div>
+				<p class="dropzone-title">
+					@if (scanning()) {
+						Scanning folders…
+					} @else {
+						Drop audiobook files or whole folders here
+					}
+				</p>
+				<p class="muted">Sub-folders are searched; only {{ accept.split(',').join(' ') }} files are kept. A folder's cover image is attached to its MP3s automatically.</p>
+				<div class="picker-row">
+					<label class="btn">
+						Choose files
+						<input type="file" multiple [accept]="accept" (change)="onFilesPicked($event)" />
+					</label>
+					<label class="btn btn-secondary">
+						Choose folder
+						<input type="file" webkitdirectory multiple (change)="onFilesPicked($event)" />
+					</label>
+					<span class="lang-default">
+						Language for new files
+						<span class="segmented">
+							<button type="button" [class.active]="defaultLanguage() === 'en'" (click)="setAllLanguages('en')">EN</button>
+							<button type="button" [class.active]="defaultLanguage() === 'fr'" (click)="setAllLanguages('fr')">FR</button>
+						</span>
+					</span>
+				</div>
 			</section>
 
-			<p *ngIf="lastQueuedJobId()">Last queued job: {{ lastQueuedJobId() }}</p>
-			<p *ngIf="error()" class="error">{{ error() }}</p>
+			@if (notice()) {
+				<p class="notice" role="status">{{ notice() }}</p>
+			}
+
+			@if (counts().total > 0) {
+				<div class="actions">
+					<button type="button" class="btn" [disabled]="counts().pending === 0 || loading()" (click)="startQueue()">
+						{{ loading() ? 'Uploading…' : 'Upload ' + counts().pending + ' book' + (counts().pending === 1 ? '' : 's') }}
+					</button>
+					<button type="button" class="btn btn-secondary" [disabled]="loading()" (click)="clearQueue()">Clear queue</button>
+					<span class="muted summary">
+						{{ counts().total }} files · {{ formatSize(counts().bytes) }} · {{ counts().done }} uploaded
+						@if (counts().failed > 0) {
+							· <span class="error">{{ counts().failed }} failed</span>
+						}
+					</span>
+				</div>
+
+				@if (counts().splitFolders > 0) {
+					<p class="warn" role="alert">
+						{{ counts().splitFolders }} folder(s) contain several audio files. That usually means one book split into parts or chapters,
+						and each file would be imported as a separate book. Remove those folders, or merge the parts into one file first.
+					</p>
+				}
+
+				@for (group of groups(); track group.folder) {
+					<section class="folder-group">
+						<header class="folder-head">
+							<span class="folder-name">📁 {{ group.folder || 'Loose files' }}</span>
+							@if (group.items[0].folderAudioCount > 1) {
+								<span class="pill warn-pill">{{ group.items[0].folderAudioCount }} parts?</span>
+							}
+							<span class="spacer"></span>
+							<button type="button" class="btn-link" [disabled]="loading()" (click)="removeFolder(group.items)">Remove folder</button>
+						</header>
+						<table class="queue-table">
+							<tbody>
+								@for (item of group.items; track item.id) {
+									<tr [attr.data-status]="item.status">
+										<td class="file-cell">
+											<span class="file-name">{{ item.file.name }}</span>
+											<span class="muted small">{{ formatSize(item.file.size) }} · {{ item.type === 'mp3' ? 'MP3 → M4B' : 'audio' }}</span>
+										</td>
+										<td>
+											<div class="lang-radio">
+												<label>
+													<input type="radio" [name]="'lang-' + item.id" [checked]="item.language === 'en'" [disabled]="loading()" (change)="updateItemLanguage(item.id, 'en')" />
+													EN
+												</label>
+												<label>
+													<input type="radio" [name]="'lang-' + item.id" [checked]="item.language === 'fr'" [disabled]="loading()" (change)="updateItemLanguage(item.id, 'fr')" />
+													FR
+												</label>
+											</div>
+										</td>
+										<td class="cover-col">
+											@if (item.type === 'mp3') {
+												<div class="cover-cell">
+													<span class="small">{{ item.mp3?.coverFile?.name || 'Auto-extracted' }}</span>
+													<input type="file" accept=".jpg,.jpeg,.png,.webp" [disabled]="loading()" (change)="onQueueCoverPicked(item.id, $event)" />
+													<div class="cover-url-row">
+														<input #coverUrlInput type="url" placeholder="Cover URL" [disabled]="loading()" />
+														<button type="button" class="btn-action" [disabled]="loading()" (click)="onQueueCoverUrlPicked(item.id, coverUrlInput.value)">Use</button>
+													</div>
+												</div>
+											} @else {
+												<span class="muted small">Embedded cover</span>
+											}
+										</td>
+										<td class="status-cell">
+											<span class="status" [attr.data-status]="item.status">{{ item.status }}</span>
+											@if (item.error) {
+												<span class="error small">{{ item.error }}</span>
+											}
+										</td>
+										<td class="remove-cell">
+											@if (item.status !== 'done' && item.status !== 'uploading') {
+												<button type="button" class="icon-btn" [attr.aria-label]="'Remove ' + item.file.name" [disabled]="loading()" (click)="removeItem(item)">✕</button>
+											}
+										</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</section>
+				}
+			}
+
+			@if (trackedJobIds().length > 0) {
+				<section class="jobs-panel">
+					<h2>Batch Job Progress</h2>
+					<table class="queue-table">
+						<thead>
+							<tr>
+								<th>Job ID</th>
+								<th>Type</th>
+								<th>Status</th>
+								<th>Updated</th>
+							</tr>
+						</thead>
+						<tbody>
+							@for (job of trackedJobs(); track job.id) {
+								<tr>
+									<td>{{ job.id }}</td>
+									<td>{{ job.type }}</td>
+									<td>{{ job.status }}</td>
+									<td>{{ job.updatedAt || '-' }}</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</section>
+			}
+
+			@if (lastQueuedJobId()) {
+				<p class="muted">Last queued job: {{ lastQueuedJobId() }}</p>
+			}
+			@if (error()) {
+				<p class="error">{{ error() }}</p>
+			}
 		</div>

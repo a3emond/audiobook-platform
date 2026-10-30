@@ -40,6 +40,8 @@ import {
 	allTrackedJobsTerminal,
 	createQueueItem,
 	mergeTrackedJobs,
+	selectAudiobookFiles,
+	type PickedFile,
 	patchQueueItem,
 	patchQueueItemById,
 } from './admin-upload-queue.utils';
@@ -57,6 +59,10 @@ export interface UploadQueueItem {
 	error?: string;
 	language: 'fr' | 'en';
 	mp3?: Mp3QueueMetadata;
+	relativePath: string;
+	folder: string;
+	// Audio files sharing this item's folder; >1 usually means a book split into parts.
+	folderAudioCount: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -123,14 +129,35 @@ export class AdminUploadQueueService {
 
 	// Files are normalized into queue items immediately so the UI can edit metadata before upload starts.
 	addFiles(files: File[]): void {
-		if (files.length === 0) {
-			return;
-		}
+		this.addPicked(files.map((file) => ({ file, relativePath: file.webkitRelativePath || file.name })));
+	}
 
-		const queued = this.queueState();
-		const next = files.map((file, index) => createQueueItem(file, index));
-		this.queueState.set([...queued, ...next]);
-		this.errorState.set(null);
+	// Accepts whole folder trees: only audiobook files are queued, folder covers
+	// are attached to MP3s, and files already queued are skipped.
+	addPicked(picked: PickedFile[], language: 'fr' | 'en' = 'en'): { added: number; skipped: number; duplicates: number } {
+		const selection = selectAudiobookFiles(picked, this.queueState());
+		const next = selection.books.map((book, index) =>
+			createQueueItem(book.file, index, {
+				relativePath: book.relativePath,
+				coverFile: book.coverFile,
+				language,
+				folderAudioCount: book.folderAudioCount,
+			}),
+		);
+		if (next.length > 0) {
+			this.queueState.update((queued) => [...queued, ...next]);
+			this.errorState.set(null);
+		}
+		return { added: next.length, skipped: selection.skipped, duplicates: selection.duplicates };
+	}
+
+	removeItems(itemIds: string[]): void {
+		const ids = new Set(itemIds);
+		this.queueState.update((items) => items.filter((item) => !ids.has(item.id) || item.status === 'uploading'));
+	}
+
+	setAllLanguages(language: 'fr' | 'en'): void {
+		this.queueState.update((items) => items.map((item) => (item.status === 'done' ? item : { ...item, language })));
 	}
 
 	setError(message: string | null): void {
