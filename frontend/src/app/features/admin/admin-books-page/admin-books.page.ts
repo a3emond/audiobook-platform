@@ -14,7 +14,7 @@ import type {
   ListBooksResponse,
 } from '../../../core/models/api.models';
 import { AdminService } from '../../../core/services/admin.service';
-import type { AdminBookQuery, BulkBookChanges, MetadataReportImportResult } from '../../../core/services/admin.types';
+import type { AdminBookQuery, BulkBookChanges, DuplicateBook, DuplicateGroup, MetadataReportImportResult } from '../../../core/services/admin.types';
 import { AuthService } from '../../../core/services/auth.service';
 import { coverUrlForBook } from '../../../core/utils/cover-url';
 import { AdminBookNavService } from './admin-book-nav.service';
@@ -115,6 +115,12 @@ export class AdminBooksPage implements OnInit {
   readonly info = signal<string | null>(null);
   readonly selected = signal<Set<string>>(new Set());
   readonly showAdvanced = signal(false);
+
+  readonly duplicatesOpen = signal(false);
+  readonly duplicateGroups = signal<DuplicateGroup[] | null>(null);
+  readonly duplicatesBusy = signal(false);
+  // Chosen copy to keep, per group (keyed by the group's first book id).
+  readonly keepChoice = signal<Record<string, string>>({});
 
   readonly reportOpen = signal(false);
   readonly reportBusy = signal(false);
@@ -398,6 +404,79 @@ export class AdminBooksPage implements OnInit {
         this.error.set(error instanceof Error ? error.message : 'Bulk action failed');
       },
     });
+  }
+
+  // --- duplicates -----------------------------------------------------------
+
+  toggleDuplicates(): void {
+    this.duplicatesOpen.set(!this.duplicatesOpen());
+    if (this.duplicatesOpen()) {
+      this.loadDuplicates();
+    }
+  }
+
+  loadDuplicates(): void {
+    this.duplicatesBusy.set(true);
+    this.admin.listDuplicateBooks().subscribe({
+      next: ({ groups }) => {
+        this.duplicateGroups.set(groups);
+        this.keepChoice.set(Object.fromEntries(groups.map((group) => [group.books[0].id, group.suggestedKeepId])));
+        this.duplicatesBusy.set(false);
+      },
+      error: (error: unknown) => {
+        this.duplicatesBusy.set(false);
+        this.error.set(error instanceof Error ? error.message : 'Unable to look for duplicates');
+      },
+    });
+  }
+
+  keptId(group: DuplicateGroup): string {
+    return this.keepChoice()[group.books[0].id] ?? group.suggestedKeepId;
+  }
+
+  chooseKeep(group: DuplicateGroup, bookId: string): void {
+    this.keepChoice.update((current) => ({ ...current, [group.books[0].id]: bookId }));
+  }
+
+  // Progress, history and collections move to the kept copy server-side.
+  resolveDuplicate(group: DuplicateGroup): void {
+    const keepId = this.keptId(group);
+    const removeIds = group.books.filter((book) => book.id !== keepId).map((book) => book.id);
+    const kept = group.books.find((book) => book.id === keepId);
+    if (!confirm(`Keep "${kept?.title}" and delete ${removeIds.length} other cop${removeIds.length === 1 ? 'y' : 'ies'}? Listening progress moves to the kept copy.`)) {
+      return;
+    }
+
+    this.duplicatesBusy.set(true);
+    this.admin.resolveDuplicateBooks(keepId, removeIds).subscribe({
+      next: (result) => {
+        this.duplicateGroups.update((groups) => (groups ?? []).filter((item) => item !== group));
+        this.duplicatesBusy.set(false);
+        this.info.set(`Removed ${result.removed} duplicate(s)${result.progressMoved > 0 ? `, moved ${result.progressMoved} progress record(s)` : ''}.`);
+        this.refresh();
+      },
+      error: (error: unknown) => {
+        this.duplicatesBusy.set(false);
+        this.error.set(error instanceof Error ? error.message : 'Unable to remove duplicates');
+      },
+    });
+  }
+
+  duplicateMeta(book: DuplicateBook): string {
+    const parts = [this.formatDuration(book.duration)];
+    if (book.series) parts.push(`${book.series}${book.seriesIndex !== null ? ' #' + book.seriesIndex : ''}`);
+    if (book.createdAt) parts.push(`added ${book.createdAt.slice(0, 10)}`);
+    return parts.join(' · ');
+  }
+
+  duplicateListening(book: DuplicateBook): string {
+    if (book.finishedBy > 0) return `finished by ${book.finishedBy}`;
+    if (book.listeners > 0) return `${book.listeners} listening · ${book.bestPercent}%`;
+    return 'no listening progress';
+  }
+
+  duplicateCover(book: DuplicateBook): string {
+    return coverUrlForBook({ id: book.id, coverPath: book.coverPath, version: book.version }, this.auth.accessToken());
   }
 
   // --- metadata report round-trip ------------------------------------------

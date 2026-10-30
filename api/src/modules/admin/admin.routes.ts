@@ -56,6 +56,8 @@ router.put("/editorial/blocks/:blockId/items", EditorialController.replaceItems)
 router.get("/books", BookController.listBooks);
 router.get("/books/facets", BookController.getFacets);
 router.post("/books/bulk", BookController.bulkUpdate);
+router.get("/books/duplicates", BookController.listDuplicates);
+router.post("/books/duplicates/resolve", BookController.resolveDuplicates);
 router.get("/books/metadata-report", BookController.exportReport);
 router.post("/books/metadata-report", reportUpload.single("file"), BookController.importReport);
 router.get("/books/ai/status", BookController.aiStatus);
@@ -68,6 +70,7 @@ router.delete("/books/:bookId", BookController.deleteBook);
 
 router.post("/jobs/enqueue", idempotencyMiddleware, JobController.enqueueJob);
 router.post("/jobs/remediate-cover-overrides", AdminController.triggerCoverOverrideRemediation);
+router.post("/jobs/retry-failed-ingests", JobController.retryFailedIngests);
 router.get("/jobs/stats", JobController.getStats);
 router.get("/jobs", JobController.listJobs);
 router.get("/jobs/events", JobController.streamJobEvents);

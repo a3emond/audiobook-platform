@@ -209,6 +209,40 @@ export class JobService {
   }
 
   /**
+   * Re-queue failed ingest jobs whose uploaded source file is still on disk.
+   * Each job starts over with a fresh attempt budget; jobs whose file is gone
+   * (already ingested or cleaned up) are left alone.
+   */
+  static async retryFailedIngests(): Promise<{ requeued: number; missingSource: number }> {
+    const fs = await import("node:fs/promises");
+    const failed = await JobModel.find({ type: { $in: ["INGEST", "INGEST_MP3_AS_M4B"] }, status: "failed" });
+    let requeued = 0;
+    let missingSource = 0;
+
+    for (const job of failed) {
+      const sourcePath = (job.payload as { sourcePath?: unknown } | null)?.sourcePath;
+      const exists = typeof sourcePath === "string" && (await fs.access(sourcePath).then(() => true, () => false));
+      if (!exists) {
+        missingSource += 1;
+        continue;
+      }
+
+      job.status = "queued";
+      job.attempt = 0;
+      job.error = null;
+      job.output = null;
+      job.runAfter = new Date();
+      job.set("lockedBy", null);
+      job.set("lockedAt", null);
+      job.set("finishedAt", null);
+      await job.save();
+      requeued += 1;
+    }
+
+    return { requeued, missingSource };
+  }
+
+  /**
    * Get logs for a specific job
    */
   static async getJobLogs(

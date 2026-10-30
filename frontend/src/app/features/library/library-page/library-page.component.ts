@@ -3,7 +3,7 @@ import { AfterViewInit, Component, DestroyRef, ElementRef, HostListener, OnDestr
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink, type Params } from '@angular/router';
-import { Subscription, catchError, forkJoin, map, of, skip } from 'rxjs';
+import { Subscription, catchError, forkJoin, of, skip } from 'rxjs';
 
 import type {
   Book,
@@ -29,11 +29,9 @@ import type { LengthFilter, LibraryView, ListenStatusFilter, ProgressRow, RailSt
 import {
   collectionPreviewUrls,
   computeListenedBookOrder,
-  CONTINUE_LISTENING_LIMIT,
   dedupeBooks,
   deriveCollections,
   GRID_PAGE_SIZE,
-  inProgressBookIds,
   LATEST_BOOKS_LIMIT,
   LENGTH_RANGES,
   mapSeriesRails,
@@ -83,7 +81,6 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly gridHasMore = signal(false);
   readonly gridLoading = signal(false);
   readonly progressById = signal<Map<string, ProgressRow>>(new Map());
-  readonly continueBooks = signal<Book[]>([]);
 
   // Listening status is per-user, so it is applied client-side over server results.
   readonly visibleGridBooks = computed(() => {
@@ -317,21 +314,6 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  private loadContinueListening(progress: ProgressRow[]): void {
-    const ids = inProgressBookIds(progress, CONTINUE_LISTENING_LIMIT);
-    if (ids.length === 0) {
-      this.continueBooks.set([]);
-      return;
-    }
-
-    forkJoin(ids.map((id) => this.library.getBook(id).pipe(catchError(() => of(null)))))
-      .pipe(map((books) => books.filter((book): book is Book => book !== null)))
-      .subscribe((books) => {
-        this.continueBooks.set(books);
-        this.scheduleRailSync();
-      });
-  }
-
   private readFiltersFromUrl(params: Params): void {
     this.q = typeof params['q'] === 'string' ? params['q'] : '';
     this.genre.set(typeof params['genre'] === 'string' ? params['genre'] : '');
@@ -398,7 +380,6 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
         );
         this.listenedBookIds.set(this.computeListenedBookOrder(progress));
         this.progressById.set(new Map(progress.map((row) => [row.bookId, row])));
-        this.loadContinueListening(progress);
         const filterBooks = (books: Book[]): Book[] =>
           showCompleted ? books : books.filter((b) => !completedIds.has(b.id));
         this.seriesFilterBooks = filterBooks;
@@ -669,7 +650,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private bookPool(): Book[] {
-    return dedupeBooks([...this.continueBooks(), ...this.latestBooks()], this.seriesRails());
+    return dedupeBooks(this.latestBooks(), this.seriesRails());
   }
 
   private observeRails(): void {

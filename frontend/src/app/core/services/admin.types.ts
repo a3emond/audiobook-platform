@@ -243,6 +243,27 @@ export interface AiMetadataSuggestion {
   sources: Array<{ title: string; url: string }>;
 }
 
+export interface DuplicateBook {
+  id: string;
+  title: string;
+  author: string;
+  series: string | null;
+  seriesIndex: number | null;
+  duration: number;
+  coverPath: string | null;
+  version: number;
+  createdAt: string | null;
+  listeners: number;
+  finishedBy: number;
+  bestPercent: number;
+}
+
+export interface DuplicateGroup {
+  reason: 'same_file' | 'same_recording';
+  books: DuplicateBook[];
+  suggestedKeepId: string;
+}
+
 export interface MetadataReportImportResult {
   dryRun: boolean;
   items: Array<{

@@ -161,29 +161,6 @@
   }
 
   @if (!loading() && !isGridMode()) {
-    @if (continueBooks().length > 0) {
-      <section class="row-block">
-        <div class="row-head">
-          <h2>{{ 'library.continue' | t }}</h2>
-        </div>
-        <div class="rail-wrap" [class.fade-left]="canScrollLeft('continue')" [class.fade-right]="canScrollRight('continue')">
-          @if (railOverflows('continue')) {
-            <button type="button" class="rail-nav left" [disabled]="!canScrollLeft('continue')" (click)="scrollRail('continue', continueRail, -1)" [attr.aria-label]="'common.scrollLeft' | t">‹</button>
-          }
-          <div class="media-rail" #railEl #continueRail data-rail-id="continue" role="list" (scroll)="onRailScroll('continue', continueRail)">
-            @for (book of continueBooks(); track book.id) {
-              <div class="media-cell" role="listitem">
-                <app-book-card [book]="book" />
-              </div>
-            }
-          </div>
-          @if (railOverflows('continue')) {
-            <button type="button" class="rail-nav right" [disabled]="!canScrollRight('continue')" (click)="scrollRail('continue', continueRail, 1)" aria-label="Scroll right">›</button>
-          }
-        </div>
-      </section>
-    }
-
     @if (hasFeaturedRow()) {
       <section class="row-block">
         <div class="row-head">

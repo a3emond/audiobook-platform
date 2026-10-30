@@ -44,6 +44,7 @@ import type {
   AdminBookQuery,
   AiMetadataSuggestion,
   MetadataReportImportResult,
+  DuplicateGroup,
   BulkBookChanges,
   BulkBookResult,
   ListJobsResponse,
@@ -115,6 +116,21 @@ export class AdminService {
     form.append('file', file);
     form.append('dryRun', String(dryRun));
     return this.api.postFormData<MetadataReportImportResult>('/admin/books/metadata-report', form);
+  }
+
+  listDuplicateBooks(): Observable<{ groups: DuplicateGroup[] }> {
+    return this.api.get<{ groups: DuplicateGroup[] }>('/admin/books/duplicates');
+  }
+
+  resolveDuplicateBooks(keepId: string, removeIds: string[]): Observable<{ removed: number; jobIds: string[]; progressMoved: number }> {
+    return this.api.post<{ removed: number; jobIds: string[]; progressMoved: number }, { keepId: string; removeIds: string[] }>(
+      '/admin/books/duplicates/resolve',
+      { keepId, removeIds },
+    );
+  }
+
+  retryFailedIngests(): Observable<{ requeued: number; missingSource: number }> {
+    return this.api.post<{ requeued: number; missingSource: number }, Record<string, never>>('/admin/jobs/retry-failed-ingests', {});
   }
 
   getAiStatus(): Observable<{ enabled: boolean }> {

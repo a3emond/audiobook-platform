@@ -10,12 +10,19 @@ import { atomicWriteFile } from "../utils/atomic-write.js";
 import { normalizeOptionalText, normalizeTagList } from "../utils/normalize.js";
 import { JobLogger } from "../utils/job-logger.js";
 import { JOB_PRIORITY_MIN } from "../queue/job.types.js";
+import {
+	discardReservedBook,
+	findDuplicateBook,
+	parkDuplicateSource,
+	removeOrphanBooks,
+	reserveBookDocument,
+	type ReservedBook,
+} from "../services/ingest-guard.service.js";
 
 const ffmpeg = new FFmpegService();
 const fileService = new FileService();
 const mp3MetadataService = new MP3MetadataService();
 
-const AUDIOBOOKS_PATH = process.env.AUDIOBOOKS_PATH || "/data/audiobooks";
 
 interface IngestMp3AsM4BPayload {
 	sourcePath: string;
@@ -34,19 +41,6 @@ interface IngestMp3AsM4BPayload {
 interface BookRecord {
 	_id: mongoose.Types.ObjectId;
 	version?: number;
-}
-
-async function createBookDocument(bookData: Record<string, unknown>) {
-	const db = mongoose.connection.db;
-	if (!db) throw new Error("db_not_connected");
-	const booksCollection = db.collection<Record<string, unknown>>("books");
-	const result = await booksCollection.insertOne({
-		...bookData,
-		_id: new mongoose.Types.ObjectId(),
-		createdAt: new Date(),
-		updatedAt: new Date(),
-	});
-	return result.insertedId;
 }
 
 async function enqueueSanitizeJob(bookId: string, sanitizePriority: number) {
@@ -72,6 +66,7 @@ export async function handleIngestMp3AsM4BJob(
 ): Promise<Record<string, unknown>> {
 	const logger = new JobLogger(String(job._id));
 	let jobSuccess = false;
+	let reserved: ReservedBook | null = null;
 
 	try {
 		const payload = job.payload as IngestMp3AsM4BPayload;
@@ -155,8 +150,29 @@ export async function handleIngestMp3AsM4BJob(
 		// -----------------------------------------------
 		// Step 5: Create book document (pending sanitize)
 		// -----------------------------------------------
+		const duplicate = await findDuplicateBook({
+			checksum,
+			title,
+			author,
+			series,
+			durationSeconds: Math.round(probeInfo.duration),
+		});
+		if (duplicate) {
+			const parkedAt = await parkDuplicateSource(payload.sourcePath);
+			if (payload.cleanupCover && payload.coverPath) {
+				await fileService.deleteFile(payload.coverPath).catch(() => undefined);
+			}
+			logger.warn("Duplicate skipped", { duplicateOf: duplicate.bookId, title: duplicate.title, reason: duplicate.reason, parkedAt });
+			return { skipped: true, duplicateOf: duplicate.bookId, duplicateTitle: duplicate.title, reason: duplicate.reason, parkedAt };
+		}
+
+		const orphansRemoved = await removeOrphanBooks();
+		if (orphansRemoved > 0) {
+			logger.warn("Removed orphaned books left by earlier failed ingests", { orphansRemoved });
+		}
+
 		logger.info("Creating book document");
-		const bookId = await createBookDocument({
+		reserved = await reserveBookDocument({
 			checksum,
 			title,
 			author,
@@ -181,16 +197,14 @@ export async function handleIngestMp3AsM4BJob(
 			processingState: "pending_sanitize",
 			version: 1,
 			lastScannedAt: new Date(),
-		});
+		}, "audio.mp3");
+		const { bookId, bookDir, audioPath } = reserved;
 		logger.info("Book document created", { bookId: String(bookId) });
 
 		// -----------------------------------------------
 		// Step 6: Copy MP3 to final location
 		// -----------------------------------------------
-		const bookDir = path.join(AUDIOBOOKS_PATH, String(bookId));
 		await fileService.createDirIfNeeded(bookDir);
-
-		const audioPath = path.join(bookDir, "audio.mp3");
 		await atomicWriteFile(audioPath, payload.sourcePath);
 		logger.info("MP3 copied to book dir", { audioPath });
 
@@ -250,6 +264,7 @@ export async function handleIngestMp3AsM4BJob(
 			processingState: "pending_sanitize",
 		};
 	} catch (error) {
+		await discardReservedBook(reserved);
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		logger.error("MP3 ingest failed", { error: errorMessage });
 		throw error;

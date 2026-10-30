@@ -161,6 +161,11 @@ export class JobController {
     * GET /api/v1/admin/jobs/stats
    * Get job queue statistics
    */
+  static async retryFailedIngests(_req: Request, res: Response) {
+    const result = await JobService.retryFailedIngests();
+    res.status(200).json(result);
+  }
+
   static async getStats(
     _req: Request,
     res: Response,

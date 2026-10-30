@@ -91,7 +91,6 @@
   "library.chips.less": "Less",
   "library.chips.more": "More",
   "library.clearSearch": "Clear search",
-  "library.continue": "Continue listening",
   "library.empty.body": "Books will appear here once content is added to the library.",
   "library.empty.searchBody": "Try a broader search, or clear the filter to view everything.",
   "library.empty.searchTitle": "No books match this search",

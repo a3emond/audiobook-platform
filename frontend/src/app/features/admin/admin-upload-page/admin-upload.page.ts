@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 
-import { AdminJob } from '../../../core/services/admin.service';
+import { AdminJob, AdminService } from '../../../core/services/admin.service';
 import { AdminUploadQueueService, type UploadQueueItem } from '../../../core/services/admin-upload-queue.service';
 import { AUDIOBOOK_EXTENSIONS, collectDroppedFiles } from '../../../core/services/admin-upload-queue.utils';
 import { prepareCoverImageFile, prepareCoverImageFromUrl } from '../../../core/utils/image-upload';
@@ -16,6 +16,7 @@ import { prepareCoverImageFile, prepareCoverImageFromUrl } from '../../../core/u
 // Main UI/state logic for this standalone view component.
 export class AdminUploadPage {
 	private readonly uploadQueue = inject(AdminUploadQueueService);
+	private readonly admin = inject(AdminService);
 
 	readonly queue = this.uploadQueue.queue;
 	readonly loading = this.uploadQueue.loading;
@@ -28,6 +29,7 @@ export class AdminUploadPage {
 	readonly scanning = signal(false);
 	readonly notice = signal<string | null>(null);
 	readonly defaultLanguage = signal<'fr' | 'en'>('en');
+	readonly retrying = signal(false);
 	private dragDepth = 0;
 
 	readonly counts = computed(() => {
@@ -90,6 +92,25 @@ export class AdminUploadPage {
 		} finally {
 			this.scanning.set(false);
 		}
+	}
+
+	// Re-queues server-side imports that failed while their upload is still on disk.
+	retryFailedImports(): void {
+		this.retrying.set(true);
+		this.admin.retryFailedIngests().subscribe({
+			next: (result) => {
+				this.retrying.set(false);
+				this.notice.set(
+					result.requeued > 0
+						? `Re-queued ${result.requeued} failed import${result.requeued === 1 ? '' : 's'}.`
+						: 'No failed imports with an upload still on the server.',
+				);
+			},
+			error: (error: unknown) => {
+				this.retrying.set(false);
+				this.uploadQueue.setError(error instanceof Error ? error.message : 'Unable to retry failed imports');
+			},
+		});
 	}
 
 	removeItem(item: UploadQueueItem): void {

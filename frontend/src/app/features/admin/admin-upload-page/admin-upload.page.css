@@ -91,3 +91,4 @@
 				.queue-table tr { border-bottom: 1px solid var(--color-border); padding: 0.4rem 0; }
 				.queue-table td { border: none; }
 			}
+			.upload-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }

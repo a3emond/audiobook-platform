@@ -9,29 +9,18 @@ import { computeFileSha256, formatSha256 } from "../services/checksum.service.js
 import { atomicWriteFile } from "../utils/atomic-write.js";
 import { normalizeOptionalText } from "../utils/normalize.js";
 import { JobLogger } from "../utils/job-logger.js";
+import {
+  discardReservedBook,
+  findDuplicateBook,
+  parkDuplicateSource,
+  removeOrphanBooks,
+  reserveBookDocument,
+  type ReservedBook,
+} from "../services/ingest-guard.service.js";
 
 const ffmpeg = new FFmpegService();
 const fileService = new FileService();
 const metadataService = new MetadataService();
-
-const AUDIOBOOKS_PATH = process.env.AUDIOBOOKS_PATH || "/data/audiobooks";
-
-async function createBookDocument(bookData: Record<string, unknown>) {
-  const db = mongoose.connection.db;
-  if (!db) {
-    throw new Error("db_not_connected");
-  }
-
-  const booksCollection = db.collection("books");
-  const result = await booksCollection.insertOne({
-    ...bookData,
-    _id: new mongoose.Types.ObjectId(),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-
-  return result.insertedId;
-}
 
 export interface IngestJobPayload {
   sourcePath: string;
@@ -45,6 +34,7 @@ export async function handleIngestJob(
   const logger = new JobLogger(String(job._id));
   const payload = job.payload as IngestJobPayload;
   const metadataPath = `/tmp/metadata-${job._id}.txt`;
+  let reserved: ReservedBook | null = null;
 
   try {
     if (!payload.sourcePath) {
@@ -94,9 +84,31 @@ export async function handleIngestJob(
     });
 
     // -----------------------------------------------
-    // 4. Create book document and directory
+    // 4. Skip books that are already in the catalog
     // -----------------------------------------------
-    const bookId = await createBookDocument({
+    const duplicate = await findDuplicateBook({
+      checksum,
+      title: extractedMetadata.title || "",
+      author: extractedMetadata.artist || "",
+      series: extractedMetadata.album,
+      durationSeconds: Math.round(probeInfo.duration),
+    });
+
+    if (duplicate) {
+      const parkedAt = await parkDuplicateSource(sourcePath);
+      logger.warn("Duplicate skipped", { duplicateOf: duplicate.bookId, title: duplicate.title, reason: duplicate.reason, parkedAt });
+      return { skipped: true, duplicateOf: duplicate.bookId, duplicateTitle: duplicate.title, reason: duplicate.reason, parkedAt };
+    }
+
+    const orphansRemoved = await removeOrphanBooks();
+    if (orphansRemoved > 0) {
+      logger.warn("Removed orphaned books left by earlier failed ingests", { orphansRemoved });
+    }
+
+    // -----------------------------------------------
+    // 5. Create book document (final path reserved up front) and directory
+    // -----------------------------------------------
+    reserved = await reserveBookDocument({
       checksum,
       title: extractedMetadata.title || "Unknown Title",
       author: extractedMetadata.artist || "Unknown Author",
@@ -128,9 +140,9 @@ export async function handleIngestJob(
       },
       version: 1,
       lastScannedAt: new Date(),
-    });
+    }, "audio.m4b");
 
-    const bookDir = path.join(AUDIOBOOKS_PATH, String(bookId));
+    const { bookId, bookDir, audioPath } = reserved;
 
     await fileService.createDirIfNeeded(bookDir);
 
@@ -140,15 +152,14 @@ export async function handleIngestJob(
     });
 
     // -----------------------------------------------
-    // 5. Copy audio file to final location
+    // 6. Copy audio file to final location
     // -----------------------------------------------
-    const audioPath = path.join(bookDir, "audio.m4b");
     await atomicWriteFile(audioPath, sourcePath);
 
     logger.info("Audio file copied", { audioPath });
 
     // -----------------------------------------------
-    // 6. Extract and save cover (if present)
+    // 7. Extract and save cover (if present)
     // -----------------------------------------------
     let coverPath: string | null = null;
 
@@ -171,7 +182,7 @@ export async function handleIngestJob(
     }
 
     // -----------------------------------------------
-    // 7. Update book document with final paths
+    // 8. Mark the book in sync once its files are in place
     // -----------------------------------------------
     const db = mongoose.connection.db;
     if (db) {
@@ -180,7 +191,6 @@ export async function handleIngestJob(
         { _id: bookId },
         {
           $set: {
-            filePath: audioPath,
             coverPath,
             fileSync: {
               status: "in_sync",
@@ -220,6 +230,9 @@ export async function handleIngestJob(
       chapters: extractedMetadata.chapters.length,
     };
   } catch (error) {
+    // Never leave a half-created book behind: it would show up broken in the
+    // library and, before paths were reserved up front, blocked other ingests.
+    await discardReservedBook(reserved);
     logger.error("Ingest job failed", {
       error: error instanceof Error ? error.message : String(error),
       sourcePath: payload.sourcePath,

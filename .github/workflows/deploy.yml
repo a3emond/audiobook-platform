@@ -54,6 +54,16 @@ jobs:
           APPLE_CLIENT_ID: ci
         run: node --loader ts-node/esm --input-type=module -e "await import(new URL('./src/app.ts', 'file://' + process.cwd() + '/').href); console.log('API modules loaded')"
 
+      # The worker container also runs through ts-node; load every job module.
+      - name: Worker startup check (ts-node)
+        if: matrix.service == 'worker'
+        working-directory: worker
+        run: |
+          for f in src/jobs/*.ts; do
+            node --loader ts-node/esm --input-type=module -e "await import(new URL('./$f', 'file://' + process.cwd() + '/').href)" || { echo "failed to load $f"; exit 1; }
+          done
+          echo "Worker job modules loaded"
+
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: pre-deploy-checks

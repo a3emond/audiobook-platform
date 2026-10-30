@@ -5,7 +5,12 @@
 			(dragleave)="onDragLeave()"
 			(drop)="onDrop($event)"
 		>
-			<h1>Admin Upload</h1>
+			<header class="upload-head">
+				<h1>Admin Upload</h1>
+				<button type="button" class="btn btn-secondary" [disabled]="retrying()" (click)="retryFailedImports()">
+					{{ retrying() ? 'Re-queuing…' : 'Retry failed imports' }}
+				</button>
+			</header>
 
 			<section class="dropzone" [class.active]="dragActive()" [class.scanning]="scanning()">
 				<div class="dropzone-icon" aria-hidden="true">⇪</div>

@@ -8,6 +8,7 @@ import { type Request, type Response } from "express";
 
 import { ApiError } from "../../utils/api-error.js";
 import { BookAiService } from "./book-ai.service.js";
+import { BookDuplicatesService } from "./book-duplicates.service.js";
 import { BookReportService } from "./book-report.service.js";
 import { parseListBooksQuery } from "./book.query.js";
 import { BookService } from "./book.service.js";
@@ -69,6 +70,15 @@ export class BookController {
 		}
 
 		const result = await BookReportService.importReport(parsed, { dryRun: req.body.dryRun !== "false" });
+		res.status(200).json(result);
+	}
+
+	static async listDuplicates(_req: Request, res: Response) {
+		res.status(200).json({ groups: await BookDuplicatesService.findGroups() });
+	}
+
+	static async resolveDuplicates(req: Request<unknown, unknown, { keepId?: string; removeIds?: string[] }>, res: Response) {
+		const result = await BookDuplicatesService.resolve(String(req.body?.keepId ?? ""), Array.isArray(req.body?.removeIds) ? req.body.removeIds : []);
 		res.status(200).json(result);
 	}
 

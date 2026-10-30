@@ -10,10 +10,60 @@
       </p>
     </div>
     <div class="header-actions">
+      <button type="button" class="btn-action" [class.active]="duplicatesOpen()" (click)="toggleDuplicates()">
+        Duplicates
+        @if (duplicateGroups(); as groups) {
+          <span class="badge">{{ groups.length }}</span>
+        }
+      </button>
       <button type="button" class="btn-action" [class.active]="reportOpen()" (click)="reportOpen.set(!reportOpen())">Metadata report</button>
       <a class="btn" routerLink="/admin/upload">+ Upload</a>
     </div>
   </header>
+
+  @if (duplicatesOpen()) {
+    <section class="dupes card" aria-label="Duplicate books">
+      <div class="dupes-head">
+        <h2>Duplicate books</h2>
+        <p class="muted">Same file, or the same recording uploaded twice. Pick the copy to keep: listening progress, history and collections move to it, and the other copies are deleted.</p>
+        <button type="button" class="btn-link" [disabled]="duplicatesBusy()" (click)="loadDuplicates()">Rescan</button>
+      </div>
+
+      @if (duplicatesBusy() && duplicateGroups() === null) {
+        <p class="muted">Looking for duplicates…</p>
+      } @else if (duplicateGroups()?.length === 0) {
+        <p class="info">No duplicates found.</p>
+      }
+
+      @for (group of duplicateGroups() ?? []; track group.books[0].id) {
+        <div class="dupe-group">
+          <div class="dupe-group-head">
+            <span class="pill">{{ group.reason === 'same_file' ? 'identical file' : 'same recording' }}</span>
+            <span class="spacer"></span>
+            <button type="button" class="btn" [disabled]="duplicatesBusy()" (click)="resolveDuplicate(group)">
+              Keep selected, remove {{ group.books.length - 1 }}
+            </button>
+          </div>
+          @for (book of group.books; track book.id) {
+            <label class="dupe-row" [class.kept]="keptId(group) === book.id">
+              <input type="radio" [name]="'keep-' + group.books[0].id" [checked]="keptId(group) === book.id" (change)="chooseKeep(group, book.id)" />
+              @if (duplicateCover(book)) {
+                <img [src]="duplicateCover(book)" alt="" loading="lazy" />
+              } @else {
+                <span class="cover-fallback">{{ book.title.slice(0, 1) }}</span>
+              }
+              <span class="dupe-text">
+                <a [routerLink]="['/admin/books', book.id]" (click)="$event.stopPropagation()">{{ book.title }}</a>
+                <span class="muted small">{{ book.author }} · {{ duplicateMeta(book) }}</span>
+              </span>
+              <span class="dupe-listen" [class.has-progress]="book.listeners > 0">{{ duplicateListening(book) }}</span>
+              <span class="dupe-action">{{ keptId(group) === book.id ? 'keep' : 'remove' }}</span>
+            </label>
+          }
+        </div>
+      }
+    </section>
+  }
 
   @if (reportOpen()) {
     <section class="report card" aria-label="Metadata report">
