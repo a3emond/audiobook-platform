@@ -1,28 +1,7 @@
 <section class="detail-page page-shell">
   <a routerLink="/library" class="back">← {{ 'library.back' | t }}</a>
 
-  @if (series(); as s) {
-    <header class="hero">
-      <h1>{{ s.name }}</h1>
-      <p>{{ 'series.summary' | t:{ count: s.bookCount, authors: (s.authors.join(', ') || ('series.unknownAuthor' | t)) } }}</p>
-      @if (aggregateProgress(); as progress) {
-        <section class="series-progress" [attr.aria-label]="'series.progress' | t">
-          <div class="series-progress-head">
-            <span class="series-progress-label">{{ 'series.progress' | t }}</span>
-            <strong>{{ progress.percent }}%</strong>
-          </div>
-          <div class="series-progress-bar" aria-hidden="true">
-            <span [style.width.%]="progress.percent"></span>
-          </div>
-          <p>
-            {{ 'series.progressSummary' | t:{ percent: progress.percent, listened: formatDuration(progress.listenedSeconds), total: formatDuration(progress.totalSeconds) } }}
-          </p>
-        </section>
-      }
-    </header>
-  }
-
-  @if (loading()) {
+  @if (loading() && !series()) {
     <p class="text-muted">{{ 'series.loading' | t }}</p>
   }
 
@@ -31,10 +10,101 @@
   }
 
   @if (series(); as s) {
-    <div class="card-grid">
-      @for (book of s.books; track book.id) {
-        <app-book-card [book]="book" />
+    <header class="hero">
+      @if (fanBooks()[0] && coverUrl(fanBooks()[0])) {
+        <div class="hero-glow" [style.background-image]="'url(' + coverUrl(fanBooks()[0]) + ')'" aria-hidden="true"></div>
       }
-    </div>
+
+      <div class="hero-fan" [attr.data-count]="fanBooks().length" aria-hidden="true">
+        @for (book of fanBooks(); track book.id; let i = $index) {
+          <span class="hero-cover" [attr.data-pos]="i">
+            @if (coverUrl(book)) {
+              <img [src]="coverUrl(book)" alt="" />
+            } @else {
+              <span class="hero-initials">{{ initials(book) }}</span>
+            }
+          </span>
+        }
+      </div>
+
+      <div class="hero-copy">
+        <p class="kicker">
+          {{ 'shelf.kind.series' | t }} · {{ 'shelf.bookCount' | t:{ count: books().length } }}
+          @if (aggregateProgress(); as progress) {
+            · {{ formatDuration(progress.totalSeconds) }}
+          }
+        </p>
+        <h1>{{ s.name }}</h1>
+        <p class="authors">{{ s.authors.join(', ') || ('series.unknownAuthor' | t) }}</p>
+
+        @if (s.genres.length || s.tags.length) {
+          <div class="chips">
+            @for (genre of s.genres; track genre) {
+              <span class="chip genre">{{ genre }}</span>
+            }
+            @for (tag of s.tags.slice(0, 6); track tag) {
+              <span class="chip">#{{ tag }}</span>
+            }
+          </div>
+        }
+
+        @if (aggregateProgress(); as progress) {
+          <div class="progress" [attr.aria-label]="'series.progress' | t">
+            <div class="progress-head">
+              <span>{{ 'shelf.finishedOf' | t:{ done: finishedCount(), total: books().length } }}</span>
+              <span>{{ 'series.progressSummary' | t:{ percent: progress.percent, listened: formatDuration(progress.listenedSeconds), total: formatDuration(progress.totalSeconds) } }}</span>
+            </div>
+            <div class="progress-bar" aria-hidden="true"><span [style.width.%]="progress.percent"></span></div>
+          </div>
+        }
+
+        @if (next(); as book) {
+          <a class="resume" [routerLink]="['/player', book.id]">
+            ▶
+            @if (percent(book) > 0) {
+              {{ 'shelf.resume' | t }} · {{ 'shelf.bookNumber' | t:{ n: book.seriesIndex ?? (books().indexOf(book) + 1) } }}
+            } @else {
+              {{ 'common.play' | t }} · {{ 'shelf.bookNumber' | t:{ n: book.seriesIndex ?? (books().indexOf(book) + 1) } }}
+            }
+          </a>
+        }
+      </div>
+    </header>
+
+    <ol class="track-list">
+      @for (book of books(); track book.id; let i = $index) {
+        <li class="track" [class.done]="isCompleted(book)" [class.next]="next()?.id === book.id">
+          <span class="track-index">{{ book.seriesIndex ?? i + 1 }}</span>
+          <a class="track-cover" [routerLink]="['/player', book.id]" [attr.aria-label]="('common.play' | t) + ' ' + book.title">
+            <app-cover-tile [imageUrl]="coverUrl(book)" [fallback]="initials(book)" [alt]="book.title" />
+            <span class="track-play" aria-hidden="true">▶</span>
+          </a>
+          <div class="track-body">
+            <button type="button" class="track-title" (click)="toggle(book)" [attr.aria-expanded]="expanded() === book.id">
+              {{ book.title }}
+            </button>
+            <p class="track-meta">
+              <span>{{ formatDuration(book.duration) }}</span>
+              @if (isCompleted(book)) {
+                <span class="ok">✓ {{ 'library.status.finished' | t }}</span>
+              } @else if (percent(book) > 0) {
+                <span class="accent">{{ percent(book) }}% · {{ 'shelf.left' | t:{ time: remaining(book) } }}</span>
+              }
+            </p>
+            @if (description(book)) {
+              <p class="track-desc" [class.open]="expanded() === book.id" (click)="toggle(book)">{{ description(book) }}</p>
+            }
+            @if (!isCompleted(book) && percent(book) > 0) {
+              <span class="track-bar" aria-hidden="true"><span [style.width.%]="percent(book)"></span></span>
+            }
+          </div>
+          <div class="track-actions">
+            @if (auth.isAdmin()) {
+              <a class="track-edit" [routerLink]="['/admin/books', book.id]" [attr.aria-label]="'shelf.edit' | t" [attr.title]="'shelf.edit' | t">✎</a>
+            }
+          </div>
+        </li>
+      }
+    </ol>
   }
 </section>

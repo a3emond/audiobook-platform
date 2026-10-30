@@ -146,29 +146,36 @@
         <div class="strip-title">{{ t('app.continueListening') }}</div>
         <div class="progress-rail" role="list">
           @for (item of progressRailBooks(); track item.book.id) {
-            <div class="progress-item-wrap" role="listitem">
-              <a class="progress-item" [routerLink]="['/player', item.book.id]" [attr.aria-label]="progressTooltip(item.book)" [attr.title]="progressTooltip(item.book)">
-                <app-cover-tile
-                  class="progress-cover"
-                  [imageUrl]="coverUrl(item.book)"
-                  [fallback]="coverInitials(item.book)"
-                  [alt]="item.book.title + ' ' + t('common.cover')"
-                  [completed]="isBookCompleted(item.book.id)"
-                  [progressPercent]="bookProgressPercent(item.book)"
-                />
-                <div class="progress-title">{{ item.book.title }}</div>
+            <div class="cl-item" role="listitem" [class.playing]="player.currentBook()?.id === item.book.id">
+              <a class="cl-link" [routerLink]="['/player', item.book.id]" [attr.title]="progressTooltip(item.book)">
+                <span class="cl-cover">
+                  @if (coverUrl(item.book)) {
+                    <img [src]="coverUrl(item.book)" alt="" loading="lazy" decoding="async" />
+                  } @else {
+                    <span class="cl-initials">{{ coverInitials(item.book) }}</span>
+                  }
+                </span>
+                <span class="cl-text">
+                  <span class="cl-title">{{ item.book.title }}</span>
+                  <span class="cl-meta">
+                    @if (isBookCompleted(item.book.id)) {
+                      ✓ {{ t('common.completed') }}
+                    } @else {
+                      {{ bookProgressPercent(item.book) ?? 0 }}% · {{ t('shelf.left', { time: remainingLabel(item.book) }) }}
+                    }
+                  </span>
+                  <span class="cl-bar"><span [style.width.%]="isBookCompleted(item.book.id) ? 100 : (bookProgressPercent(item.book) ?? 0)"></span></span>
+                </span>
               </a>
               @if (auth.isAdmin()) {
                 <a
-                  class="progress-edit"
+                  class="cl-edit"
                   [routerLink]="['/admin/books', item.book.id]"
                   target="_blank"
                   rel="noopener noreferrer"
                   [attr.aria-label]="'Edit metadata for ' + item.book.title"
                   title="Edit metadata"
-                >
-                  Edit
-                </a>
+                >✎</a>
               }
             </div>
           }

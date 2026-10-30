@@ -4,25 +4,30 @@ import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { skip } from 'rxjs';
 
-import type { SeriesDetail } from '../../../core/models/api.models';
+import type { Book, SeriesDetail } from '../../../core/models/api.models';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
+import { AuthService } from '../../../core/services/auth.service';
 import { I18nService } from '../../../core/services/i18n.service';
 import { LibraryProgressService } from '../../../core/services/library-progress.service';
 import { LibraryService } from '../../../core/services/library.service';
-import { BookCardComponent } from '../book-card/book-card.component';
+import { coverUrlForBook } from '../../../core/utils/cover-url';
+import { CoverTileComponent } from '../../../shared/ui/cover-tile/cover-tile.component';
+import { buildShelfEntries, nextBook } from '../shelf/shelf.utils';
 
 @Component({
   selector: 'app-series-detail-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, BookCardComponent, TranslatePipe],
+  imports: [CommonModule, RouterLink, CoverTileComponent, TranslatePipe],
   templateUrl: './series-detail-page.component.html',
   styleUrl: './series-detail-page.component.css',
 })
-// series-detail-page: keeps UI and state logic readable for this frontend unit.
+// series-detail-page: a series hero (fanned covers, progress, resume) over
+// its books as a numbered list in reading order.
 export class SeriesDetailPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly library = inject(LibraryService);
   private readonly libraryProgress = inject(LibraryProgressService);
+  protected readonly auth = inject(AuthService);
   protected readonly i18n = inject(I18nService);
   private readonly destroyRef = inject(DestroyRef);
   private seriesName = '';
@@ -38,6 +43,24 @@ export class SeriesDetailPageComponent implements OnInit {
 
     return this.libraryProgress.aggregateProgressForBooks(currentSeries.books);
   });
+
+  private readonly progressFor = (bookId: string) => this.libraryProgress.progressForBook(bookId);
+
+  // Books in reading order, grouped the same way the library shelf groups them.
+  readonly entry = computed(() => {
+    const current = this.series();
+    return current ? buildShelfEntries(current.books.map((book) => ({ ...book, series: current.name })), this.progressFor)[0] ?? null : null;
+  });
+  readonly books = computed(() => this.entry()?.books ?? []);
+  readonly next = computed(() => {
+    const entry = this.entry();
+    return entry ? nextBook(entry, this.progressFor) : null;
+  });
+  readonly fanBooks = computed(() => {
+    const next = this.next() ?? this.books()[0];
+    return next ? [next, ...this.books().filter((book) => book.id !== next.id)].slice(0, 3) : [];
+  });
+  readonly expanded = signal<string | null>(null);
 
   constructor() {
     // Reload when the locale changes (skip(1) ignores the initial emit).
@@ -78,6 +101,40 @@ export class SeriesDetailPageComponent implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  coverUrl(book: Book): string {
+    return coverUrlForBook(book, this.auth.accessToken());
+  }
+
+  initials(book: Book): string {
+    return book.title.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '').join('') || 'BK';
+  }
+
+  isCompleted(book: Book): boolean {
+    return this.libraryProgress.isCompleted(book.id);
+  }
+
+  percent(book: Book): number {
+    return this.libraryProgress.progressPercentForBook(book) ?? 0;
+  }
+
+  remaining(book: Book): string {
+    return this.formatDuration(Math.max(0, book.duration - this.libraryProgress.listenedSecondsForBook(book)));
+  }
+
+  finishedCount(): number {
+    return this.books().filter((book) => this.isCompleted(book)).length;
+  }
+
+  description(book: Book): string {
+    const d = book.description;
+    const text = this.i18n.locale() === 'fr' ? d?.fr ?? d?.default ?? d?.en : d?.en ?? d?.default ?? d?.fr;
+    return text?.trim() ?? '';
+  }
+
+  toggle(book: Book): void {
+    this.expanded.set(this.expanded() === book.id ? null : book.id);
   }
 
   formatDuration(totalSeconds: number): string {

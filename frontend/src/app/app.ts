@@ -131,8 +131,8 @@ export class App implements OnDestroy {
     await this.router.navigateByUrl('/login');
   }
 
-  t(key: string): string {
-    return this.i18n.t(key);
+  t(key: string, params?: Record<string, string | number>): string {
+    return this.i18n.t(key, params);
   }
 
   discussionsLink(): string[] {
@@ -168,6 +168,13 @@ export class App implements OnDestroy {
 
   bookProgressPercent(book: Book): number | null {
     return this.libraryProgress.progressPercentForBook(book);
+  }
+
+  remainingLabel(book: Book): string {
+    const seconds = Math.max(0, book.duration - this.libraryProgress.listenedSecondsForBook(book));
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.round((seconds % 3600) / 60);
+    return hours > 0 ? `${hours}h ${minutes.toString().padStart(2, '0')}m` : `${minutes}m`;
   }
 
   progressTooltip(book: Book): string {
