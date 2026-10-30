@@ -70,6 +70,13 @@ export function bookNumbers(...values: Array<string | number | null | undefined>
 	return numbers;
 }
 
+// "Part 2" of a book split into parts: parts of an evenly split book run
+// almost the same length, so differing part numbers rule a match out.
+export function partNumber(value: string | null | undefined): number | null {
+	const match = (value ?? "").match(/\bpart\s*0*(\d{1,3})\b/i);
+	return match ? Number(match[1]) : null;
+}
+
 // Share of the smaller token set found in the larger one.
 export function tokenOverlap(left: Set<string>, right: Set<string>): number {
 	if (left.size === 0 || right.size === 0) {
@@ -118,7 +125,12 @@ export async function findDuplicateBook(candidate: {
 	const titleTokens = identityTokens(`${candidate.title} ${candidate.series ?? ""}`);
 	const authorTokens = identityTokens(candidate.author);
 	const numbers = bookNumbers(candidate.title);
+	const part = partNumber(candidate.title);
 	for (const book of nearby) {
+		const bookPart = partNumber(String(book.title ?? ""));
+		if (part !== null && bookPart !== null && part !== bookPart) {
+			continue;
+		}
 		const bookTitle = identityTokens(`${String(book.title ?? "")} ${String(book.series ?? "")}`);
 		const bookAuthor = identityTokens(String(book.author ?? ""));
 		const bookNums = bookNumbers(String(book.title ?? ""), book.seriesIndex as number | null);

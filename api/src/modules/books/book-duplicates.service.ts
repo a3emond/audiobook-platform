@@ -74,6 +74,13 @@ function bookNumbers(title: string, seriesIndex: number | null | undefined): Set
 	return numbers;
 }
 
+// Parts of an evenly split book run almost the same length; differing part
+// numbers rule a match out.
+function partNumber(value: string): number | null {
+	const match = value.match(/\bpart\s*0*(\d{1,3})\b/i);
+	return match ? Number(match[1]) : null;
+}
+
 function tokenOverlap(left: Set<string>, right: Set<string>): number {
 	if (left.size === 0 || right.size === 0) {
 		return 0;
@@ -130,6 +137,7 @@ export class BookDuplicatesService {
 			title: identityTokens(`${book.title} ${book.series ?? ""}`),
 			author: identityTokens(book.author ?? ""),
 			numbers: bookNumbers(book.title, book.seriesIndex),
+			part: partNumber(book.title),
 		}));
 
 		// Books are sorted by duration, so only a short window needs comparing.
@@ -139,6 +147,9 @@ export class BookDuplicatesService {
 				const a = tokens[i];
 				const b = tokens[j];
 				if (a.numbers.size > 0 && b.numbers.size > 0 && ![...a.numbers].some((n) => b.numbers.has(n))) {
+					continue;
+				}
+				if (a.part !== null && b.part !== null && a.part !== b.part) {
 					continue;
 				}
 				const titleScore = tokenOverlap(a.title, b.title);
