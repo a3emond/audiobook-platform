@@ -80,6 +80,8 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
+          # Image builds can exceed the 10m default when the server disk is busy.
+          command_timeout: 30m
           script: |
             set -e
 
