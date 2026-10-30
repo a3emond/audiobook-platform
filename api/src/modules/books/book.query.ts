@@ -26,6 +26,9 @@ function toContainsRegex(value: string): RegExp {
 
 const EMPTY_TEXT = { $in: [null, ""] };
 
+// Genres that ingest fills in from file tags but that say nothing about the book.
+export const PLACEHOLDER_GENRE = /^\s*(audio\s*-?\s*books?|unknown|other|general|genre|n\/?a|none)\s*$/i;
+
 // Each missing-field filter matches books where that metadata is absent.
 export const MISSING_FIELD_CONDITIONS: Record<BookMissingField, Record<string, unknown>> = {
 	cover: { coverPath: EMPTY_TEXT },
@@ -35,7 +38,7 @@ export const MISSING_FIELD_CONDITIONS: Record<BookMissingField, Record<string, u
 		"description.fr": EMPTY_TEXT,
 	},
 	series: { series: EMPTY_TEXT },
-	genre: { genre: EMPTY_TEXT },
+	genre: { genre: { $in: [null, "", PLACEHOLDER_GENRE] } },
 	tags: { "tags.0": { $exists: false } },
 };
 

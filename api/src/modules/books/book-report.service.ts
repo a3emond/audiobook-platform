@@ -11,6 +11,7 @@ import path from "node:path";
 import { ApiError } from "../../utils/api-error.js";
 import { normalizeTagToken } from "../../utils/normalize.js";
 import { BookModel } from "./book.model.js";
+import { PLACEHOLDER_GENRE } from "./book.query.js";
 import { BookService } from "./book.service.js";
 import type { UpdateBookMetadataDTO } from "../../dto/book.dto.js";
 
@@ -92,7 +93,7 @@ const INSTRUCTIONS = [
 	"title: the clean book title, without '(Unabridged)', narrator names, track numbers, file extensions or the series number.",
 	"author: the author only (never the narrator). Several authors are separated by ', '.",
 	"series: canonical series name without the number. Use null for a standalone book. seriesIndex: the number in the series (number, decimals allowed, e.g. 2.5).",
-	"genre: one broad genre in English title case (Fantasy, Science Fiction, Thriller, LitRPG, Mystery, Romance, Biography, History...). Reuse a genre that already exists in the file when it fits.",
+	"genre: one specific genre in English title case that helps browsing (e.g. LitRPG, Progression Fantasy, Cultivation, Epic Fantasy, Science Fiction, Thriller, Mystery). Never 'Audiobook'. Keep the set of genres small and consistent across the file.",
 	"language: \"en\" or \"fr\" (the language of the audio).",
 	"tags: the complete new list of 3 to 8 short lowercase descriptors (it replaces the existing tags).",
 	"description: a 2 to 4 sentence spoiler-free synopsis in the book's language, in your own words.",
@@ -223,12 +224,21 @@ export class BookReportService {
 			if (!hasText(book.coverPath)) issues.push("missing cover (fix by hand in the editor)");
 			if (!hasText(current.description)) issues.push("missing description");
 			if (!hasText(book.genre)) issues.push("missing genre");
+			else if (PLACEHOLDER_GENRE.test(book.genre!)) issues.push(`genre '${book.genre}' is a placeholder, not a real genre`);
 			if ((book.tags ?? []).length === 0) issues.push("missing tags");
 			if (hasText(book.series) && (book.seriesIndex === null || book.seriesIndex === undefined)) {
 				issues.push("in a series but missing series number");
 			}
 			if (!hasText(book.series) && /\b(book|tome|vol(ume)?|livre)\s*\.?\s*\d+\b|#\s*\d+/i.test(book.title)) {
 				issues.push("title suggests a series but no series is set");
+			}
+			const titleNumber = /\b(?:book|tome|vol(?:ume)?|livre)\s*\.?\s*0*(\d+(?:\.\d+)?)\b/i.exec(book.title);
+			if (titleNumber && book.seriesIndex !== null && book.seriesIndex !== undefined
+				&& Number(titleNumber[1]) !== book.seriesIndex) {
+				issues.push(`title says book ${Number(titleNumber[1])} but series number is ${book.seriesIndex}`);
+			}
+			if (hasText(book.series) && /:\s|\s[-–]\s/.test(book.series!)) {
+				issues.push("series name includes a subtitle (e.g. ': A LitRPG Adventure')");
 			}
 			if (hasText(book.series) && /\d+\s*$|#\s*\d+/.test(book.series!)) {
 				issues.push("series name contains a number");
@@ -258,8 +268,10 @@ export class BookReportService {
 				issues.push("title is identical to the series name");
 			}
 
+			// Group issues that embed a value (genre name, numbers) under one summary key.
 			for (const issue of issues) {
-				issueCounts[issue] = (issueCounts[issue] ?? 0) + 1;
+				const key = issue.replace(/'[^']*'|\d+(\.\d+)?/g, "…");
+				issueCounts[key] = (issueCounts[key] ?? 0) + 1;
 			}
 
 			if (issues.length > 0 || options.includeAll) {

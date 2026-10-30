@@ -42,6 +42,18 @@ jobs:
         working-directory: ${{ matrix.service }}
         run: npm run build
 
+      # The API container runs through ts-node (npm run dev), which can reject
+      # code that tsc accepts. Load the app the same way so that fails here.
+      - name: API startup check (ts-node)
+        if: matrix.service == 'api'
+        working-directory: api
+        env:
+          MONGO_URI: mongodb://127.0.0.1:1/ci
+          JWT_SECRET: ci
+          GOOGLE_CLIENT_ID: ci
+          APPLE_CLIENT_ID: ci
+        run: node --loader ts-node/esm --input-type=module -e "await import(new URL('./src/app.ts', 'file://' + process.cwd() + '/').href); console.log('API modules loaded')"
+
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: pre-deploy-checks

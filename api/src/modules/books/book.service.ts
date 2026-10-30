@@ -30,6 +30,7 @@ import {
 	buildBookSort,
 	HEALTH_CONDITIONS,
 	MISSING_FIELD_CONDITIONS,
+	PLACEHOLDER_GENRE,
 } from "./book.query.js";
 
 const MAX_LIST_LIMIT = 200;
@@ -180,7 +181,7 @@ export class BookService {
 
 		return {
 			total: facetResult?.total[0]?.count ?? 0,
-			genres: toFacetCounts(facetResult?.genres ?? []),
+			genres: toFacetCounts(facetResult?.genres ?? []).filter((genre) => !PLACEHOLDER_GENRE.test(genre.value)),
 			tags: toFacetCounts(facetResult?.tags ?? []),
 			authors: toFacetCounts(facetResult?.authors ?? []),
 			series: toFacetCounts(facetResult?.series ?? []),
