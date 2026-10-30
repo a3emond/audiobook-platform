@@ -158,3 +158,19 @@ export interface AiMetadataSuggestionDTO {
   notes: string | null;
   sources: Array<{ title: string; url: string }>;
 }
+
+export interface ShelfBookDTO {
+	id: string;
+	title: string;
+	author: string;
+	series: string | null;
+	seriesIndex: number | null;
+	duration: number;
+	coverPath: string | null;
+	genre: string | null;
+	tags: string[];
+	language: string | null;
+	version: number;
+	createdAt: string | null;
+	chapters: [];
+}

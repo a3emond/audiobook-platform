@@ -1,0 +1,118 @@
+<div class="sm-backdrop" (click)="close()">
+  <section
+    class="sm"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-label]="entry().name"
+    [class.single]="entry().books.length === 1"
+    (click)="$event.stopPropagation()"
+  >
+    @if (backdropUrl()) {
+      <div class="sm-glow" [style.background-image]="'url(' + backdropUrl() + ')'" aria-hidden="true"></div>
+    }
+
+    <header class="sm-head">
+      <div class="sm-title">
+        <p class="sm-kicker">
+          @if (entry().kind === 'series') {
+            {{ 'shelf.kind.series' | t }} · {{ 'shelf.bookCount' | t:{ count: entry().books.length } }} · {{ totalHours() }}
+          } @else {
+            {{ 'shelf.kind.book' | t }} · {{ totalHours() }}
+          }
+        </p>
+        <h2>{{ entry().name }}</h2>
+        <p class="sm-author">{{ entry().author }}</p>
+      </div>
+      @if (entry().books.length > 1) {
+        <div class="sm-progress" [attr.data-state]="state()">
+          <span class="sm-progress-label">
+            {{ 'shelf.finishedOf' | t:{ done: entry().finishedCount, total: entry().books.length } }} · {{ percent() }}%
+          </span>
+          <span class="sm-progress-track"><span class="sm-progress-fill" [style.width.%]="percent()"></span></span>
+        </div>
+      }
+      <button type="button" class="sm-close" (click)="close()" [attr.aria-label]="'common.closeDetails' | t">×</button>
+    </header>
+
+    @if (entry().books.length > 1) {
+      <div class="sm-strip" #strip role="listbox" [attr.aria-label]="entry().name">
+        @for (book of entry().books; track book.id; let i = $index) {
+          <button
+            type="button"
+            class="sm-book"
+            role="option"
+            [attr.aria-selected]="book.id === selected().id"
+            [attr.data-selected]="book.id === selected().id"
+            [class.done]="isCompleted(book)"
+            [class.current]="hasStarted(book)"
+            (click)="select(book)"
+          >
+            <app-cover-tile
+              [imageUrl]="coverUrl(book)"
+              [fallback]="initials(book)"
+              [alt]="book.title"
+              [completed]="isCompleted(book)"
+              [progressPercent]="percentFor(book)"
+            />
+            <span class="sm-book-index">{{ book.seriesIndex ?? i + 1 }}</span>
+          </button>
+        }
+      </div>
+    }
+
+    <div class="sm-detail">
+      <div class="sm-detail-cover">
+        <app-cover-tile
+          [imageUrl]="coverUrl(selected())"
+          [fallback]="initials(selected())"
+          [alt]="selected().title"
+          [completed]="isCompleted(selected())"
+          [progressPercent]="percentFor(selected())"
+        />
+      </div>
+      <div class="sm-detail-body">
+        <h3>{{ selected().title }}</h3>
+        <p class="sm-meta">
+          @if (entry().kind === 'series' && selected().seriesIndex !== null && selected().seriesIndex !== undefined) {
+            <span>{{ 'shelf.bookNumber' | t:{ n: selected().seriesIndex } }}</span>
+          }
+          <span>{{ hours(selected().duration) }}</span>
+          @if (selected().genre) {
+            <span>{{ selected().genre }}</span>
+          }
+          @if (isCompleted(selected())) {
+            <span class="ok">✓ {{ 'library.status.finished' | t }}</span>
+          } @else if (hasStarted(selected())) {
+            <span class="accent">{{ 'shelf.left' | t:{ time: remaining(selected()) } }}</span>
+          }
+        </p>
+
+        @if (description() === null) {
+          <p class="sm-desc muted">…</p>
+        } @else if (description()) {
+          <p class="sm-desc">{{ description() }}</p>
+        }
+
+        @if (selected().tags?.length) {
+          <div class="sm-tags">
+            @for (tag of selected().tags!.slice(0, 8); track tag) {
+              <span class="sm-tag">#{{ tag }}</span>
+            }
+          </div>
+        }
+
+        <div class="sm-actions">
+          <a class="sm-play" [routerLink]="['/player', selected().id]" (click)="close()">
+            ▶ {{ hasStarted(selected()) ? ('shelf.resume' | t) : isCompleted(selected()) ? ('shelf.listenAgain' | t) : ('common.play' | t) }}
+          </a>
+          @if (entry().kind === 'series') {
+            <a class="sm-link" [routerLink]="['/series', entry().name]" (click)="close()">{{ 'series.open' | t }}</a>
+          }
+          @if (auth.isAdmin()) {
+            <a class="sm-link" [routerLink]="['/admin/books', selected().id]" (click)="close()">{{ 'shelf.edit' | t }}</a>
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+</div>

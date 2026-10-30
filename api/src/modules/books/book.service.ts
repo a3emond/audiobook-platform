@@ -18,6 +18,7 @@ import {
 	type ChapterDTO,
 	type FacetCountDTO,
 	type ListBooksQueryDTO,
+	type ShelfBookDTO,
 	type UpdateBookMetadataDTO,
 	type UpdateChaptersDTO,
 } from "../../dto/book.dto.js";
@@ -128,6 +129,32 @@ export class BookService {
 
 	// Facets describe the catalog matching the base filters (language, search),
 	// so the filter UI can offer only values that actually exist.
+	// Every book, without chapters or descriptions: enough to lay out the whole
+	// library shelf (series grouping, covers, progress) in one request.
+	static async listShelf(language?: string): Promise<ShelfBookDTO[]> {
+		const books = await BookModel.find(
+			{ $and: [buildBookQuery({ language }), { filePath: { $type: "string" } }] },
+			{ title: 1, author: 1, series: 1, seriesIndex: 1, duration: 1, coverPath: 1, genre: 1, tags: 1, language: 1, version: 1, createdAt: 1 },
+		)
+			.sort({ createdAt: -1, _id: -1 })
+			.lean();
+		return books.map((book) => ({
+			id: String(book._id),
+			title: book.title,
+			author: book.author,
+			series: book.series ?? null,
+			seriesIndex: book.seriesIndex ?? null,
+			duration: book.duration,
+			coverPath: book.coverPath ?? null,
+			genre: book.genre ?? null,
+			tags: book.tags ?? [],
+			language: book.language ?? null,
+			version: book.version ?? 1,
+			createdAt: book.createdAt ? new Date(book.createdAt).toISOString() : null,
+			chapters: [],
+		}));
+	}
+
 	static async getFacets(filters: ListBooksQueryDTO): Promise<BookFacetsDTO> {
 		const match = buildBookQuery({ q: filters.q, language: filters.language });
 

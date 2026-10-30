@@ -1,28 +1,27 @@
 <section class="library-page page-shell">
-  <header class="hero">
-    <div>
-      <h1>{{ 'library.title' | t }}</h1>
-      <p>{{ 'library.subtitle' | t }}</p>
-    </div>
-  </header>
-
-  <section class="discover card" aria-label="Find books">
+  <section class="discover" aria-label="Find books">
     <div class="discover-top">
+      <div class="title-block">
+        <h1>{{ 'library.title' | t }}</h1>
+        @if (shelfBooks().length > 0) {
+          <span class="summary">{{ 'shelf.summary' | t:{ books: shelfSummary().books, series: shelfSummary().series, hours: shelfSummary().hours } }}</span>
+        }
+      </div>
       <div class="search-box">
         <span class="search-icon" aria-hidden="true">⌕</span>
         <input
           #searchInput
           type="search"
           name="q"
-          [(ngModel)]="q"
-          (ngModelChange)="onFilterChange()"
+          [ngModel]="q()"
+          (ngModelChange)="setQuery($event)"
           [placeholder]="'library.search.placeholder' | t"
           [attr.aria-label]="'common.filter' | t"
         />
         <kbd class="search-kbd" aria-hidden="true">/</kbd>
       </div>
       <div class="view-toggle" role="group" [attr.aria-label]="'library.view.label' | t">
-        <button type="button" [class.active]="!isGridMode()" [attr.aria-pressed]="!isGridMode()" (click)="clearFilter()">
+        <button type="button" [class.active]="!isGridMode()" [attr.aria-pressed]="!isGridMode()" (click)="setView('browse')">
           {{ 'library.view.browse' | t }}
         </button>
         <button type="button" [class.active]="isGridMode()" [attr.aria-pressed]="isGridMode()" (click)="setView('grid')">
@@ -31,57 +30,63 @@
       </div>
     </div>
 
-    @if (facets()?.genres?.length) {
-      <div class="chip-row" role="group" [attr.aria-label]="'book.genre' | t">
-        <span class="chip-label">{{ 'book.genre' | t }}</span>
-        @for (item of visibleGenres(); track item.value) {
-          <button type="button" class="chip" [class.active]="genre() === item.value" [attr.aria-pressed]="genre() === item.value" (click)="setGenre(item.value)">
-            {{ item.value }}
-          </button>
+    <div class="filter-row">
+      @if (genres().length > 0) {
+        <div class="chip-group" role="group" [attr.aria-label]="'book.genre' | t">
+          @for (item of genres(); track item.value) {
+            <button type="button" class="chip" [class.active]="genre() === item.value" [attr.aria-pressed]="genre() === item.value" (click)="setGenre(item.value)">
+              {{ item.value }} <span class="chip-count">{{ item.count }}</span>
+            </button>
+          }
+        </div>
+      }
+      <select class="compact-select" [ngModel]="status()" (ngModelChange)="setStatus($event)" name="status" [attr.aria-label]="'library.status.label' | t">
+        @for (item of statuses; track item) {
+          <option [value]="item">{{ 'library.status.' + item | t }}</option>
         }
-        @if ((facets()?.genres?.length ?? 0) > 10) {
-          <button type="button" class="chip more" (click)="showAllGenres.set(!showAllGenres())">
-            {{ showAllGenres() ? ('library.chips.less' | t) : ('library.chips.more' | t) }}
-          </button>
+      </select>
+      <select class="compact-select" [ngModel]="length()" (ngModelChange)="setLength($event)" name="length" [attr.aria-label]="'library.length.label' | t">
+        @for (item of lengths; track item) {
+          <option [value]="item">{{ 'library.length.' + item | t }}</option>
         }
-      </div>
-    }
+      </select>
+      @if (!isGridMode()) {
+        <select class="compact-select" [ngModel]="shelfScope()" (ngModelChange)="setShelfScope($event)" name="show" [attr.aria-label]="'shelf.scope.label' | t">
+          @for (item of shelfScopes; track item) {
+            <option [value]="item">{{ 'shelf.scope.' + item | t }}</option>
+          }
+        </select>
+        <select class="compact-select" [ngModel]="shelfSort()" (ngModelChange)="setShelfSort($event)" name="order" [attr.aria-label]="'library.sort.label' | t">
+          @for (item of shelfSorts; track item) {
+            <option [value]="item">{{ 'shelf.sort.' + item | t }}</option>
+          }
+        </select>
+      } @else {
+        <select class="compact-select" [ngModel]="gridSort()" (ngModelChange)="setGridSort($event)" name="gridSort" [attr.aria-label]="'library.sort.label' | t">
+          @for (option of gridSorts; track option) {
+            <option [value]="option">{{ 'library.sort.' + option | t }}</option>
+          }
+        </select>
+      }
+      @if (hasActiveQuery()) {
+        <button type="button" class="clear-filter-btn" (click)="clearFilter()">{{ 'common.clear' | t }}</button>
+      }
+    </div>
 
     @if (facets()?.tags?.length) {
-      <div class="chip-row" role="group" [attr.aria-label]="'book.tags' | t">
-        <span class="chip-label">{{ 'book.tags' | t }}</span>
+      <div class="tag-row" role="group" [attr.aria-label]="'book.tags' | t">
         @for (item of visibleTags(); track item.value) {
           <button type="button" class="chip tag" [class.active]="selectedTags().includes(item.value)" [attr.aria-pressed]="selectedTags().includes(item.value)" (click)="toggleTag(item.value)">
             #{{ item.value }}
           </button>
         }
-        @if ((facets()?.tags?.length ?? 0) > 14) {
-          <button type="button" class="chip more" (click)="showAllTags.set(!showAllTags())">
-            {{ showAllTags() ? ('library.chips.less' | t) : ('library.chips.more' | t) }}
+        @if (hiddenTagCount() > 0) {
+          <button type="button" class="chip more" (click)="tagsOpen.set(!tagsOpen())">
+            {{ tagsOpen() ? ('library.chips.less' | t) : '+' + hiddenTagCount() }}
           </button>
         }
       </div>
     }
-
-    <div class="filter-row">
-      <div class="segmented" role="group" [attr.aria-label]="'library.status.label' | t">
-        @for (item of statuses; track item) {
-          <button type="button" [class.active]="status() === item" [attr.aria-pressed]="status() === item" (click)="setStatus(item)">
-            {{ 'library.status.' + item | t }}
-          </button>
-        }
-      </div>
-      <div class="segmented" role="group" [attr.aria-label]="'library.length.label' | t">
-        @for (item of lengths; track item) {
-          <button type="button" [class.active]="length() === item" [attr.aria-pressed]="length() === item" (click)="setLength(item)">
-            {{ 'library.length.' + item | t }}
-          </button>
-        }
-      </div>
-      @if (hasActiveQuery()) {
-        <button type="button" class="clear-filter-btn" (click)="clearFilter()">{{ 'common.clear' | t }}</button>
-      }
-    </div>
   </section>
 
   @if (shouldShowFrenchEnglishFallbackNotice()) {
@@ -92,10 +97,6 @@
         {{ 'library.frUnavailable.switchCta' | t }}
       </button>
     </section>
-  }
-
-  @if (loading()) {
-    <p class="text-muted">{{ 'library.loading' | t }}</p>
   }
 
   @if (error()) {
@@ -112,14 +113,6 @@
             {{ 'library.allBooks' | t:{ count: gridTotal() } }}
           }
         </h2>
-        <label class="sort-select">
-          <span>{{ 'library.sort.label' | t }}</span>
-          <select [ngModel]="gridSort()" (ngModelChange)="setGridSort($event)" name="gridSort">
-            @for (option of gridSorts; track option) {
-              <option [value]="option">{{ 'library.sort.' + option | t }}</option>
-            }
-          </select>
-        </label>
       </div>
 
       <div class="book-grid" role="list">
@@ -158,11 +151,9 @@
         </div>
       }
     </section>
-  }
-
-  @if (!loading() && !isGridMode()) {
+  } @else {
     @if (hasFeaturedRow()) {
-      <section class="row-block">
+      <section class="row-block featured-block">
         <div class="row-head">
           <div class="row-title-wrap">
             <h2>{{ featuredBlock()?.title }}</h2>
@@ -189,7 +180,7 @@
           <div class="media-rail featured-rail" #railEl #featuredRail data-rail-id="featured" role="list" (scroll)="onRailScroll('featured', featuredRail)">
           @for (item of featuredItems(); track item.id) {
             <article class="featured-cell card" role="listitem">
-              <a class="featured-card-link" [routerLink]="featuredCardLink(item)">
+              <a class="featured-card-link" [routerLink]="featuredCardLink(item)" (click)="openFeatured(item, $event)">
                 <div class="featured-cover-fan">
                   @if (featuredCardCoverUrls(item).length > 0) {
                     @for (url of featuredCardCoverUrls(item); track url; let i = $index) {
@@ -227,139 +218,36 @@
       </section>
     }
 
-    @if (showLatestRow()) {
-      <section class="row-block">
-        <div class="row-head">
-          <h2>{{ 'library.latest' | t }}</h2>
-        </div>
-        <div class="rail-wrap" [class.fade-left]="canScrollLeft('latest')" [class.fade-right]="canScrollRight('latest')">
-          @if (railOverflows('latest')) {
-            <button
-              type="button"
-              class="rail-nav left"
-              [disabled]="!canScrollLeft('latest')"
-              (click)="scrollRail('latest', latestRail, -1)"
-              [attr.aria-label]="'common.scrollLeft' | t"
-            >
-              ‹
-            </button>
-          }
-          <div class="media-rail" #railEl #latestRail data-rail-id="latest" role="list" (scroll)="onRailScroll('latest', latestRail)">
-          @for (book of latestBooks(); track book.id) {
-            <div class="media-cell" role="listitem">
-              <app-book-card [book]="book" />
-            </div>
-          }
-          </div>
-          @if (railOverflows('latest')) {
-            <button
-              type="button"
-              class="rail-nav right"
-              [disabled]="!canScrollRight('latest')"
-              (click)="scrollRail('latest', latestRail, 1)"
-              aria-label="Scroll right"
-            >
-              ›
-            </button>
+    <section class="shelf" aria-live="polite">
+      @if (loading() && shelfBooks().length === 0) {
+        <div class="shelf-grid" aria-hidden="true">
+          @for (i of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]; track i) {
+            <div class="shelf-skeleton"></div>
           }
         </div>
-      </section>
-    }
-
-    @if (shouldShowNoBooksState()) {
-      <section class="empty-state card">
-        <h3>{{ hasActiveQuery() ? ('library.empty.searchTitle' | t) : ('library.empty.title' | t) }}</h3>
-        <p>
-          {{ hasActiveQuery() ? ('library.empty.searchBody' | t) : ('library.empty.body' | t) }}
-        </p>
+      } @else if (shelfEntries().length > 0) {
         @if (hasActiveQuery()) {
-          <button type="button" class="btn" (click)="clearFilter()">{{ 'library.clearSearch' | t }}</button>
+          <p class="shelf-count">{{ 'shelf.matches' | t:{ count: shelfEntries().length } }}</p>
         }
-      </section>
-    }
-
-    @if (hasSeriesRows()) {
-      <div class="series-heading">
-        <h2>{{ 'library.series' | t }}</h2>
-        <label class="sort-select">
-          <span>{{ 'library.sort.label' | t }}</span>
-          <select name="seriesSort" [(ngModel)]="seriesSort" (ngModelChange)="onSeriesSortChange()">
-            <option value="activity">{{ 'library.sort.recent' | t }}</option>
-            <option value="alphabetical">{{ 'library.sort.title' | t }}</option>
-            <option value="relevance">{{ 'library.sort.relevance' | t }}</option>
-          </select>
-        </label>
-      </div>
-      @for (series of seriesRails(); track series.id) {
-        <section class="row-block">
-          <div class="row-head">
-            <div class="row-title-wrap">
-              <h2>{{ series.name }}</h2>
-              <span class="series-progress-pill">{{ 'series.progressShort' | t:{ percent: seriesProgressPercent(series) } }}</span>
+        <div class="shelf-grid" role="list">
+          @for (entry of shelfEntries(); track entry.key) {
+            <div role="listitem">
+              <app-shelf-card [entry]="entry" (opened)="openShelfEntry($event)" />
             </div>
-            <a class="open-series-btn" [routerLink]="['/series', series.name]">{{ 'series.open' | t }}</a>
-          </div>
-          <div class="rail-wrap" [class.fade-left]="canScrollLeft('series:' + series.id)" [class.fade-right]="canScrollRight('series:' + series.id)">
-            @if (railOverflows('series:' + series.id)) {
-              <button
-                type="button"
-                class="rail-nav left"
-                [disabled]="!canScrollLeft('series:' + series.id)"
-                (click)="scrollRail('series:' + series.id, seriesRail, -1)"
-                [attr.aria-label]="'common.scrollLeft' | t"
-              >
-                ‹
-              </button>
-            }
-            <div
-              class="media-rail"
-              #railEl
-              #seriesRail
-              [attr.data-rail-id]="'series:' + series.id"
-              role="list"
-              (scroll)="onRailScroll('series:' + series.id, seriesRail)"
-            >
-            @for (book of series.books; track book.id) {
-              <div class="media-cell" role="listitem">
-                <app-book-card [book]="book" />
-              </div>
-            }
-            </div>
-            @if (railOverflows('series:' + series.id)) {
-              <button
-                type="button"
-                class="rail-nav right"
-                [disabled]="!canScrollRight('series:' + series.id)"
-                (click)="scrollRail('series:' + series.id, seriesRail, 1)"
-                aria-label="Scroll right"
-              >
-                ›
-              </button>
-            }
-          </div>
+          }
+        </div>
+      } @else if (!loading()) {
+        <section class="empty-state card">
+          <h3>{{ hasActiveQuery() ? ('library.empty.searchTitle' | t) : ('library.empty.title' | t) }}</h3>
+          <p>{{ hasActiveQuery() ? ('library.empty.searchBody' | t) : ('library.empty.body' | t) }}</p>
+          @if (hasActiveQuery()) {
+            <button type="button" class="btn" (click)="clearFilter()">{{ 'library.clearSearch' | t }}</button>
+          }
         </section>
       }
+    </section>
 
-      @if (seriesHasMore()) {
-        <div class="series-load-more">
-          <button
-            type="button"
-            class="btn-load-more"
-            [class.is-loading]="seriesLoading()"
-            [disabled]="seriesLoading()"
-            (click)="loadMoreSeries()"
-            [attr.aria-busy]="seriesLoading()"
-          >
-            <span class="load-more-label">{{ seriesLoading() ? 'Loading more' : 'Load more' }}</span>
-            <span class="load-more-spinner" aria-hidden="true"></span>
-          </button>
-        </div>
-      } @else {
-        <p class="load-more-done" role="status">All series loaded</p>
-      }
-    }
-
-    <section class="row-block">
+    <section class="row-block collections-block">
       <div class="row-head">
         <h2>{{ 'collections.title' | t }}</h2>
         <button type="button" class="create-collection-btn subtle" (click)="openCreateCollectionModal()" [attr.aria-label]="'collections.create' | t">+ {{ 'common.new' | t }}</button>
@@ -377,14 +265,29 @@
           </button>
         }
         <div class="collection-rail" #railEl #collectionRail data-rail-id="collections" role="list" (scroll)="onRailScroll('collections', collectionRail)">
-      @for (collection of visibleCollections(); track collection.id) {
-          <div class="collection-cell" role="listitem">
-            <app-collection-card
-              [collection]="collection"
-              [previewImages]="collectionPreviewUrls(collection)"
-            />
-          </div>
-      }
+          @for (collection of visibleCollections(); track collection.id) {
+            <div class="collection-cell" role="listitem">
+              <app-collection-card
+                [collection]="collection"
+                [previewImages]="collectionPreviewUrls(collection)"
+              />
+            </div>
+          }
+          @if (collectionsHasMore()) {
+            <div class="collection-cell load-cell">
+              <button
+                type="button"
+                class="btn-load-more"
+                [class.is-loading]="collectionsLoadingMore()"
+                [disabled]="collectionsLoadingMore()"
+                (click)="loadMoreCollections()"
+                [attr.aria-busy]="collectionsLoadingMore()"
+              >
+                <span class="load-more-label">{{ collectionsLoadingMore() ? 'Loading more' : 'Load more' }}</span>
+                <span class="load-more-spinner" aria-hidden="true"></span>
+              </button>
+            </div>
+          }
         </div>
         @if (railOverflows('collections')) {
           <button
@@ -398,24 +301,11 @@
           </button>
         }
       </div>
-      @if (collectionsHasMore()) {
-        <div class="load-more-row">
-          <button
-            type="button"
-            class="btn-load-more"
-            [class.is-loading]="collectionsLoadingMore()"
-            [disabled]="collectionsLoadingMore()"
-            (click)="loadMoreCollections()"
-            [attr.aria-busy]="collectionsLoadingMore()"
-          >
-            <span class="load-more-label">{{ collectionsLoadingMore() ? 'Loading more' : 'Load more' }}</span>
-            <span class="load-more-spinner" aria-hidden="true"></span>
-          </button>
-        </div>
-      } @else {
-        <p class="load-more-done" role="status">All collections loaded</p>
-      }
     </section>
+  }
+
+  @if (openEntry(); as entry) {
+    <app-series-modal [entry]="entry" (closed)="closeShelfEntry()" />
   }
 
   @if (createCollectionOpen()) {

@@ -1,0 +1,33 @@
+<button
+  type="button"
+  class="shelf-card"
+  [class.single]="entry().books.length === 1"
+  [attr.data-state]="state()"
+  [attr.aria-label]="entry().name + ' — ' + entry().author"
+  (click)="opened.emit(entry())"
+>
+  <span class="fan" [attr.data-count]="covers().length">
+    @for (cover of covers(); track cover.id; let i = $index) {
+      <span class="fan-cover" [attr.data-pos]="i">
+        @if (cover.url) {
+          <img [src]="cover.url" alt="" loading="lazy" decoding="async" />
+        } @else {
+          <span class="fan-fallback">{{ cover.initials }}</span>
+        }
+      </span>
+    }
+    @if (entry().books.length > 1) {
+      <span class="fan-count">{{ entry().books.length }}</span>
+    }
+    @if (state() === 'finished') {
+      <span class="fan-done" [attr.aria-label]="'library.status.finished' | t">✓</span>
+    }
+    @if (state() === 'in_progress') {
+      <span class="fan-track"><span class="fan-fill" [style.width.%]="percent()"></span></span>
+    }
+  </span>
+  <span class="shelf-name">{{ entry().name }}</span>
+  <span class="shelf-sub">
+    {{ entry().author }} · {{ entry().books.length > 1 ? ('shelf.bookCount' | t:{ count: entry().books.length }) : hours() }}
+  </span>
+</button>

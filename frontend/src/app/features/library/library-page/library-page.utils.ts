@@ -1,4 +1,4 @@
-import type { Book, Collection, SeriesDetail, SeriesSummary } from '../../../core/models/api.models';
+import type { Book, Collection } from '../../../core/models/api.models';
 import { coverUrlForBook } from '../../../core/utils/cover-url';
 import type {
   CollectionDerivation,
@@ -6,11 +6,9 @@ import type {
   LengthFilter,
   ListenStatusFilter,
   ProgressRow,
-  SeriesRail,
 } from './library-page.types';
 
 export const AUTO_ACTIVITY_COLLECTION_ID = 'auto:listened';
-export const LATEST_BOOKS_LIMIT = 20;
 export const GRID_PAGE_SIZE = 48;
 
 // Duration buckets for the length filter, in seconds.
@@ -34,15 +32,6 @@ export function matchesListenStatus(
     default:
       return true;
   }
-}
-
-// Library page helpers: keep collection and series data shaping outside the component class.
-export function normalizeSeriesName(seriesName: string): string {
-  return seriesName.trim().replace(/\s+/g, ' ');
-}
-
-export function normalizeSeriesKey(seriesName: string): string {
-  return normalizeSeriesName(seriesName).toLocaleLowerCase();
 }
 
 // In-progress books are listed first, then completed, both sorted by last activity.
@@ -87,54 +76,6 @@ export function collectionPreviewUrls(
       url: coverUrlForBook(book, token),
     }))
     .filter((preview) => preview.url.length > 0);
-}
-
-// Deduping across rails ensures collection preview lookup stays O(1) with stable ids.
-export function dedupeBooks(latestBooks: Book[], seriesRails: SeriesRail[]): Book[] {
-  const all = [...latestBooks];
-  for (const series of seriesRails) {
-    all.push(...series.books);
-  }
-
-  const byId = new Map<string, Book>();
-  for (const book of all) {
-    if (!byId.has(book.id)) {
-      byId.set(book.id, book);
-    }
-  }
-
-  return Array.from(byId.values());
-}
-
-// Unique series trimming keeps homepage rails compact when API returns duplicate aliases.
-export function uniqueTopSeries(series: SeriesSummary[], limit: number): SeriesSummary[] {
-  const seenSeries = new Set<string>();
-  return series
-    .filter((entry) => {
-      const normalizedName = normalizeSeriesName(entry.name);
-      if (!normalizedName) {
-        return false;
-      }
-
-      const key = normalizeSeriesKey(normalizedName);
-      if (seenSeries.has(key)) {
-        return false;
-      }
-
-      seenSeries.add(key);
-      return true;
-    })
-    .slice(0, limit);
-}
-
-export function mapSeriesRails(seriesDetails: SeriesDetail[], filterBooks: (books: Book[]) => Book[]): SeriesRail[] {
-  return seriesDetails
-    .map((series) => ({
-      id: series.id,
-      name: series.name,
-      books: filterBooks(series.books),
-    }))
-    .filter((series) => series.books.length > 0);
 }
 
 export function deriveCollections(

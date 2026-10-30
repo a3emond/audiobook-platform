@@ -28,6 +28,11 @@ export class BookController {
 		res.status(200).json(result);
 	}
 
+	static async listShelf(req: Request<unknown, unknown, unknown, Record<string, string | undefined>>, res: Response) {
+		const language = typeof req.query.language === "string" ? req.query.language : undefined;
+		res.status(200).json({ books: await BookService.listShelf(language) });
+	}
+
 	static async getFacets(
 		req: Request<unknown, unknown, unknown, Record<string, string | undefined>>,
 		res: Response,

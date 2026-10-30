@@ -1,10 +1,4 @@
-import type { Book, Collection } from '../../../core/models/api.models';
-
-export interface SeriesRail {
-  id: string;
-  name: string;
-  books: Book[];
-}
+import type { Collection } from '../../../core/models/api.models';
 
 export interface RailState {
   overflow: boolean;

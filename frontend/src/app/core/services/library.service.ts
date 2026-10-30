@@ -15,6 +15,7 @@
  * Methods:
  *   listBooks(filters?)             — Observable<ListBooksResponse>
  *   getBookFacets(filters?)         — Observable<BookFacets>
+ *   listShelf()                     — Observable<{ books }>: every book, compact
  *   getBook(bookId)                 — Observable<Book>
  *   listSeries(filters?)            — Observable<ListSeriesResponse>
  *   getSeries(seriesName)           — Observable<SeriesDetail>
@@ -71,6 +72,11 @@ export class LibraryService {
 
   getBookFacets(filters: Pick<BookFilters, 'q' | 'language'> = {}): Observable<BookFacets> {
     return this.api.get<BookFacets>('/books/facets', { params: this.withDefaultLanguage(filters) });
+  }
+
+  // Whole catalog without chapters or descriptions, for the library shelf.
+  listShelf(): Observable<{ books: Book[] }> {
+    return this.api.get<{ books: Book[] }>('/books/shelf', { params: this.withDefaultLanguage({}) });
   }
 
   getBook(bookId: string): Observable<Book> {

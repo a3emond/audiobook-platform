@@ -12,6 +12,7 @@ const router = Router();
 
 router.get("/", BookController.listBooks);
 router.get("/facets", BookController.getFacets);
+router.get("/shelf", BookController.listShelf);
 router.get("/:bookId", BookController.getBook);
 
 export default router;
