@@ -5,7 +5,9 @@
  * to the admin, who picks which fields to apply before saving.
  */
 import path from "node:path";
-import Anthropic from "@anthropic-ai/sdk";
+// Named imports: the dev container runs through ts-node, which mis-resolves
+// the SDK's default export under NodeNext even though tsc accepts it.
+import { Anthropic, APIError, AuthenticationError, RateLimitError } from "@anthropic-ai/sdk";
 
 import type { AiMetadataSuggestionDTO } from "../../dto/book.dto.js";
 import { logger } from "../../config/logger.js";
@@ -194,14 +196,14 @@ export class BookAiService {
 			if (error instanceof ApiError) {
 				throw error;
 			}
-			if (error instanceof Anthropic.AuthenticationError) {
+			if (error instanceof AuthenticationError) {
 				logger.error("AI metadata lookup: Anthropic authentication failed");
 				throw new ApiError(503, "ai_auth_failed");
 			}
-			if (error instanceof Anthropic.RateLimitError) {
+			if (error instanceof RateLimitError) {
 				throw new ApiError(429, "ai_rate_limited");
 			}
-			if (error instanceof Anthropic.APIError) {
+			if (error instanceof APIError) {
 				logger.error("AI metadata lookup failed", { status: error.status, message: error.message });
 				throw new ApiError(502, "ai_upstream_error");
 			}
