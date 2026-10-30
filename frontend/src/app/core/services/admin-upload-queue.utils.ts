@@ -34,7 +34,7 @@ export function createQueueItem(
     id,
     file,
     type,
-    status: 'queued' as const,
+    status: 'checking' as const,
     language: options.language ?? 'en',
     relativePath,
     folder: folderOf(relativePath),

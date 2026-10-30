@@ -12,6 +12,7 @@ import mongoose from "mongoose";
 
 import { ApiError } from "../../utils/api-error.js";
 import { CollectionModel } from "../collections/collection.model.js";
+import { JobModel } from "../jobs/job.model.js";
 import { ProgressModel } from "../progress/progress.model.js";
 import { ListeningSessionModel } from "../stats/listening-session.model.js";
 import { BookModel } from "./book.model.js";
@@ -36,6 +37,13 @@ export interface DuplicateBookDTO {
 	listeners: number;
 	finishedBy: number;
 	bestPercent: number;
+}
+
+export interface UploadPreflightResultDTO {
+	key: string;
+	status: "in_library" | "in_queue" | "new";
+	bookId?: string;
+	title?: string;
 }
 
 export interface DuplicateGroupDTO {
@@ -198,6 +206,38 @@ export class BookDuplicatesService {
 				return { reason: reasonOf.get(root) ?? "same_recording", books: groupBooks, suggestedKeepId: suggested.id };
 			})
 			.sort((a, b) => a.books[0].title.localeCompare(b.books[0].title));
+	}
+
+	// Answers "is this file already here?" for files about to be uploaded, by
+	// the SHA-256 the browser computed. Books keep the checksum of the file they
+	// were uploaded from, and upload jobs carry it in their payload, so an exact
+	// re-upload is caught whether the book is imported or still in the queue.
+	static async preflightUploads(files: Array<{ key: string; sha256: string }>): Promise<UploadPreflightResultDTO[]> {
+		const valid = files.filter((file) => typeof file?.key === "string" && /^[a-f0-9]{64}$/.test(String(file?.sha256 ?? "")));
+		const checksums = Array.from(new Set(valid.map((file) => `sha256:${file.sha256}`)));
+
+		const [books, jobs] = await Promise.all([
+			BookModel.find({ checksum: { $in: checksums } }, { title: 1, checksum: 1 }).lean(),
+			JobModel.find(
+				{
+					type: { $in: ["INGEST", "INGEST_MP3_AS_M4B"] },
+					status: { $in: ["queued", "running", "retrying"] },
+					"payload.checksum": { $in: checksums },
+				},
+				{ "payload.checksum": 1 },
+			).lean(),
+		]);
+		const bookByChecksum = new Map(books.map((book) => [String(book.checksum), book]));
+		const queued = new Set(jobs.map((job) => String((job.payload as { checksum?: string } | undefined)?.checksum)));
+
+		return valid.map((file) => {
+			const checksum = `sha256:${file.sha256}`;
+			const book = bookByChecksum.get(checksum);
+			if (book) {
+				return { key: file.key, status: "in_library", bookId: String(book._id), title: book.title };
+			}
+			return { key: file.key, status: queued.has(checksum) ? "in_queue" : "new" };
+		});
 	}
 
 	// Moves everything that points at the removed copies onto the kept one, then

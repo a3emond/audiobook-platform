@@ -12,9 +12,9 @@ import { JobLogger } from "../utils/job-logger.js";
 import {
   discardReservedBook,
   findDuplicateBook,
-  parkDuplicateSource,
   removeOrphanBooks,
   reserveBookDocument,
+  skipDuplicate,
   type ReservedBook,
 } from "../services/ingest-guard.service.js";
 
@@ -83,30 +83,13 @@ export async function handleIngestJob(
       chapters: extractedMetadata.chapters.length,
     });
 
-    // -----------------------------------------------
-    // 4. Skip books that are already in the catalog
-    // -----------------------------------------------
-    const duplicate = await findDuplicateBook({
-      checksum,
-      title: extractedMetadata.title || "",
-      author: extractedMetadata.artist || "",
-      series: extractedMetadata.album,
-      durationSeconds: Math.round(probeInfo.duration),
-    });
-
-    if (duplicate) {
-      const parkedAt = await parkDuplicateSource(sourcePath);
-      logger.warn("Duplicate skipped", { duplicateOf: duplicate.bookId, title: duplicate.title, reason: duplicate.reason, parkedAt });
-      return { skipped: true, duplicateOf: duplicate.bookId, duplicateTitle: duplicate.title, reason: duplicate.reason, parkedAt };
-    }
-
     const orphansRemoved = await removeOrphanBooks();
     if (orphansRemoved > 0) {
       logger.warn("Removed orphaned books left by earlier failed ingests", { orphansRemoved });
     }
 
     // -----------------------------------------------
-    // 5. Create book document (final path reserved up front) and directory
+    // 4. Create book document (final path reserved up front) and directory
     // -----------------------------------------------
     reserved = await reserveBookDocument({
       checksum,
@@ -143,6 +126,25 @@ export async function handleIngestJob(
     }, "audio.m4b");
 
     const { bookId, bookDir, audioPath } = reserved;
+
+    // -----------------------------------------------
+    // 5. Skip books that are already in the catalog
+    // -----------------------------------------------
+    const duplicate = await findDuplicateBook({
+      reservedId: bookId,
+      checksum,
+      title: extractedMetadata.title || "",
+      author: extractedMetadata.artist || "",
+      series: extractedMetadata.album,
+      durationSeconds: Math.round(probeInfo.duration),
+    });
+
+    if (duplicate) {
+      const skipped = await skipDuplicate(reserved, sourcePath, duplicate);
+      reserved = null;
+      logger.warn("Duplicate skipped", skipped);
+      return skipped;
+    }
 
     await fileService.createDirIfNeeded(bookDir);
 

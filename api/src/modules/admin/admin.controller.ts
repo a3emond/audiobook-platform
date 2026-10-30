@@ -20,6 +20,12 @@ const UPLOADS_DIR = path.join(AUDIOBOOKS_PATH, "_uploads");
 const ALLOWED_EXTENSIONS = new Set([".m4b", ".m4a", ".mp3", ".ogg", ".wav"]);
 const ALLOWED_IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 
+// The browser sends the file's SHA-256 so the upload pre-check can see files
+// that are queued but not imported yet. Ignored unless well formed.
+function clientChecksum(value: unknown): string | null {
+	return typeof value === "string" && /^[a-f0-9]{64}$/.test(value) ? `sha256:${value}` : null;
+}
+
 function sanitizeFilename(filename: string): string {
 	return filename.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
@@ -51,7 +57,7 @@ export class AdminController {
 	}
 
 	static async uploadBook(
-			req: Request<unknown, unknown, { language?: string }> & { file?: Express.Multer.File },
+			req: Request<unknown, unknown, { language?: string; sha256?: string }> & { file?: Express.Multer.File },
 		res: Response<UploadBookResponseDTO>,
 	) {
 		const file = req.file;
@@ -68,7 +74,7 @@ export class AdminController {
 
 		const job = await JobService.enqueueJob(
 			"INGEST",
-				{ sourcePath: targetPath, cleanupSource: true, language },
+				{ sourcePath: targetPath, cleanupSource: true, language, checksum: clientChecksum(req.body.sha256) },
 			3,
 		);
 
@@ -79,7 +85,7 @@ export class AdminController {
 		req: Request<
 			unknown,
 			unknown,
-			{ language?: string }
+			{ language?: string; sha256?: string }
 		> & {
 			files?:
 				| { [name: string]: Express.Multer.File[] }
@@ -116,6 +122,7 @@ export class AdminController {
 				cleanupSource: true,
 				cleanupCover: Boolean(coverPersisted),
 				metadata: { language },
+				checksum: clientChecksum(req.body.sha256),
 			},
 			3,
 		);

@@ -36,7 +36,9 @@ export class AdminUploadPage {
 		const items = this.queue();
 		return {
 			total: items.length,
-			pending: items.filter((item) => item.status === 'queued' || item.status === 'failed').length,
+			pending: items.filter((item) => item.status === 'queued' || item.status === 'failed' || item.status === 'checking').length,
+			checking: items.filter((item) => item.status === 'checking').length,
+			skipped: items.filter((item) => item.status === 'skipped').length,
 			done: items.filter((item) => item.status === 'done').length,
 			failed: items.filter((item) => item.status === 'failed').length,
 			bytes: items.reduce((sum, item) => sum + item.file.size, 0),
@@ -178,8 +180,12 @@ export class AdminUploadPage {
 		this.uploadQueue.clearQueue();
 	}
 
+	removeSkipped(): void {
+		this.uploadQueue.removeItems(this.queue().filter((item) => item.status === 'skipped').map((item) => item.id));
+	}
+
 	startQueue(): void {
-		this.uploadQueue.startQueue();
+		void this.uploadQueue.startQueue();
 	}
 
 	trackedJobs(): AdminJob[] {

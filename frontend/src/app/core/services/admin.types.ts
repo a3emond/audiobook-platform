@@ -258,6 +258,13 @@ export interface DuplicateBook {
   bestPercent: number;
 }
 
+export interface UploadPreflightResult {
+  key: string;
+  status: 'in_library' | 'in_queue' | 'new';
+  bookId?: string;
+  title?: string;
+}
+
 export interface DuplicateGroup {
   reason: 'same_file' | 'same_recording';
   books: DuplicateBook[];

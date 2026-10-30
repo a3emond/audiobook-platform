@@ -35,6 +35,7 @@ router.use(adminAuditMiddleware);
 
 router.get("/overview", AdminController.getOverview);
 router.get("/coverage", AdminController.getCoverage);
+router.post("/books/upload/preflight", BookController.preflightUploads);
 router.post("/books/upload", upload.single("file"), AdminController.uploadBook);
 router.post(
 	"/books/upload/mp3",

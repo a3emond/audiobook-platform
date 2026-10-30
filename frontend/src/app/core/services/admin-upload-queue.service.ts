@@ -33,6 +33,7 @@
  */
 import { Injectable, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
+import { createSHA256 } from 'hash-wasm';
 
 import { AdminService } from './admin.service';
 import type { AdminJob } from './admin.types';
@@ -54,9 +55,14 @@ export interface UploadQueueItem {
 	id: string;
 	file: File;
 	type: 'mp3' | 'audio';
-	status: 'queued' | 'uploading' | 'done' | 'failed';
+	// checking: fingerprinting the file and asking the server whether it has it.
+	// skipped: the server already has this exact file, or it is queued twice.
+	status: 'checking' | 'queued' | 'skipped' | 'uploading' | 'done' | 'failed';
 	jobId?: string;
 	error?: string;
+	sha256?: string;
+	skipReason?: string;
+	checkPercent?: number;
 	language: 'fr' | 'en';
 	mp3?: Mp3QueueMetadata;
 	relativePath: string;
@@ -84,6 +90,7 @@ export class AdminUploadQueueService {
 	readonly jobsById = this.jobsByIdState.asReadonly();
 
 	private jobsStreamHandle?: { stop: () => void };
+	private checkRun: Promise<void> | null = null;
 	private readonly storageKey = 'audiobook:upload-queue:metadata';
 
 	constructor(private readonly admin: AdminService) {
@@ -147,6 +154,7 @@ export class AdminUploadQueueService {
 		if (next.length > 0) {
 			this.queueState.update((queued) => [...queued, ...next]);
 			this.errorState.set(null);
+			void this.checkPending();
 		}
 		return { added: next.length, skipped: selection.skipped, duplicates: selection.duplicates };
 	}
@@ -198,21 +206,74 @@ export class AdminUploadQueueService {
 	}
 
 	// Queue processing is serialized because the worker/backend already handles the heavy parallelism.
-	startQueue(): void {
+	// Files still being checked are finished first so known duplicates are never sent.
+	async startQueue(): Promise<void> {
 		if (this.loadingState()) {
-			return;
-		}
-
-		const queue = this.queueState();
-		const nextIndex = queue.findIndex((item) => item.status === 'queued' || item.status === 'failed');
-		if (nextIndex < 0) {
 			return;
 		}
 
 		this.loadingState.set(true);
 		this.errorState.set(null);
 		this.lastQueuedJobIdState.set(null);
+		await this.checkPending();
+
+		const nextIndex = this.queueState().findIndex((item) => item.status === 'queued' || item.status === 'failed');
+		if (nextIndex < 0) {
+			this.loadingState.set(false);
+			return;
+		}
 		this.uploadQueueItem(nextIndex);
+	}
+
+	private checkPending(): Promise<void> {
+		this.checkRun ??= this.runChecks().finally(() => {
+			this.checkRun = null;
+		});
+		return this.checkRun;
+	}
+
+	// Fingerprints new files one at a time (SHA-256, the same checksum the worker
+	// stores on each book) and skips any the server already has, so a whole
+	// folder can be re-dropped without picking out what was imported before.
+	private async runChecks(): Promise<void> {
+		for (;;) {
+			const item = this.queueState().find((entry) => entry.status === 'checking');
+			if (!item) {
+				return;
+			}
+
+			let sha256: string;
+			try {
+				sha256 = await sha256OfFile(item.file, (percent) => this.patchItem(item.id, { checkPercent: percent }));
+			} catch {
+				// Unreadable here means the upload would fail too; let it try and report.
+				this.patchItem(item.id, { status: 'queued', checkPercent: undefined });
+				continue;
+			}
+
+			const twin = this.queueState().find(
+				(entry) => entry.id !== item.id && entry.sha256 === sha256 && entry.status !== 'skipped',
+			);
+			if (twin) {
+				this.patchItem(item.id, { sha256, status: 'skipped', skipReason: `Same file as ${twin.relativePath}`, checkPercent: undefined });
+				continue;
+			}
+
+			const verdict = await firstValueFrom(this.admin.preflightUploads([{ key: item.id, sha256 }]))
+				.then((response) => response.results[0])
+				.catch(() => undefined);
+			const skipReason =
+				verdict?.status === 'in_library'
+					? `Already in library${verdict.title ? `: ${verdict.title}` : ''}`
+					: verdict?.status === 'in_queue'
+						? 'Already uploaded, waiting to be imported'
+						: undefined;
+			this.patchItem(item.id, { sha256, status: skipReason ? 'skipped' : 'queued', skipReason, checkPercent: undefined });
+		}
+	}
+
+	private patchItem(itemId: string, patch: Partial<UploadQueueItem>): void {
+		this.queueState.update((items) => patchQueueItemById(items, itemId, (item) => ({ ...item, ...patch })));
 	}
 
 	trackedJobs(): AdminJob[] {
@@ -231,7 +292,7 @@ export class AdminUploadQueueService {
 		}
 
 		const item = items[index];
-		if (!item || item.status === 'done') {
+		if (!item || item.status === 'done' || item.status === 'skipped') {
 			this.uploadQueueItem(index + 1);
 			return;
 		}
@@ -240,8 +301,8 @@ export class AdminUploadQueueService {
 		const isMp3 = item.type === 'mp3';
 
 		const request = isMp3
-			? this.admin.uploadMp3AsM4b(item.file, item.language, item.mp3?.coverFile ?? null)
-			: this.admin.uploadBook(item.file, item.language);
+			? this.admin.uploadMp3AsM4b(item.file, item.language, item.mp3?.coverFile ?? null, item.sha256)
+			: this.admin.uploadBook(item.file, item.language, item.sha256);
 
 		request.subscribe({
 			next: (response) => {
@@ -306,4 +367,17 @@ export class AdminUploadQueueService {
 				.catch(() => undefined);
 		}
 	}
+}
+
+const HASH_CHUNK_BYTES = 8 * 1024 * 1024;
+
+async function sha256OfFile(file: File, onProgress: (percent: number) => void): Promise<string> {
+	const hasher = await createSHA256();
+	hasher.init();
+	for (let offset = 0; offset < file.size; offset += HASH_CHUNK_BYTES) {
+		const chunk = await file.slice(offset, offset + HASH_CHUNK_BYTES).arrayBuffer();
+		hasher.update(new Uint8Array(chunk));
+		onProgress(Math.floor(((offset + chunk.byteLength) / file.size) * 100));
+	}
+	return hasher.digest('hex');
 }

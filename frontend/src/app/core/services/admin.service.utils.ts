@@ -20,8 +20,11 @@ import type { RealtimeService } from './realtime.service';
 import type { AdminJob, JobEventStreamHandle } from './admin.types';
 
 // Admin service helpers: isolate form-data and realtime stream wiring from endpoint definitions.
-export function buildBookUploadForm(file: File, language: 'fr' | 'en', coverFile?: File | null): FormData {
+export function buildBookUploadForm(file: File, language: 'fr' | 'en', coverFile?: File | null, sha256?: string): FormData {
   const form = new FormData();
+  if (sha256) {
+    form.append('sha256', sha256);
+  }
   form.append('file', file);
   form.append('language', language);
 

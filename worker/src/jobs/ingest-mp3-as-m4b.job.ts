@@ -13,7 +13,7 @@ import { JOB_PRIORITY_MIN } from "../queue/job.types.js";
 import {
 	discardReservedBook,
 	findDuplicateBook,
-	parkDuplicateSource,
+	skipDuplicate,
 	removeOrphanBooks,
 	reserveBookDocument,
 	type ReservedBook,
@@ -150,22 +150,6 @@ export async function handleIngestMp3AsM4BJob(
 		// -----------------------------------------------
 		// Step 5: Create book document (pending sanitize)
 		// -----------------------------------------------
-		const duplicate = await findDuplicateBook({
-			checksum,
-			title,
-			author,
-			series,
-			durationSeconds: Math.round(probeInfo.duration),
-		});
-		if (duplicate) {
-			const parkedAt = await parkDuplicateSource(payload.sourcePath);
-			if (payload.cleanupCover && payload.coverPath) {
-				await fileService.deleteFile(payload.coverPath).catch(() => undefined);
-			}
-			logger.warn("Duplicate skipped", { duplicateOf: duplicate.bookId, title: duplicate.title, reason: duplicate.reason, parkedAt });
-			return { skipped: true, duplicateOf: duplicate.bookId, duplicateTitle: duplicate.title, reason: duplicate.reason, parkedAt };
-		}
-
 		const orphansRemoved = await removeOrphanBooks();
 		if (orphansRemoved > 0) {
 			logger.warn("Removed orphaned books left by earlier failed ingests", { orphansRemoved });
@@ -200,6 +184,24 @@ export async function handleIngestMp3AsM4BJob(
 		}, "audio.mp3");
 		const { bookId, bookDir, audioPath } = reserved;
 		logger.info("Book document created", { bookId: String(bookId) });
+
+		const duplicate = await findDuplicateBook({
+			reservedId: bookId,
+			checksum,
+			title,
+			author,
+			series,
+			durationSeconds: Math.round(probeInfo.duration),
+		});
+		if (duplicate) {
+			const skipped = await skipDuplicate(reserved, payload.sourcePath, duplicate);
+			reserved = null;
+			if (payload.cleanupCover && payload.coverPath) {
+				await fileService.deleteFile(payload.coverPath).catch(() => undefined);
+			}
+			logger.warn("Duplicate skipped", skipped);
+			return skipped;
+		}
 
 		// -----------------------------------------------
 		// Step 6: Copy MP3 to final location

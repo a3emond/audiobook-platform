@@ -21,7 +21,8 @@ services:
     depends_on:
       - db
     volumes:
-      - /data/audiobooks:${AUDIOBOOKS_PATH}
+      # Library lives on the 2 TB SSD; the system NVMe is too slow for it.
+      - /mnt/ssd/audiobooks:${AUDIOBOOKS_PATH}
     networks:
       - app_net
 
@@ -34,7 +35,7 @@ services:
     depends_on:
       - db
     volumes:
-      - /data/audiobooks:${AUDIOBOOKS_PATH}
+      - /mnt/ssd/audiobooks:${AUDIOBOOKS_PATH}
     networks:
       - app_net
 

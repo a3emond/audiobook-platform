@@ -82,6 +82,11 @@ export class BookController {
 		res.status(200).json(result);
 	}
 
+	static async preflightUploads(req: Request<unknown, unknown, { files?: Array<{ key: string; sha256: string }> }>, res: Response) {
+		const files = Array.isArray(req.body?.files) ? req.body.files.slice(0, 2000) : [];
+		res.status(200).json({ results: await BookDuplicatesService.preflightUploads(files) });
+	}
+
 	static async aiStatus(_req: Request, res: Response) {
 		res.status(200).json({ enabled: BookAiService.isEnabled() });
 	}

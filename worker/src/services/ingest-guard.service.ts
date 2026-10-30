@@ -86,7 +86,12 @@ export function tokenOverlap(left: Set<string>, right: Set<string>): number {
 // Same file, or the same book in another file: duration within 0.2% (at
 // least 30s, a re-upload of the same recording matches to the second), no
 // conflicting book numbers, and a matching title (or author plus some title).
+//
+// Called after the book is reserved, and only books reserved earlier count:
+// when the same book is uploaded twice in one batch and both ingests run at
+// once, the first reservation wins and the second one skips.
 export async function findDuplicateBook(candidate: {
+	reservedId: mongoose.Types.ObjectId;
 	checksum: string;
 	title: string;
 	author: string;
@@ -94,8 +99,9 @@ export async function findDuplicateBook(candidate: {
 	durationSeconds: number;
 }): Promise<DuplicateMatch | null> {
 	const books = booksCollection();
+	const earlier = { _id: { $lt: candidate.reservedId } };
 
-	const sameFile = await books.findOne({ checksum: candidate.checksum }, { projection: { title: 1 } });
+	const sameFile = await books.findOne({ ...earlier, checksum: candidate.checksum }, { projection: { title: 1 } });
 	if (sameFile) {
 		return { bookId: String(sameFile._id), title: String(sameFile.title), reason: "checksum" };
 	}
@@ -103,7 +109,7 @@ export async function findDuplicateBook(candidate: {
 	const tolerance = Math.max(30, candidate.durationSeconds * 0.002);
 	const nearby = await books
 		.find(
-			{ duration: { $gte: candidate.durationSeconds - tolerance, $lte: candidate.durationSeconds + tolerance } },
+			{ ...earlier, duration: { $gte: candidate.durationSeconds - tolerance, $lte: candidate.durationSeconds + tolerance } },
 			{ projection: { title: 1, author: 1, series: 1, seriesIndex: 1 } },
 		)
 		.limit(50)
@@ -135,6 +141,17 @@ export async function parkDuplicateSource(sourcePath: string): Promise<string> {
 	const target = path.join(DUPLICATES_DIR, path.basename(sourcePath));
 	await fileService.moveFile(sourcePath, target);
 	return target;
+}
+
+// Drops the reservation and parks the upload; returns the job output.
+export async function skipDuplicate(
+	reserved: ReservedBook,
+	sourcePath: string,
+	duplicate: DuplicateMatch,
+): Promise<Record<string, unknown>> {
+	await discardReservedBook(reserved);
+	const parkedAt = await parkDuplicateSource(sourcePath);
+	return { skipped: true, duplicateOf: duplicate.bookId, duplicateTitle: duplicate.title, reason: duplicate.reason, parkedAt };
 }
 
 export async function removeOrphanBooks(): Promise<number> {

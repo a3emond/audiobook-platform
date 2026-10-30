@@ -45,6 +45,7 @@ import type {
   AiMetadataSuggestion,
   MetadataReportImportResult,
   DuplicateGroup,
+  UploadPreflightResult,
   BulkBookChanges,
   BulkBookResult,
   ListJobsResponse,
@@ -174,18 +175,27 @@ export class AdminService {
   }
 
   // Uploads enqueue worker jobs rather than completing synchronously in the request.
-  uploadBook(file: File, language: 'fr' | 'en'): Observable<{ jobId: string }> {
-    return this.api.postFormData<{ jobId: string }>('/admin/books/upload', buildBookUploadForm(file, language));
+  uploadBook(file: File, language: 'fr' | 'en', sha256?: string): Observable<{ jobId: string }> {
+    return this.api.postFormData<{ jobId: string }>('/admin/books/upload', buildBookUploadForm(file, language, null, sha256));
   }
 
   uploadMp3AsM4b(
     file: File,
     language: 'fr' | 'en',
     coverFile?: File | null,
+    sha256?: string,
   ): Observable<{ jobId: string }> {
     return this.api.postFormData<{ jobId: string }>(
       '/admin/books/upload/mp3',
-      buildBookUploadForm(file, language, coverFile),
+      buildBookUploadForm(file, language, coverFile, sha256),
+    );
+  }
+
+  // Which of these files (by SHA-256) are already imported or waiting in the queue.
+  preflightUploads(files: Array<{ key: string; sha256: string }>): Observable<{ results: UploadPreflightResult[] }> {
+    return this.api.post<{ results: UploadPreflightResult[] }, { files: Array<{ key: string; sha256: string }> }>(
+      '/admin/books/upload/preflight',
+      { files },
     );
   }
 

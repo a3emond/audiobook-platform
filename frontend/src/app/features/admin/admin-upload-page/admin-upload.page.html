@@ -48,11 +48,20 @@
 			@if (counts().total > 0) {
 				<div class="actions">
 					<button type="button" class="btn" [disabled]="counts().pending === 0 || loading()" (click)="startQueue()">
-						{{ loading() ? 'Uploading…' : 'Upload ' + counts().pending + ' book' + (counts().pending === 1 ? '' : 's') }}
+						{{ loading() ? (counts().checking > 0 ? 'Checking…' : 'Uploading…') : 'Upload ' + counts().pending + ' book' + (counts().pending === 1 ? '' : 's') }}
 					</button>
 					<button type="button" class="btn btn-secondary" [disabled]="loading()" (click)="clearQueue()">Clear queue</button>
+					@if (counts().skipped > 0) {
+						<button type="button" class="btn btn-secondary" [disabled]="loading()" (click)="removeSkipped()">Remove {{ counts().skipped }} skipped</button>
+					}
 					<span class="muted summary">
 						{{ counts().total }} files · {{ formatSize(counts().bytes) }} · {{ counts().done }} uploaded
+						@if (counts().checking > 0) {
+							· checking {{ counts().checking }} against the library
+						}
+						@if (counts().skipped > 0) {
+							· {{ counts().skipped }} already on the server
+						}
 						@if (counts().failed > 0) {
 							· <span class="error">{{ counts().failed }} failed</span>
 						}
@@ -111,7 +120,12 @@
 											}
 										</td>
 										<td class="status-cell">
-											<span class="status" [attr.data-status]="item.status">{{ item.status }}</span>
+											<span class="status" [attr.data-status]="item.status">
+												{{ item.status === 'checking' ? 'checking ' + (item.checkPercent ?? 0) + '%' : item.status }}
+											</span>
+											@if (item.skipReason) {
+												<span class="muted small">{{ item.skipReason }}</span>
+											}
 											@if (item.error) {
 												<span class="error small">{{ item.error }}</span>
 											}
