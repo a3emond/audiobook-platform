@@ -6,9 +6,13 @@
  */
 import { type Request, type Response } from "express";
 
+import { ApiError } from "../../utils/api-error.js";
+import { BookAiService } from "./book-ai.service.js";
+import { BookReportService } from "./book-report.service.js";
+import { parseListBooksQuery } from "./book.query.js";
 import { BookService } from "./book.service.js";
 import type {
-	ListBooksQueryDTO,
+	BulkBookUpdateDTO,
 	UpdateBookMetadataDTO,
 	UpdateChaptersDTO,
 } from "../../dto/book.dto.js";
@@ -18,24 +22,62 @@ export class BookController {
 		req: Request<unknown, unknown, unknown, Record<string, string | undefined>>,
 		res: Response,
 	) {
-		const filters: ListBooksQueryDTO = {
-			q: req.query.q,
-			title: req.query.title,
-			author: req.query.author,
-			series: req.query.series,
-			tags: req.query.tags,
-			genre: req.query.genre,
-			language: req.query.language,
-			sort:
-				req.query.sort === "alphabetical" || req.query.sort === "activity" || req.query.sort === "relevance"
-					? req.query.sort
-					: undefined,
-			limit: req.query.limit ? Number(req.query.limit) : undefined,
-			offset: req.query.offset ? Number(req.query.offset) : undefined,
-		};
+		const result = await BookService.listBooks(parseListBooksQuery(req.query));
 
-		const result = await BookService.listBooks(filters);
+		res.status(200).json(result);
+	}
 
+	static async getFacets(
+		req: Request<unknown, unknown, unknown, Record<string, string | undefined>>,
+		res: Response,
+	) {
+		const result = await BookService.getFacets(parseListBooksQuery(req.query));
+		res.status(200).json(result);
+	}
+
+	static async bulkUpdate(req: Request<unknown, unknown, BulkBookUpdateDTO>, res: Response) {
+		const result = await BookService.bulkUpdate(req.body);
+		res.status(200).json(result);
+	}
+
+	static async exportReport(
+		req: Request<unknown, unknown, unknown, Record<string, string | undefined>>,
+		res: Response,
+	) {
+		const language = req.query.language === "en" || req.query.language === "fr" ? req.query.language : undefined;
+		const report = await BookReportService.buildReport({ includeAll: req.query.all === "true", language });
+		const stamp = report.generatedAt.slice(0, 10);
+		res.setHeader("Content-Disposition", `attachment; filename="metadata-report-${stamp}.json"`);
+		res.status(200).type("application/json").send(JSON.stringify(report, null, 2));
+	}
+
+	// The filled report arrives as an uploaded file so large reports are not
+	// constrained by the global JSON body limit.
+	static async importReport(
+		req: Request<unknown, unknown, { dryRun?: string }> & { file?: Express.Multer.File },
+		res: Response,
+	) {
+		if (!req.file) {
+			throw new ApiError(400, "report_file_required");
+		}
+
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(req.file.buffer.toString("utf8").replace(/^\uFEFF/, ""));
+		} catch {
+			throw new ApiError(400, "report_json_invalid");
+		}
+
+		const result = await BookReportService.importReport(parsed, { dryRun: req.body.dryRun !== "false" });
+		res.status(200).json(result);
+	}
+
+	static async aiStatus(_req: Request, res: Response) {
+		res.status(200).json({ enabled: BookAiService.isEnabled() });
+	}
+
+	static async aiSuggest(req: Request<{ bookId?: string }>, res: Response) {
+		const result = await BookAiService.suggestMetadata(String(req.params.bookId));
 		res.status(200).json(result);
 	}
 

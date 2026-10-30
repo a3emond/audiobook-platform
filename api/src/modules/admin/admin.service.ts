@@ -104,6 +104,42 @@ export class AdminService {
 				},
 				{
 					method: "GET",
+					path: "/api/admin/books/facets",
+					area: "books",
+					description: "Filter facets and metadata-gap / health counts for the books table",
+				},
+				{
+					method: "POST",
+					path: "/api/admin/books/bulk",
+					area: "books",
+					description: "Bulk metadata update or bulk delete for selected books",
+				},
+				{
+					method: "GET",
+					path: "/api/admin/books/metadata-report",
+					area: "books",
+					description: "Download a fillable JSON report of books with metadata problems",
+				},
+				{
+					method: "POST",
+					path: "/api/admin/books/metadata-report",
+					area: "books",
+					description: "Upload a filled metadata report; dryRun previews, otherwise applies the changes",
+				},
+				{
+					method: "GET",
+					path: "/api/admin/books/ai/status",
+					area: "books",
+					description: "Whether AI metadata suggestions are configured",
+				},
+				{
+					method: "POST",
+					path: "/api/admin/books/:bookId/ai-suggest",
+					area: "books",
+					description: "Research a book on the web with Claude and return metadata suggestions",
+				},
+				{
+					method: "GET",
 					path: "/api/admin/books/:bookId",
 					area: "books",
 					description: "Read one book for admin editing flows",

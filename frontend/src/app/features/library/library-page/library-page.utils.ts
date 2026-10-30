@@ -3,12 +3,48 @@ import { coverUrlForBook } from '../../../core/utils/cover-url';
 import type {
   CollectionDerivation,
   CollectionPreviewUrl,
+  LengthFilter,
+  ListenStatusFilter,
   ProgressRow,
   SeriesRail,
 } from './library-page.types';
 
 export const AUTO_ACTIVITY_COLLECTION_ID = 'auto:listened';
 export const LATEST_BOOKS_LIMIT = 20;
+export const CONTINUE_LISTENING_LIMIT = 12;
+export const GRID_PAGE_SIZE = 48;
+
+// Duration buckets for the length filter, in seconds.
+export const LENGTH_RANGES: Record<Exclude<LengthFilter, 'any'>, { min?: number; max?: number }> = {
+  short: { max: 5 * 3600 },
+  medium: { min: 5 * 3600, max: 15 * 3600 },
+  long: { min: 15 * 3600 },
+};
+
+export function matchesListenStatus(
+  status: ListenStatusFilter,
+  progress: Pick<ProgressRow, 'completed' | 'positionSeconds'> | undefined,
+): boolean {
+  switch (status) {
+    case 'finished':
+      return progress?.completed === true;
+    case 'in_progress':
+      return !!progress && !progress.completed && progress.positionSeconds > 0;
+    case 'unstarted':
+      return !progress || (!progress.completed && progress.positionSeconds <= 0);
+    default:
+      return true;
+  }
+}
+
+// Most recently listened unfinished books, for the "Continue listening" rail.
+export function inProgressBookIds(progress: ProgressRow[], limit: number): string[] {
+  return progress
+    .filter((item) => !item.completed && item.positionSeconds > 0)
+    .sort((a, b) => (b.lastListenedAt ? Date.parse(b.lastListenedAt) : 0) - (a.lastListenedAt ? Date.parse(a.lastListenedAt) : 0))
+    .slice(0, limit)
+    .map((item) => item.bookId);
+}
 
 // Library page helpers: keep collection and series data shaping outside the component class.
 export function normalizeSeriesName(seriesName: string): string {

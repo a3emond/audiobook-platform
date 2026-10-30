@@ -28,3 +28,6 @@ export interface CollectionDerivation {
   collections: Collection[];
   filteredCollections: Collection[];
 }
+export type ListenStatusFilter = 'all' | 'unstarted' | 'in_progress' | 'finished';
+export type LengthFilter = 'any' | 'short' | 'medium' | 'long';
+export type LibraryView = 'browse' | 'grid';

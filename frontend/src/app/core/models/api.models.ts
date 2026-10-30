@@ -59,6 +59,7 @@ export interface Book {
   author: string;
   duration: number;
   version?: number;
+  createdAt?: string;
   updatedAt?: string;
   language?: 'fr' | 'en' | string | null;
   coverPath?: string | null;
@@ -76,6 +77,27 @@ export interface Book {
 
 export interface ListBooksResponse extends PaginationMeta {
   books: Book[];
+}
+
+export type BookSort = 'recent' | 'oldest' | 'title' | 'author' | 'series' | 'duration' | 'duration_desc' | 'updated';
+export type SeriesSort = 'activity' | 'recent' | 'relevance' | 'alphabetical';
+export type BookMissingField = 'cover' | 'description' | 'series' | 'genre' | 'tags';
+export type BookHealthFilter = 'sync_error' | 'dirty' | 'processing' | 'sanitize_failed';
+
+export interface FacetCount {
+  value: string;
+  count: number;
+}
+
+export interface BookFacets {
+  total: number;
+  genres: FacetCount[];
+  tags: FacetCount[];
+  authors: FacetCount[];
+  series: FacetCount[];
+  languages: FacetCount[];
+  missing: Record<BookMissingField, number>;
+  health: Record<BookHealthFilter, number>;
 }
 
 export interface Progress {
@@ -159,6 +181,7 @@ export interface SeriesSummary {
   matchedTags?: string[];
   relevanceScore?: number;
   lastUpdatedAt?: string;
+  lastAddedAt?: string;
   coverPath?: string | null;
 }
 

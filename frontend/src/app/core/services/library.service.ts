@@ -14,6 +14,7 @@
  *
  * Methods:
  *   listBooks(filters?)             — Observable<ListBooksResponse>
+ *   getBookFacets(filters?)         — Observable<BookFacets>
  *   getBook(bookId)                 — Observable<Book>
  *   listSeries(filters?)            — Observable<ListSeriesResponse>
  *   getSeries(seriesName)           — Observable<SeriesDetail>
@@ -29,12 +30,15 @@ import { Observable } from 'rxjs';
 
 import type {
   Book,
+  BookFacets,
+  BookSort,
   Collection,
   ListBooksResponse,
   ListCollectionsResponse,
   ListEditorialBlocksResponse,
   ListSeriesResponse,
   SeriesDetail,
+  SeriesSort,
 } from '../models/api.models';
 import { ApiService } from './api.service';
 
@@ -46,7 +50,9 @@ export interface BookFilters {
   tags?: string;
   genre?: string;
   language?: string;
-  sort?: 'alphabetical' | 'activity' | 'relevance';
+  sort?: BookSort | SeriesSort;
+  minDuration?: number;
+  maxDuration?: number;
   limit?: number;
   offset?: number;
 }
@@ -61,6 +67,10 @@ export class LibraryService {
   // Public catalog queries.
   listBooks(filters: BookFilters = {}): Observable<ListBooksResponse> {
     return this.api.get<ListBooksResponse>('/books', { params: this.withDefaultLanguage(filters) });
+  }
+
+  getBookFacets(filters: Pick<BookFilters, 'q' | 'language'> = {}): Observable<BookFacets> {
+    return this.api.get<BookFacets>('/books/facets', { params: this.withDefaultLanguage(filters) });
   }
 
   getBook(bookId: string): Observable<Book> {

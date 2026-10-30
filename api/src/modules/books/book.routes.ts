@@ -11,6 +11,7 @@ import { BookController } from "./book.controller.js";
 const router = Router();
 
 router.get("/", BookController.listBooks);
+router.get("/facets", BookController.getFacets);
 router.get("/:bookId", BookController.getBook);
 
 export default router;

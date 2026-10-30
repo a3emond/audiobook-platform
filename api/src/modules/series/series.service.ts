@@ -139,6 +139,13 @@ function summarizeSeries(seriesName: string, books: BookDocument[]): SeriesListI
 		.filter((value): value is Date => value instanceof Date)
 		.sort((left, right) => right.getTime() - left.getTime())[0];
 
+	// Date the newest book joined the series. Unlike updatedAt this is not
+	// bumped by background jobs, so it is what the library orders rails by.
+	const lastAddedAt = books
+		.map((book) => book.createdAt)
+		.filter((value): value is Date => value instanceof Date)
+		.sort((left, right) => right.getTime() - left.getTime())[0];
+
 	return {
 		id: buildSeriesId(seriesName),
 		name: seriesName,
@@ -148,6 +155,7 @@ function summarizeSeries(seriesName: string, books: BookDocument[]): SeriesListI
 		genres,
 		tags,
 		lastUpdatedAt: lastUpdatedAt ? lastUpdatedAt.toISOString() : undefined,
+		lastAddedAt: lastAddedAt ? lastAddedAt.toISOString() : undefined,
 		coverPath: books.find((book) => book.coverPath)?.coverPath ?? null,
 	};
 }
@@ -260,13 +268,13 @@ export class SeriesService {
 			});
 
 		allSeries.sort((left, right) => {
-			if (sortMode === "alphabetical") {
+			if (sortMode === "alphabetical" || sortMode === "title") {
 				return left.name.localeCompare(right.name, undefined, { sensitivity: "base" });
 			}
 
-			if (sortMode === "activity") {
-				const leftTs = left.lastUpdatedAt ? Date.parse(left.lastUpdatedAt) : 0;
-				const rightTs = right.lastUpdatedAt ? Date.parse(right.lastUpdatedAt) : 0;
+			if (sortMode === "activity" || sortMode === "recent") {
+				const leftTs = left.lastAddedAt ? Date.parse(left.lastAddedAt) : 0;
+				const rightTs = right.lastAddedAt ? Date.parse(right.lastAddedAt) : 0;
 				if (leftTs !== rightTs) {
 					return rightTs - leftTs;
 				}

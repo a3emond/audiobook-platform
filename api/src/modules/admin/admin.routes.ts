@@ -18,6 +18,11 @@ import { adminAuditMiddleware } from "./admin-audit.middleware.js";
 
 const MAX_UPLOAD_BYTES = Number(process.env.UPLOAD_MAX_FILE_SIZE_BYTES || 2 * 1024 * 1024 * 1024);
 
+const reportUpload = multer({
+	storage: multer.memoryStorage(),
+	limits: { fileSize: 20 * 1024 * 1024 },
+});
+
 const router = Router();
 const upload = multer({
 	storage: multer.memoryStorage(),
@@ -49,7 +54,13 @@ router.delete("/editorial/blocks/:blockId", EditorialController.deleteBlock);
 router.put("/editorial/blocks/:blockId/items", EditorialController.replaceItems);
 
 router.get("/books", BookController.listBooks);
+router.get("/books/facets", BookController.getFacets);
+router.post("/books/bulk", BookController.bulkUpdate);
+router.get("/books/metadata-report", BookController.exportReport);
+router.post("/books/metadata-report", reportUpload.single("file"), BookController.importReport);
+router.get("/books/ai/status", BookController.aiStatus);
 router.get("/books/:bookId", BookController.getBook);
+router.post("/books/:bookId/ai-suggest", BookController.aiSuggest);
 router.patch("/books/:bookId/metadata", BookController.updateMetadata);
 router.patch("/books/:bookId/chapters", BookController.updateChapters);
 router.post("/books/:bookId/extract-cover", BookController.extractCover);

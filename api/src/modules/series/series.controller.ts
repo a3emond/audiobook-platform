@@ -6,41 +6,16 @@
  */
 import { type Request, type Response } from "express";
 
-import type { ListBooksQueryDTO } from "../../dto/book.dto.js";
+import { parseListBooksQuery } from "../books/book.query.js";
 import { SeriesService } from "./series.service.js";
 
-function parseFilters(query: Record<string, string | undefined>): ListBooksQueryDTO {
-	const tagsRaw = query.tags;
-	const tags = tagsRaw
-		? tagsRaw
-				.split(",")
-				.map((value) => value.trim())
-				.filter(Boolean)
-		: undefined;
-
-	return {
-		q: query.q,
-		title: query.title,
-		author: query.author,
-		series: query.series,
-		tags,
-		genre: query.genre,
-		language: query.language,
-		sort:
-			query.sort === "alphabetical" || query.sort === "activity" || query.sort === "relevance"
-				? query.sort
-				: undefined,
-		limit: query.limit ? Number(query.limit) : undefined,
-		offset: query.offset ? Number(query.offset) : undefined,
-	};
-}
 
 export class SeriesController {
 	static async listSeries(
 		req: Request<unknown, unknown, unknown, Record<string, string | undefined>>,
 		res: Response,
 	) {
-		const result = await SeriesService.listSeries(parseFilters(req.query));
+		const result = await SeriesService.listSeries(parseListBooksQuery(req.query));
 		res.status(200).json(result);
 	}
 
@@ -53,7 +28,7 @@ export class SeriesController {
 		>,
 		res: Response,
 	) {
-		const filters = parseFilters(req.query);
+		const filters = parseListBooksQuery(req.query);
 		const result = await SeriesService.getSeriesByName(
 			String(req.params.seriesName),
 			{

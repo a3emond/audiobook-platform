@@ -12,6 +12,7 @@ export interface SeriesListItemDTO {
 	matchedTags?: string[];
 	relevanceScore?: number;
 	lastUpdatedAt?: string;
+	lastAddedAt?: string;
 	coverPath?: string | null;
 }
 

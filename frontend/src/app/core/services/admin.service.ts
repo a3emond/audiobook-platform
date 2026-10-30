@@ -24,6 +24,7 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
+import type { BookFacets } from '../models/api.models';
 import { ApiService } from './api.service';
 import { RealtimeService } from './realtime.service';
 import type {
@@ -40,6 +41,11 @@ import type {
   ListAdminUserSessionsResponse,
   ListAdminUsersResponse,
   ListBooksResponse,
+  AdminBookQuery,
+  AiMetadataSuggestion,
+  MetadataReportImportResult,
+  BulkBookChanges,
+  BulkBookResult,
   ListJobsResponse,
   SearchLogsResponse,
   ReplaceAdminEditorialItemsPayload,
@@ -78,6 +84,45 @@ export class AdminService {
   // Catalog and dashboard queries.
   listAdminBooks(limit = 20, offset = 0): Observable<ListBooksResponse> {
     return this.api.get<ListBooksResponse>('/admin/books', { params: { limit, offset } });
+  }
+
+  // Server-side filtered/sorted listing for the books table.
+  searchAdminBooks(query: AdminBookQuery): Observable<ListBooksResponse> {
+    return this.api.get<ListBooksResponse>('/admin/books', { params: query });
+  }
+
+  getBookFacets(query: Pick<AdminBookQuery, 'q' | 'language'> = {}): Observable<BookFacets> {
+    return this.api.get<BookFacets>('/admin/books/facets', { params: query });
+  }
+
+  bulkUpdateBooks(bookIds: string[], changes: BulkBookChanges): Observable<BulkBookResult> {
+    return this.api.post<BulkBookResult, unknown>('/admin/books/bulk', { bookIds, action: 'update', changes });
+  }
+
+  bulkDeleteBooks(bookIds: string[]): Observable<BulkBookResult> {
+    return this.api.post<BulkBookResult, unknown>('/admin/books/bulk', { bookIds, action: 'delete' });
+  }
+
+  // The report is plain JSON; the caller turns it into a downloadable file.
+  exportMetadataReport(options: { all?: boolean; language?: string } = {}): Observable<unknown> {
+    return this.api.get<unknown>('/admin/books/metadata-report', {
+      params: { all: options.all ? 'true' : undefined, language: options.language || undefined },
+    });
+  }
+
+  importMetadataReport(file: File, dryRun: boolean): Observable<MetadataReportImportResult> {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('dryRun', String(dryRun));
+    return this.api.postFormData<MetadataReportImportResult>('/admin/books/metadata-report', form);
+  }
+
+  getAiStatus(): Observable<{ enabled: boolean }> {
+    return this.api.get<{ enabled: boolean }>('/admin/books/ai/status');
+  }
+
+  suggestBookMetadata(bookId: string): Observable<AiMetadataSuggestion> {
+    return this.api.post<AiMetadataSuggestion, Record<string, never>>(`/admin/books/${bookId}/ai-suggest`, {});
   }
 
   getOverview(): Observable<AdminOverview> {

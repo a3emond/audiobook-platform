@@ -1,12 +1,14 @@
 import { CommonModule } from '@angular/common';
-import { AfterViewInit, Component, DestroyRef, ElementRef, OnDestroy, OnInit, QueryList, ViewChildren, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, DestroyRef, ElementRef, HostListener, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
-import { catchError, forkJoin, of, skip } from 'rxjs';
+import { ActivatedRoute, Router, RouterLink, type Params } from '@angular/router';
+import { Subscription, catchError, forkJoin, map, of, skip } from 'rxjs';
 
 import type {
   Book,
+  BookFacets,
+  BookSort,
   Collection,
   EditorialBlock,
   EditorialBlockItem,
@@ -19,25 +21,33 @@ import { LibraryProgressService } from '../../../core/services/library-progress.
 import { ProgressService } from '../../../core/services/progress.service';
 import { SettingsService } from '../../../core/services/settings.service';
 import { coverUrlForBook } from '../../../core/utils/cover-url';
-import { ContentHelpComponent } from '../../../shared/ui/content-help/content-help.component';
 import { FieldHelpComponent } from '../../../shared/ui/field-help/field-help.component';
 import { BookCardComponent } from '../book-card/book-card.component';
 import { CollectionCardComponent } from '../collection-card/collection-card.component';
 import { persistPreferredLocale } from '../../../app.data';
-import type { RailState, SeriesRail } from './library-page.types';
+import type { LengthFilter, LibraryView, ListenStatusFilter, ProgressRow, RailState, SeriesRail } from './library-page.types';
 import {
   collectionPreviewUrls,
   computeListenedBookOrder,
+  CONTINUE_LISTENING_LIMIT,
   dedupeBooks,
   deriveCollections,
+  GRID_PAGE_SIZE,
+  inProgressBookIds,
   LATEST_BOOKS_LIMIT,
+  LENGTH_RANGES,
   mapSeriesRails,
+  matchesListenStatus,
 } from './library-page.utils';
+
+const GRID_SORTS: BookSort[] = ['recent', 'title', 'author', 'series', 'duration', 'duration_desc'];
+const STATUSES: ListenStatusFilter[] = ['all', 'unstarted', 'in_progress', 'finished'];
+const LENGTHS: LengthFilter[] = ['any', 'short', 'medium', 'long'];
 
 @Component({
   selector: 'app-library-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, BookCardComponent, CollectionCardComponent, TranslatePipe, FieldHelpComponent, ContentHelpComponent],
+  imports: [CommonModule, FormsModule, RouterLink, BookCardComponent, CollectionCardComponent, TranslatePipe, FieldHelpComponent],
   templateUrl: './library-page.component.html',
   styleUrl: './library-page.component.css',
 })
@@ -45,11 +55,42 @@ import {
 // rails into a single browsing view.
 export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChildren('railEl', { read: ElementRef }) private railElements?: QueryList<ElementRef<HTMLElement>>;
+  @ViewChild('searchInput') private searchInput?: ElementRef<HTMLInputElement>;
+
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   q = '';
-  seriesTags = '';
   seriesSort: 'activity' | 'relevance' | 'alphabetical' = 'activity';
   collectionName = '';
+
+  // Discovery filters. Any active filter switches the page to the results grid.
+  readonly view = signal<LibraryView>('browse');
+  readonly genre = signal('');
+  readonly selectedTags = signal<string[]>([]);
+  readonly status = signal<ListenStatusFilter>('all');
+  readonly length = signal<LengthFilter>('any');
+  readonly gridSort = signal<BookSort>('recent');
+  readonly facets = signal<BookFacets | null>(null);
+  readonly showAllGenres = signal(false);
+  readonly showAllTags = signal(false);
+  readonly statuses = STATUSES;
+  readonly lengths = LENGTHS;
+  readonly gridSorts = GRID_SORTS;
+
+  readonly gridBooks = signal<Book[]>([]);
+  readonly gridTotal = signal(0);
+  readonly gridHasMore = signal(false);
+  readonly gridLoading = signal(false);
+  readonly progressById = signal<Map<string, ProgressRow>>(new Map());
+  readonly continueBooks = signal<Book[]>([]);
+
+  // Listening status is per-user, so it is applied client-side over server results.
+  readonly visibleGridBooks = computed(() => {
+    const status = this.status();
+    const progress = this.progressById();
+    return this.gridBooks().filter((book) => matchesListenStatus(status, progress.get(book.id)));
+  });
 
   readonly latestBooks = signal<Book[]>([]);
   readonly featuredBlock = signal<EditorialBlock | null>(null);
@@ -74,6 +115,8 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly listenedBookIds = signal<string[]>([]);
 
   private filterTimeout?: ReturnType<typeof setTimeout>;
+  private gridSub?: Subscription;
+  private gridOffset = 0;
   private railChangeSub?: { unsubscribe(): void };
   private resizeObserver?: ResizeObserver;
   private seriesFilterBooks: ((books: Book[]) => Book[]) | null = null;
@@ -95,7 +138,26 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.readFiltersFromUrl(this.route.snapshot.queryParams);
     this.reload();
+    this.loadFacets();
+    if (this.isGridMode()) {
+      this.loadGrid(true);
+    }
+  }
+
+  // "/" jumps to search, like most media apps.
+  @HostListener('document:keydown', ['$event'])
+  onDocumentKeydown(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement | null;
+    const typing = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable);
+    if (event.key === '/' && !typing) {
+      event.preventDefault();
+      this.searchInput?.nativeElement.focus();
+    } else if (event.key === 'Escape' && target === this.searchInput?.nativeElement && this.q) {
+      this.q = '';
+      this.applyFilters();
+    }
   }
 
   ngAfterViewInit(): void {
@@ -109,6 +171,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.gridSub?.unsubscribe();
     this.railChangeSub?.unsubscribe();
     this.resizeObserver?.disconnect();
   }
@@ -117,17 +180,178 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.filterTimeout) {
       clearTimeout(this.filterTimeout);
     }
-    this.filterTimeout = setTimeout(() => this.reload(), 250);
+    this.filterTimeout = setTimeout(() => this.applyFilters(), 250);
+  }
+
+  onSeriesSortChange(): void {
+    if (this.seriesFilterBooks) {
+      this.loadSeriesChunk(0, this.seriesFilterBooks, false);
+    }
   }
 
   clearFilter(): void {
-    if (!this.q.trim() && !this.seriesTags.trim()) {
+    this.q = '';
+    this.genre.set('');
+    this.selectedTags.set([]);
+    this.status.set('all');
+    this.length.set('any');
+    this.view.set('browse');
+    this.applyFilters();
+  }
+
+  setGenre(genre: string): void {
+    this.genre.set(this.genre() === genre ? '' : genre);
+    this.applyFilters();
+  }
+
+  toggleTag(tag: string): void {
+    const tags = this.selectedTags();
+    this.selectedTags.set(tags.includes(tag) ? tags.filter((value) => value !== tag) : [...tags, tag]);
+    this.applyFilters();
+  }
+
+  setStatus(status: ListenStatusFilter): void {
+    this.status.set(status);
+    this.applyFilters();
+  }
+
+  setLength(length: LengthFilter): void {
+    this.length.set(length);
+    this.applyFilters();
+  }
+
+  setGridSort(sort: BookSort): void {
+    this.gridSort.set(sort);
+    this.applyFilters();
+  }
+
+  setView(view: LibraryView): void {
+    this.view.set(view);
+    this.applyFilters();
+  }
+
+  isGridMode(): boolean {
+    return this.view() === 'grid' || this.hasActiveQuery();
+  }
+
+  visibleGenres(): Array<{ value: string; count: number }> {
+    const genres = this.facets()?.genres ?? [];
+    return this.showAllGenres() ? genres : genres.slice(0, 10);
+  }
+
+  visibleTags(): Array<{ value: string; count: number }> {
+    const tags = this.facets()?.tags ?? [];
+    const top = this.showAllTags() ? tags : tags.slice(0, 14);
+    // Keep selected tags visible even when they fall outside the top list.
+    const missing = this.selectedTags()
+      .filter((tag) => !top.some((item) => item.value === tag))
+      .map((value) => ({ value, count: 0 }));
+    return [...missing, ...top];
+  }
+
+  // Filters live in the URL so a filtered view survives reloads and back/forward.
+  private applyFilters(): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: this.filtersToParams(),
+      replaceUrl: true,
+    });
+    if (this.isGridMode()) {
+      this.loadGrid(true);
+    } else {
+      this.scheduleRailSync();
+    }
+  }
+
+  loadMoreGrid(): void {
+    if (!this.gridLoading() && this.gridHasMore()) {
+      this.loadGrid(false);
+    }
+  }
+
+  private loadGrid(reset: boolean): void {
+    this.gridSub?.unsubscribe();
+    if (reset) {
+      this.gridOffset = 0;
+      this.gridBooks.set([]);
+      this.gridHasMore.set(false);
+    }
+
+    const range = this.length() === 'any' ? {} : LENGTH_RANGES[this.length() as Exclude<LengthFilter, 'any'>];
+    this.gridLoading.set(true);
+    this.gridSub = this.library
+      .listBooks({
+        q: this.q.trim() || undefined,
+        genre: this.genre() || undefined,
+        tags: this.selectedTags().join(',') || undefined,
+        sort: this.gridSort(),
+        minDuration: range.min,
+        maxDuration: range.max,
+        limit: GRID_PAGE_SIZE,
+        offset: this.gridOffset,
+      })
+      .subscribe({
+        next: (response) => {
+          this.gridOffset += response.books.length;
+          this.gridBooks.update((current) => (reset ? response.books : [...current, ...response.books]));
+          this.gridTotal.set(response.total);
+          this.gridHasMore.set(response.hasMore);
+          this.gridLoading.set(false);
+
+          // A status filter can hide most of a page; keep fetching until there is enough to show.
+          if (response.hasMore && this.status() !== 'all' && this.visibleGridBooks().length < GRID_PAGE_SIZE / 2) {
+            this.loadGrid(false);
+          }
+        },
+        error: (error: unknown) => {
+          this.error.set(error instanceof Error ? error.message : this.i18n.t('library.error.load'));
+          this.gridLoading.set(false);
+        },
+      });
+  }
+
+  private loadFacets(): void {
+    this.library.getBookFacets().subscribe({
+      next: (facets) => this.facets.set(facets),
+      error: () => this.facets.set(null),
+    });
+  }
+
+  private loadContinueListening(progress: ProgressRow[]): void {
+    const ids = inProgressBookIds(progress, CONTINUE_LISTENING_LIMIT);
+    if (ids.length === 0) {
+      this.continueBooks.set([]);
       return;
     }
 
-    this.q = '';
-    this.seriesTags = '';
-    this.reload();
+    forkJoin(ids.map((id) => this.library.getBook(id).pipe(catchError(() => of(null)))))
+      .pipe(map((books) => books.filter((book): book is Book => book !== null)))
+      .subscribe((books) => {
+        this.continueBooks.set(books);
+        this.scheduleRailSync();
+      });
+  }
+
+  private readFiltersFromUrl(params: Params): void {
+    this.q = typeof params['q'] === 'string' ? params['q'] : '';
+    this.genre.set(typeof params['genre'] === 'string' ? params['genre'] : '');
+    this.selectedTags.set(typeof params['tags'] === 'string' ? params['tags'].split(',').filter(Boolean) : []);
+    this.status.set(STATUSES.includes(params['status']) ? params['status'] : 'all');
+    this.length.set(LENGTHS.includes(params['length']) ? params['length'] : 'any');
+    this.gridSort.set(GRID_SORTS.includes(params['sort']) ? params['sort'] : 'recent');
+    this.view.set(params['view'] === 'grid' ? 'grid' : 'browse');
+  }
+
+  private filtersToParams(): Params {
+    const params: Params = {};
+    if (this.q.trim()) params['q'] = this.q.trim();
+    if (this.genre()) params['genre'] = this.genre();
+    if (this.selectedTags().length > 0) params['tags'] = this.selectedTags().join(',');
+    if (this.status() !== 'all') params['status'] = this.status();
+    if (this.length() !== 'any') params['length'] = this.length();
+    if (this.gridSort() !== 'recent') params['sort'] = this.gridSort();
+    if (this.view() === 'grid') params['view'] = 'grid';
+    return params;
   }
 
   async switchBackToEnglish(): Promise<void> {
@@ -153,7 +377,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.error.set(null);
 
     forkJoin({
-      booksResponse: this.library.listBooks({ q: this.q || undefined, limit: 120, offset: 0 }),
+      booksResponse: this.library.listBooks({ sort: 'recent', limit: 120, offset: 0 }),
       settings: this.settingsService.getMine(),
       progress: this.progressService.listMineAll(100),
       editorial: this.library.listEditorialBlocks('library').pipe(
@@ -173,6 +397,8 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
           progress.filter((p) => p.completed).map((p) => p.bookId),
         );
         this.listenedBookIds.set(this.computeListenedBookOrder(progress));
+        this.progressById.set(new Map(progress.map((row) => [row.bookId, row])));
+        this.loadContinueListening(progress);
         const filterBooks = (books: Book[]): Book[] =>
           showCompleted ? books : books.filter((b) => !completedIds.has(b.id));
         this.seriesFilterBooks = filterBooks;
@@ -195,7 +421,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
         const derived = deriveCollections(
           response.collections,
           this.listenedBookIds(),
-          this.q,
+          '',
           this.i18n.t('library.activityCollection'),
         );
 
@@ -227,7 +453,7 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
         const derived = deriveCollections(
           allCollections,
           this.listenedBookIds(),
-          this.q,
+          '',
           this.i18n.t('library.activityCollection'),
         );
 
@@ -256,8 +482,6 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.library
       .listSeries({
-        q: this.q || undefined,
-        tags: this.seriesTags.trim() || undefined,
         sort: this.seriesSort,
         limit: this.seriesPageSize,
         offset,
@@ -435,11 +659,17 @@ export class LibraryPageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   hasActiveQuery(): boolean {
-    return this.q.trim().length > 0 || this.seriesTags.trim().length > 0;
+    return (
+      this.q.trim().length > 0 ||
+      this.genre().length > 0 ||
+      this.selectedTags().length > 0 ||
+      this.status() !== 'all' ||
+      this.length() !== 'any'
+    );
   }
 
   private bookPool(): Book[] {
-    return dedupeBooks(this.latestBooks(), this.seriesRails());
+    return dedupeBooks([...this.continueBooks(), ...this.latestBooks()], this.seriesRails());
   }
 
   private observeRails(): void {

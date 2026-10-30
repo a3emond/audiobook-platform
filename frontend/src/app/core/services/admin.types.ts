@@ -199,6 +199,64 @@ export interface UpdateBookMetadataPayload {
   };
 }
 
+export interface AdminBookQuery {
+  [key: string]: string | number | undefined;
+  q?: string;
+  author?: string;
+  series?: string;
+  genre?: string;
+  language?: string;
+  tags?: string;
+  missing?: string;
+  health?: string;
+  sort?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface BulkBookChanges {
+  series?: string | null;
+  genre?: string | null;
+  language?: 'en' | 'fr';
+  author?: string;
+  addTags?: string[];
+  removeTags?: string[];
+}
+
+export interface BulkBookResult {
+  succeeded: string[];
+  failed: Array<{ bookId: string; error: string }>;
+  jobIds: string[];
+}
+
+export interface AiMetadataSuggestion {
+  title: string | null;
+  author: string | null;
+  series: string | null;
+  seriesIndex: number | null;
+  genre: string | null;
+  language: 'en' | 'fr' | null;
+  tags: string[];
+  description: string | null;
+  confidence: 'high' | 'medium' | 'low';
+  notes: string | null;
+  sources: Array<{ title: string; url: string }>;
+}
+
+export interface MetadataReportImportResult {
+  dryRun: boolean;
+  items: Array<{
+    bookId: string;
+    title: string;
+    changes: Array<{ field: string; from: unknown; to: unknown }>;
+    error?: string;
+  }>;
+  applied: number;
+  unchanged: number;
+  errors: number;
+  jobsQueued: boolean;
+}
+
 export interface UpdateBookChaptersPayload {
   chapters: Array<{
     index: number;

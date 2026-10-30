@@ -1,13 +1,124 @@
 		<div class="admin-page">
-			<h1>Admin Book Edit</h1>
+			<nav class="edit-nav" aria-label="Book navigation">
+				<button type="button" class="btn-link" (click)="backToList()">← Books</button>
+				@if (position().total > 0) {
+					<div class="stepper">
+						<button type="button" class="btn-action" [disabled]="!position().prev" (click)="goTo(position().prev)" aria-label="Previous book">‹</button>
+						<span class="muted">{{ position().position }} / {{ position().total }}</span>
+						<button type="button" class="btn-action" [disabled]="!position().next" (click)="goTo(position().next)" aria-label="Next book">›</button>
+					</div>
+				}
+			</nav>
 
-			<p *ngIf="loading()">Loading book...</p>
-			<p *ngIf="error()" class="error">{{ error() }}</p>
-			<p *ngIf="success()" class="success">{{ success() }}</p>
+			<header class="edit-header">
+				<div class="edit-cover">
+					@if (coverUrl()) {
+						<img [src]="coverUrl()" alt="" />
+					} @else {
+						<span>{{ (title || '?').slice(0, 1) }}</span>
+					}
+				</div>
+				<div class="edit-heading">
+					<h1>{{ title || 'Untitled' }}</h1>
+					<p class="muted">
+						{{ author || 'Unknown author' }}
+						@if (series) {
+							· {{ series }}@if (seriesIndex !== null) { #{{ seriesIndex }} }
+						}
+					</p>
+					@if (isDirty()) {
+						<span class="dirty-pill">Unsaved changes</span>
+					}
+				</div>
+				@if (aiEnabled() && !loading()) {
+					<button type="button" class="btn ai-btn" [disabled]="aiLoading()" (click)="fillWithAi()">
+						@if (aiLoading()) {
+							<span class="spinner" aria-hidden="true"></span> Researching…
+						} @else {
+							✨ Fill with AI
+						}
+					</button>
+				}
+			</header>
+
+			@if (loading()) {
+				<p>Loading book...</p>
+			}
+			@if (error()) {
+				<p class="error" role="alert">{{ error() }}</p>
+			}
+			@if (success()) {
+				<p class="success" role="status">{{ success() }}</p>
+			}
+
+			<!-- AI review panel: nothing changes until the admin applies and saves. -->
+			@if (aiLoading()) {
+				<section class="ai-panel card" aria-live="polite">
+					<p><strong>Searching the web for this book…</strong></p>
+					<p class="muted">Checking publisher pages, Audible, Goodreads and the like. This usually takes 20–60 seconds.</p>
+				</section>
+			}
+			@if (aiError()) {
+				<section class="ai-panel card">
+					<p>{{ aiError() }}</p>
+					<button type="button" class="btn-link" (click)="resetAi()">Dismiss</button>
+				</section>
+			}
+			@if (aiSuggestion(); as suggestion) {
+				@if (aiRows.length > 0) {
+					<section class="ai-panel card" aria-label="AI suggestions">
+						<div class="ai-panel-head">
+							<h2>AI suggestions</h2>
+							<span class="confidence" [attr.data-level]="suggestion.confidence">{{ suggestion.confidence }} confidence</span>
+							<span class="spacer"></span>
+							<button type="button" class="btn-link" (click)="setAllAiRows(true)">Select all</button>
+							<button type="button" class="btn-link" (click)="setAllAiRows(false)">None</button>
+						</div>
+						@if (suggestion.notes) {
+							<p class="ai-notes">{{ suggestion.notes }}</p>
+						}
+
+						<div class="ai-rows">
+							@for (row of aiRows; track row.key) {
+								<label class="ai-row" [class.on]="row.selected">
+									<input type="checkbox" [(ngModel)]="row.selected" [name]="'ai-' + row.key" />
+									<span class="ai-label">{{ row.label }}</span>
+									<span class="ai-values">
+										@if (row.current) {
+											<span class="ai-current">{{ row.current }}</span>
+										} @else {
+											<span class="ai-current empty">empty</span>
+										}
+										<span class="ai-suggested">{{ row.suggested }}</span>
+									</span>
+								</label>
+							}
+						</div>
+
+						@if (suggestion.sources.length > 0) {
+							<details class="ai-sources">
+								<summary>{{ suggestion.sources.length }} sources</summary>
+								<ul>
+									@for (source of suggestion.sources; track source.url) {
+										<li><a [href]="source.url" target="_blank" rel="noopener noreferrer">{{ source.title || source.url }}</a></li>
+									}
+								</ul>
+							</details>
+						}
+
+						<div class="ai-actions">
+							<button type="button" class="btn" [disabled]="selectedAiRowCount() === 0" (click)="applyAiSuggestion()">
+								Apply {{ selectedAiRowCount() }} to form
+							</button>
+							<button type="button" class="btn btn-secondary" (click)="resetAi()">Discard</button>
+						</div>
+					</section>
+				}
+			}
 
 			<!-- Metadata section -->
+			@if (!loading()) {
 			<app-content-help
-				*ngIf="!loading()"
 				tooltip="Edit core metadata used by library browsing, search, and playback details."
 				anchor="top-right"
 				tooltipPlacement="auto"
@@ -23,40 +134,59 @@
 					<input name="author" [(ngModel)]="author" />
 				</app-field-help>
 
-				<app-field-help label="Series" tooltip="Optional series grouping label.">
-					<input name="series" [(ngModel)]="series" />
-				</app-field-help>
+				<div class="row-2">
+					<app-field-help label="Series" tooltip="Optional series grouping label.">
+						<input name="series" [(ngModel)]="series" />
+					</app-field-help>
 
-				<app-field-help label="Series Index" tooltip="Book number within the series.">
-					<input name="seriesIndex" type="number" [(ngModel)]="seriesIndex" />
-				</app-field-help>
+					<app-field-help label="Series Index" tooltip="Book number within the series.">
+						<input name="seriesIndex" type="number" step="0.5" [(ngModel)]="seriesIndex" />
+					</app-field-help>
+				</div>
 
-				<app-field-help label="Genre" tooltip="Single genre label used in metadata display.">
-					<input name="genre" [(ngModel)]="genre" />
-				</app-field-help>
+				<div class="row-2">
+					<app-field-help label="Genre" tooltip="Single genre label used in metadata display.">
+						<input name="genre" [(ngModel)]="genre" />
+					</app-field-help>
 
-				<app-field-help label="Language" tooltip="Primary language used by localization filters.">
-					<select name="language" [(ngModel)]="language">
-						<option value="en">English</option>
-						<option value="fr">French</option>
-					</select>
-				</app-field-help>
+					<app-field-help label="Language" tooltip="Primary language used by localization filters.">
+						<select name="language" [(ngModel)]="language">
+							<option value="en">English</option>
+							<option value="fr">French</option>
+						</select>
+					</app-field-help>
+				</div>
 
 				<app-field-help label="Tags (comma-separated)" tooltip="Used by search and series tag filtering.">
 					<input name="tags" [(ngModel)]="tagsRaw" />
 				</app-field-help>
+				@if (tagList().length > 0) {
+					<div class="tag-chips">
+						@for (tag of tagList(); track tag) {
+							<span class="tag-chip">{{ tag }} <button type="button" (click)="removeTag(tag)" [attr.aria-label]="'Remove tag ' + tag">×</button></span>
+						}
+					</div>
+				}
 
 				<app-field-help label="Description (default)" tooltip="Fallback description when locale-specific text is absent.">
-					<textarea name="description" [(ngModel)]="descriptionDefault"></textarea>
+					<textarea name="description" rows="6" [(ngModel)]="descriptionDefault"></textarea>
 				</app-field-help>
 
-				<button type="submit" class="btn-action" [disabled]="savingMetadata()">
-					{{ savingMetadata() ? 'Saving...' : 'Save Metadata' }}
-				</button>
+				<div class="save-row">
+					<button type="submit" class="btn" [disabled]="savingMetadata()">
+						{{ savingMetadata() ? 'Saving...' : 'Save Metadata' }}
+					</button>
+					@if (position().next) {
+						<button type="button" class="btn btn-secondary" [disabled]="savingMetadata()" (click)="saveAndNext()">Save &amp; next ›</button>
+					}
+					<span class="muted kbd-hint">⌘/Ctrl + S</span>
+				</div>
 			</form>
 			</app-content-help>
+			}
 
-			<div class="actions" *ngIf="!loading()">
+			@if (!loading()) {
+			<div class="actions">
 				<label class="cover-upload">
 					<span>Replace Embedded Cover</span>
 					<input type="file" accept=".jpg,.jpeg,.png,.webp" (change)="onCoverPicked($event)" />
@@ -74,28 +204,33 @@
 				<button type="button" class="btn-action" (click)="extractCover()">Extract Cover</button>
 				<button type="button" class="danger" (click)="deleteBook()">Delete Book</button>
 			</div>
+			}
 
 				<!-- Chapters section at the bottom, collapsible -->
-				<section *ngIf="!loading()" class="collapsible-section">
+				@if (!loading()) {
+				<section class="collapsible-section">
 					<button
 						type="button"
 						class="collapsible-header"
 						(click)="chaptersOpen.set(!chaptersOpen())"
 						[attr.aria-expanded]="chaptersOpen()"
 					>
-						<span>Chapters</span>
+						<span>Chapters ({{ chapterRows.length }})</span>
 						<span class="chevron" [class.open]="chaptersOpen()">▶</span>
 					</button>
 
-					<form *ngIf="chaptersOpen()" (ngSubmit)="saveChapters()" class="grid collapsible-body">
+					@if (chaptersOpen()) {
+					<form (ngSubmit)="saveChapters()" class="grid collapsible-body">
 						<p>Manage chapters with explicit start/end boundaries (milliseconds).</p>
 
-						<table class="chapters-table" *ngIf="chapterRows.length > 0">
+						@if (chapterRows.length > 0) {
+						<table class="chapters-table">
 							<thead>
 								<tr><th>Title</th><th>Start</th><th>End</th><th>Actions</th></tr>
 							</thead>
 							<tbody>
-								<tr *ngFor="let chapter of chapterRows; let i = index">
+								@for (chapter of chapterRows; track chapter.id; let i = $index) {
+								<tr>
 									<td>
 										<input [name]="'chapterTitle' + i" [(ngModel)]="chapter.title" />
 									</td>
@@ -111,10 +246,14 @@
 										</button>
 									</td>
 								</tr>
+								}
 							</tbody>
 						</table>
+						}
 
-						<p *ngIf="chapterValidationError()" class="error">{{ chapterValidationError() }}</p>
+						@if (chapterValidationError()) {
+							<p class="error">{{ chapterValidationError() }}</p>
+						}
 
 						<div class="chapter-controls">
 							<button type="button" class="btn-action" (click)="addChapterRow()">Add Chapter</button>
@@ -124,5 +263,7 @@
 							{{ savingChapters() ? 'Saving...' : 'Save Chapters' }}
 						</button>
 					</form>
+					}
 				</section>
+				}
 		</div>
